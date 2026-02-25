@@ -6,10 +6,10 @@
 // The character is approximately 3 voxels tall (matching house scale).
 //
 // Proportions (in voxel units):
-//   Head:      2 × 2 × 2
-//   Body:      2 × 3 × 1  (torso)
-//   Each arm:  1 × 2 × 1
-//   Each leg:  1 × 3 × 1
+//   Head:      1 × 1 × 1
+//   Body:      1 × 1.5 × 0.6  (torso)
+//   Each arm:  0.4 × 1 × 0.4
+//   Each leg:  0.4 × 1.2 × 0.4
 //
 // The mesh group origin is at the character's feet (y=0).
 // Body part pivots are set so animations rotate around natural joints.
@@ -87,51 +87,51 @@ export function buildCharacterMesh(appearance: CharacterAppearance): CharacterMe
   const group = new THREE.Group()
 
   // ------------------------------------------------------------------
-  // Legs — two 1×3×1 blocks, each origin at hip joint
+  // Legs — two 0.4×1.2×0.4 blocks, each origin at hip joint
   // ------------------------------------------------------------------
-  // Leg height = 3 units; pivot at top (hip), mesh center at y = -1.5
-  const leftLeg = makeMesh(0.9, 3, 0.9, outfitSecondary)
-  const rightLeg = makeMesh(0.9, 3, 0.9, outfitSecondary)
+  // Leg height = 1.2 units; pivot at top (hip), mesh center at y = -0.6
+  const leftLeg = makeMesh(0.4, 1.2, 0.4, outfitSecondary)
+  const rightLeg = makeMesh(0.4, 1.2, 0.4, outfitSecondary)
 
-  const leftLegPivot = withPivot(leftLeg, 1.5)
-  const rightLegPivot = withPivot(rightLeg, 1.5)
+  const leftLegPivot = withPivot(leftLeg, 0.6)
+  const rightLegPivot = withPivot(rightLeg, 0.6)
 
-  // Hips are 3 units above the ground (top of legs)
-  leftLegPivot.position.set(-0.55, 3, 0)
-  rightLegPivot.position.set(0.55, 3, 0)
+  // Hips are 1.2 units above the ground (top of legs)
+  leftLegPivot.position.set(-0.22, 1.2, 0)
+  rightLegPivot.position.set(0.22, 1.2, 0)
 
   group.add(leftLegPivot)
   group.add(rightLegPivot)
 
   // ------------------------------------------------------------------
-  // Body (torso) — 2×3×1, pivot at waist bottom (feet at y=3)
+  // Body (torso) — 1×1.5×0.6, pivot at waist bottom (feet at y=1.2)
   // ------------------------------------------------------------------
-  const body = makeMesh(2, 3, 1, outfitPrimary)
-  // Center of torso at y = 3 + 1.5 = 4.5; no pivot needed, set directly
-  body.position.set(0, 4.5, 0)
+  const body = makeMesh(1, 1.5, 0.6, outfitPrimary)
+  // Center of torso at y = 1.2 + 0.75 = 1.95; no pivot needed, set directly
+  body.position.set(0, 1.95, 0)
   group.add(body)
 
   // ------------------------------------------------------------------
-  // Arms — 1×2×1 each, pivot at shoulder (top of arm)
+  // Arms — 0.4×1×0.4 each, pivot at shoulder (top of arm)
   // ------------------------------------------------------------------
-  const leftArm = makeMesh(0.9, 2, 0.9, outfitPrimary)
-  const rightArm = makeMesh(0.9, 2, 0.9, outfitPrimary)
+  const leftArm = makeMesh(0.4, 1, 0.4, outfitPrimary)
+  const rightArm = makeMesh(0.4, 1, 0.4, outfitPrimary)
 
-  // Arms hang from shoulders at y = 6 (top of torso)
-  const leftArmPivot = withPivot(leftArm, 1)
-  const rightArmPivot = withPivot(rightArm, 1)
+  // Arms hang from shoulders at y = 2.7 (top of torso = 1.2 + 1.5)
+  const leftArmPivot = withPivot(leftArm, 0.5)
+  const rightArmPivot = withPivot(rightArm, 0.5)
 
-  leftArmPivot.position.set(-1.45, 6, 0)
-  rightArmPivot.position.set(1.45, 6, 0)
+  leftArmPivot.position.set(-0.7, 2.7, 0)
+  rightArmPivot.position.set(0.7, 2.7, 0)
 
   group.add(leftArmPivot)
   group.add(rightArmPivot)
 
   // ------------------------------------------------------------------
-  // Head — 2×2×2, sits on top of torso (torso top = y=6, head center = y=7)
+  // Head — 1×1×1, sits on top of torso (torso top = y=2.7, head center = y=3.2)
   // ------------------------------------------------------------------
-  const head = makeMesh(2, 2, 2, skinTone)
-  head.position.set(0, 7, 0)
+  const head = makeMesh(1, 1, 1, skinTone)
+  head.position.set(0, 3.2, 0)
   group.add(head)
 
   // ------------------------------------------------------------------
