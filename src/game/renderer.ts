@@ -7,15 +7,15 @@ import { Character } from './character'
 // Camera / pan / zoom helpers
 // ---------------------------------------------------------------------------
 
-/** Orthographic frustum bounds for the given canvas size and world height. */
+/** Orthographic frustum bounds for the given canvas size and world width. */
 function computeFrustum(
   width: number,
   height: number,
-  worldHeight: number,
+  worldWidth: number,
 ): { left: number; right: number; top: number; bottom: number } {
   const aspect = width / height
-  const halfH = worldHeight / 2
-  const halfW = halfH * aspect
+  const halfW = worldWidth / 2
+  const halfH = halfW / aspect
   return {
     left: -halfW,
     right: halfW,
@@ -67,9 +67,10 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   // ------------------------------------------------------------------
   //
   // The house spans: X: 0..16, Y: 0..24 (3 floors × 8), Z: 0..8
-  // We want to see all 3 floors with a comfortable margin.
-  // worldHeight covers the full house height plus margin.
-  const WORLD_HEIGHT = FLOOR_HEIGHT * FLOOR_COUNT + 6 // 30 units
+  // Fit by width so the house spans the full screen with a small margin.
+  // On landscape screens the full 3 floors won't all be visible at once;
+  // players can pan vertically to see all floors.
+  const WORLD_WIDTH = HOUSE_WIDTH + 4 // 20 units — house fills full screen width
 
   // Frustum will be set by the first applyPanZoom() call below.
   const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.1, 200)
@@ -89,13 +90,13 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   const MAX_ZOOM = 3
   // Maximum pan so the house stays roughly in view
   const MAX_PAN_X = HOUSE_WIDTH
-  const MAX_PAN_Y = WORLD_HEIGHT * 0.6
+  const MAX_PAN_Y = FLOOR_HEIGHT * FLOOR_COUNT * 0.6
 
   function applyPanZoom(): void {
     const w = canvas.clientWidth
     const h = canvas.clientHeight
-    const worldHeight = WORLD_HEIGHT * zoomScale
-    const f = computeFrustum(w, h, worldHeight)
+    const worldWidth = WORLD_WIDTH * zoomScale
+    const f = computeFrustum(w, h, worldWidth)
     camera.left = f.left
     camera.right = f.right
     camera.top = f.top
@@ -212,7 +213,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       // "Content follows finger": the world point under the touch stays fixed.
       // X: screen-X and world-X both increase rightward → camera moves opposite to finger: -= dx
       // Y: screen-Y increases downward, world-Y increases upward → camera moves same as finger: += dy
-      const unitsPerPixel = (WORLD_HEIGHT * zoomScale) / canvas.clientHeight
+      const unitsPerPixel = (WORLD_WIDTH * zoomScale) / canvas.clientWidth
       panWorldX -= dx * unitsPerPixel
       panWorldY += dy * unitsPerPixel
       panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
