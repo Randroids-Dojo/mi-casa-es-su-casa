@@ -5,20 +5,23 @@
 // ---------------------------------------------------------------------------
 //
 // Rendered as an absolutely-positioned element overlaying the Three.js canvas.
-// For MVP the bubble is anchored to a fixed position in the top-right quadrant
-// of the game container — no 3D world-space tracking needed.
-//
-// The bubble fades in/out via a CSS opacity transition whenever `visible`
-// changes.
+// When anchorX/anchorY are provided (canvas-percentage coordinates of the
+// character's head), the bubble is positioned above that point with the tail
+// pointing downward toward the head. Falls back to a centered position if no
+// anchor is available.
 
 import { useRef, useEffect } from 'react'
 
 interface ThoughtBubbleProps {
   text: string | null
   visible: boolean
+  /** Canvas-percentage [0–100] X coordinate of the character's head */
+  anchorX?: number
+  /** Canvas-percentage [0–100] Y coordinate of the character's head */
+  anchorY?: number
 }
 
-export function ThoughtBubble({ text, visible }: ThoughtBubbleProps) {
+export function ThoughtBubble({ text, visible, anchorX, anchorY }: ThoughtBubbleProps) {
   const bubbleRef = useRef<HTMLDivElement>(null)
 
   // Drive the opacity transition reactively whenever visibility changes
@@ -28,14 +31,27 @@ export function ThoughtBubble({ text, visible }: ThoughtBubbleProps) {
     el.style.opacity = visible && text !== null ? '1' : '0'
   }, [visible, text])
 
+  // Build inline position style: anchor above the character's head when possible
+  const hasAnchor = anchorX !== undefined && anchorY !== undefined
+  const positionStyle: React.CSSProperties = hasAnchor
+    ? {
+        left: `${anchorX}%`,
+        top: `${anchorY}%`,
+        // Shift left by 50% to center horizontally, shift up by full bubble height + tail
+        transform: 'translate(-50%, calc(-100% - 14px))',
+      }
+    : {
+        // Fallback: horizontally centered, roughly above mid-house
+        left: '50%',
+        bottom: '65%',
+        transform: 'translateX(-50%)',
+      }
+
   return (
     <>
       <style>{`
         .thought-bubble {
           position: absolute;
-          bottom: 65%;
-          left: 50%;
-          transform: translateX(-50%);
           max-width: 200px;
           padding: 10px 14px;
           background: #ffffff;
@@ -53,12 +69,13 @@ export function ThoughtBubble({ text, visible }: ThoughtBubbleProps) {
           word-break: break-word;
         }
 
-        /* Bubble tail — small triangle pointing down-left toward character area */
+        /* Bubble tail — small triangle pointing down toward character head */
         .thought-bubble::after {
           content: '';
           position: absolute;
           bottom: -10px;
-          left: 20px;
+          left: 50%;
+          transform: translateX(-50%);
           width: 0;
           height: 0;
           border-left: 8px solid transparent;
@@ -68,7 +85,13 @@ export function ThoughtBubble({ text, visible }: ThoughtBubbleProps) {
         }
       `}</style>
 
-      <div ref={bubbleRef} className="thought-bubble" aria-live="polite" aria-atomic="true">
+      <div
+        ref={bubbleRef}
+        className="thought-bubble"
+        style={positionStyle}
+        aria-live="polite"
+        aria-atomic="true"
+      >
         {text}
       </div>
     </>

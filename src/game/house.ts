@@ -220,7 +220,7 @@ function buildKitchen(group: THREE.Group): void {
     // Fridge — tall (2 high)
     { position: { x: 13.5, y: floorTop + 1, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 2, z: 1 } },
     // Dining table
-    { position: { x: 11.5, y: floorTop + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 2, y: 1, z: 2 } },
+    { position: { x: 11.5, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.TABLE, size: { x: 2, y: 1, z: 2 } },
     // Table legs (implied by table slab; skip for MVP blocky style)
   ])
 }
@@ -262,8 +262,8 @@ function buildStudy(group: THREE.Group): void {
     { position: { x: 8, y: floorTop + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 2 } },
     // Computer monitor (on desk)
     { position: { x: 8, y: floorTop + 1.5, z: 7 }, color: PALETTE.TV_SCREEN, size: { x: 1, y: 1, z: 0.5 } },
-    // Chair
-    { position: { x: 8, y: floorTop + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 1, y: 1, z: 1 } },
+    // Chair (in front of desk, behind character walk path)
+    { position: { x: 8, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.SOFA, size: { x: 1, y: 1, z: 1 } },
     // Bookshelf on the wall
     { position: { x: 9.5, y: floorTop + 1.5, z: 7 }, color: PALETTE.BOOKSHELF, size: { x: 1, y: 2, z: 1 } },
   ])
@@ -311,7 +311,7 @@ function buildStorage(group: THREE.Group): void {
     { position: { x: 12.5, y: floorTop + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: 11.5, y: floorTop + 1.5, z: 7 }, color: PALETTE.BOOKSHELF, size: { x: 1.5, y: 1, z: 1.5 } },
     // Old furniture (low block)
-    { position: { x: 12, y: floorTop + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
+    { position: { x: 12, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
   ])
 }
 

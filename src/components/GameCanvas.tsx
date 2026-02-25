@@ -11,16 +11,20 @@ interface GameCanvasProps {
 export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [thought, setThought] = useState<string | null>(null)
+  const [headPos, setHeadPos] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
 
     const game = initGame(canvasRef.current, characterName)
 
-    // Poll getCurrentThought every 100ms and sync to React state
+    // Poll thought and head position every 100ms
     const pollId = setInterval(() => {
       const current = game.getCurrentThought()
       setThought((prev) => (prev !== current ? current : prev))
+
+      const pos = game.getCharacterHeadScreenPos()
+      setHeadPos(pos)
     }, 100)
 
     return () => {
@@ -35,7 +39,12 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
       />
-      <ThoughtBubble text={thought} visible={thought !== null} />
+      <ThoughtBubble
+        text={thought}
+        visible={thought !== null}
+        anchorX={headPos?.x}
+        anchorY={headPos?.y}
+      />
     </div>
   )
 }

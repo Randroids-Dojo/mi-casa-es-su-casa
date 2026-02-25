@@ -35,4 +35,9 @@ export interface GameInstance {
   dispose(): void
   /** Returns the current thought bubble text, or null if none is showing. */
   getCurrentThought(): string | null
+  /**
+   * Returns the character's head position as percentage coordinates [0–100]
+   * relative to the canvas element, or null if unavailable (e.g. WebGL failed).
+   */
+  getCharacterHeadScreenPos(): { x: number; y: number } | null
 }

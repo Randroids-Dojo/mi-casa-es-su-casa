@@ -47,7 +47,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   } catch (err) {
     console.warn('WebGL unavailable, returning no-op game instance', err)
-    return { dispose() {}, getCurrentThought() { return null } }
+    return { dispose() {}, getCurrentThought() { return null }, getCharacterHeadScreenPos() { return null } }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.setSize(canvas.clientWidth, canvas.clientHeight)
@@ -179,6 +179,17 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     },
     getCurrentThought() {
       return character.getCurrentThought()
+    },
+    getCharacterHeadScreenPos() {
+      // Project the top of the character's head from world space to canvas percentages.
+      // Character local space: feet=0, head center≈3.2, head top≈3.7
+      const worldPos = character.getMeshGroup().position.clone()
+      worldPos.y += 3.7
+      const ndc = worldPos.project(camera)
+      // NDC x,y are in [-1,1]; convert to [0,100]% with y-axis flipped
+      const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
+      const y = Math.max(2, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
+      return { x, y }
     },
   }
 }

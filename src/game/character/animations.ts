@@ -220,7 +220,7 @@ function applyClimbStairs(parts: CharacterMeshParts, progress: number): void {
   parts.rightLeg.rotation.x = swing
 
   // More pronounced body bob
-  parts.body.position.y = 4.5 + Math.abs(oscillate(progress, 0, 0.08))
+  parts.body.position.y = 1.95 + Math.abs(oscillate(progress, 0, 0.08))
 }
 
 /**
