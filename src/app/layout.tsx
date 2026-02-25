@@ -3,7 +3,16 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Mi Casa Es Su Casa',
-  description: 'A browser-based life simulation game',
+  description:
+    "A browser-based life simulation where persistent little people live in dollhouse homes. Visit anyone's character by name.",
+  openGraph: {
+    title: 'Mi Casa Es Su Casa',
+    description: "Visit anyone's character by name. Watch them live their life.",
+    type: 'website',
+  },
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
