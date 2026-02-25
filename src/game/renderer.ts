@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH } from './house'
 import type { GameInstance } from './types'
+import { Character } from './character'
 
 // ---------------------------------------------------------------------------
 // Camera helpers
@@ -32,9 +33,12 @@ function computeFrustum(
 
 /**
  * Initialises the Three.js scene, camera, renderer, and animation loop.
- * Returns a GameInstance with a `dispose()` method for cleanup.
+ * Returns a GameInstance with a `dispose()` method and `getCurrentThought()`.
+ *
+ * @param canvas - The target HTMLCanvasElement
+ * @param characterName - Name used to seed the character (default: 'resident')
  */
-export function initGame(canvas: HTMLCanvasElement): GameInstance {
+export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'): GameInstance {
   // ------------------------------------------------------------------
   // Renderer
   // ------------------------------------------------------------------
@@ -110,12 +114,24 @@ export function initGame(canvas: HTMLCanvasElement): GameInstance {
   scene.add(house)
 
   // ------------------------------------------------------------------
+  // Character
+  // ------------------------------------------------------------------
+  const character = new Character(characterName, scene)
+
+  // ------------------------------------------------------------------
   // Animation loop
   // ------------------------------------------------------------------
   let animFrameId = 0
+  let lastTime = performance.now()
 
   function animate(): void {
     animFrameId = requestAnimationFrame(animate)
+
+    const now = performance.now()
+    const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // cap at 100ms
+    lastTime = now
+
+    character.update(deltaTime)
     renderer.render(scene, camera)
   }
 
@@ -147,7 +163,11 @@ export function initGame(canvas: HTMLCanvasElement): GameInstance {
     dispose() {
       cancelAnimationFrame(animFrameId)
       resizeObserver.disconnect()
+      character.dispose()
       renderer.dispose()
+    },
+    getCurrentThought() {
+      return character.getCurrentThought()
     },
   }
 }

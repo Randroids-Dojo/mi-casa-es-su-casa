@@ -33,4 +33,6 @@ export interface Room {
 
 export interface GameInstance {
   dispose(): void
+  /** Returns the current thought bubble text, or null if none is showing. */
+  getCurrentThought(): string | null
 }
