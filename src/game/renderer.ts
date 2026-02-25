@@ -71,17 +71,18 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
 
   const camera = new THREE.OrthographicCamera(left, right, top, bottom, 0.1, 200)
 
-  // Position: above and slightly in front-left, looking toward the house center.
+  // Position: directly in front of the house (no X offset), slightly above center.
   // The house center in world space:
   const houseCenterX = HOUSE_WIDTH / 2    // 8
   const houseCenterY = (FLOOR_HEIGHT * FLOOR_COUNT) / 2  // 9
   const houseCenterZ = HOUSE_DEPTH / 2   // 4
 
-  // Isometric-ish dollhouse position: offset in -Z (in front) and +Y (above), +X (side)
+  // Dollhouse front-facing view: camera at house center X, slightly above
+  // center Y, and pulled back on -Z so we look at the front face.
   camera.position.set(
-    houseCenterX + 12,
-    houseCenterY + 10,
-    houseCenterZ - 18,
+    houseCenterX,
+    houseCenterY + 2,
+    houseCenterZ - 30,
   )
   camera.lookAt(houseCenterX, houseCenterY, houseCenterZ)
   camera.updateProjectionMatrix()
