@@ -1,0 +1,383 @@
+'use client'
+
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { validateNameFormat, normalizeName } from '@/lib/nameValidation'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Phase =
+  | 'BOOTING'
+  | 'NAME_PROMPT'
+  | 'VALIDATING'
+  | 'ERROR'
+  | 'SUCCESS'
+
+// ─── Boot lines ───────────────────────────────────────────────────────────────
+
+const BOOT_LINES: string[] = [
+  'MI CASA ES SU CASA v0.1',
+  '',
+  '',
+  'LOADING HOUSE SUBSYSTEM......... OK',
+  'LOADING CHARACTER ENGINE......... OK',
+  'LOADING THOUGHT PROCESSOR........ OK',
+  '',
+  'READY.',
+  '',
+]
+
+// Timing constants (ms)
+const CHAR_DELAY = 80
+const LINE_PAUSE = 200
+const READY_PAUSE = 800
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export function BootScreen() {
+  const router = useRouter()
+
+  // Completed boot lines rendered verbatim
+  const [completedLines, setCompletedLines] = useState<string[]>([])
+  // Currently typing line (partial)
+  const [currentLine, setCurrentLine] = useState<string>('')
+
+  const [phase, setPhase] = useState<Phase>('BOOTING')
+
+  // Name entry
+  const [inputValue, setInputValue] = useState<string>('')
+  const [submittedName, setSubmittedName] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cancelledRef = useRef(false)
+
+  // ── Boot animation ──────────────────────────────────────────────────────────
+
+  const runBootSequence = useCallback(async () => {
+    cancelledRef.current = false
+
+    for (const line of BOOT_LINES) {
+      if (cancelledRef.current) return
+
+      // Empty lines appear instantly
+      if (line === '') {
+        setCompletedLines((prev) => [...prev, ''])
+        await sleep(LINE_PAUSE)
+        continue
+      }
+
+      // Type each character
+      for (let i = 0; i <= line.length; i++) {
+        if (cancelledRef.current) return
+        setCurrentLine(line.slice(0, i))
+        await sleep(CHAR_DELAY)
+      }
+
+      // Line complete — move to completed lines
+      setCompletedLines((prev) => [...prev, line])
+      setCurrentLine('')
+      await sleep(LINE_PAUSE)
+    }
+
+    // Pause after READY. then show name prompt
+    await sleep(READY_PAUSE)
+    if (!cancelledRef.current) {
+      setPhase('NAME_PROMPT')
+    }
+  }, [])
+
+  useEffect(() => {
+    void runBootSequence()
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [runBootSequence])
+
+  // ── Focus input when NAME_PROMPT appears ───────────────────────────────────
+
+  useEffect(() => {
+    if (phase === 'NAME_PROMPT' || phase === 'ERROR') {
+      // Small delay to let the DOM update
+      const id = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(id)
+    }
+  }, [phase])
+
+  // ── Scroll to bottom as content grows ─────────────────────────────────────
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
+    }
+  }, [completedLines, currentLine, phase, errorMessage])
+
+  // ── Name submission ────────────────────────────────────────────────────────
+
+  const handleSubmit = useCallback(async () => {
+    const raw = inputValue
+
+    // 1. Client-side validation (instant)
+    const clientResult = validateNameFormat(raw)
+    if (!clientResult.valid) {
+      setSubmittedName(raw)
+      setErrorMessage(clientResult.error ?? 'INVALID NAME')
+      setInputValue('')
+      setPhase('ERROR')
+      return
+    }
+
+    setSubmittedName(raw)
+    setPhase('VALIDATING')
+
+    // 2. Server-side validation
+    try {
+      const res = await fetch('/api/validate-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: raw }),
+      })
+
+      const data: { valid: boolean; normalizedName?: string; error?: string } =
+        await res.json()
+
+      if (!data.valid) {
+        setErrorMessage(data.error ?? 'NAME NOT PERMITTED')
+        setInputValue('')
+        setPhase('ERROR')
+        return
+      }
+
+      const normalized = data.normalizedName ?? normalizeName(raw)
+      setPhase('SUCCESS')
+      router.push(`/${normalized}`)
+    } catch {
+      setErrorMessage('CONNECTION ERROR — TRY AGAIN')
+      setInputValue('')
+      setPhase('ERROR')
+    }
+  }, [inputValue, router])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        void handleSubmit()
+      }
+    },
+    [handleSubmit]
+  )
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div style={styles.wrapper}>
+      {/* Scanline overlay */}
+      <div style={styles.scanlines} aria-hidden="true" />
+
+      {/* Terminal content area */}
+      <div ref={containerRef} style={styles.terminal}>
+        {/* Completed boot lines */}
+        {completedLines.map((line, i) => (
+          <div key={i} style={styles.line}>
+            {line}
+          </div>
+        ))}
+
+        {/* Currently typing line (BOOTING phase only) */}
+        {phase === 'BOOTING' && (
+          <div style={styles.line}>
+            {currentLine}
+            <span style={styles.cursor}>_</span>
+          </div>
+        )}
+
+        {/* Name prompt — NAME_PROMPT phase */}
+        {phase === 'NAME_PROMPT' && (
+          <div style={styles.line}>
+            {'ENTER CHARACTER NAME: '}
+            <span style={styles.inputWrapper}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                maxLength={20}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                style={styles.input}
+                aria-label="Enter character name"
+              />
+              {/* Blinking cursor shown when input is empty */}
+              {inputValue === '' && (
+                <span style={styles.blinkCursor} aria-hidden="true">
+                  _
+                </span>
+              )}
+            </span>
+          </div>
+        )}
+
+        {/* Validating phase */}
+        {phase === 'VALIDATING' && (
+          <>
+            <div style={styles.line}>
+              {`ENTER CHARACTER NAME: ${submittedName}`}
+            </div>
+            <div style={styles.line}>CHECKING...</div>
+          </>
+        )}
+
+        {/* Error phase */}
+        {phase === 'ERROR' && (
+          <>
+            <div style={styles.line}>
+              {`ENTER CHARACTER NAME: ${submittedName}`}
+            </div>
+            <div style={{ ...styles.line, ...styles.errorLine }}>
+              {`ERROR: ${errorMessage}`}
+            </div>
+            <div style={styles.line}>{''}</div>
+            <div style={styles.line}>
+              {'ENTER CHARACTER NAME: '}
+              <span style={styles.inputWrapper}>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  maxLength={20}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  style={styles.input}
+                  aria-label="Enter character name"
+                />
+                {inputValue === '' && (
+                  <span style={styles.blinkCursor} aria-hidden="true">
+                    _
+                  </span>
+                )}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Success — brief message before navigation */}
+        {phase === 'SUCCESS' && (
+          <>
+            <div style={styles.line}>
+              {`ENTER CHARACTER NAME: ${submittedName}`}
+            </div>
+            <div style={styles.line}>LOADING...</div>
+          </>
+        )}
+      </div>
+
+      {/* Keyframes are defined in globals.css (crt-blink) */}
+    </div>
+  )
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const CRT_GREEN = '#33ff33'
+const CRT_ERROR = '#ff4444'
+const FONT_STACK =
+  '"Share Tech Mono", "Courier New", Courier, monospace'
+
+const styles: Record<string, React.CSSProperties> = {
+  wrapper: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: '#000',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+
+  scanlines: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:
+      'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)',
+    pointerEvents: 'none',
+    zIndex: 10,
+  },
+
+  terminal: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: '860px',
+    height: '100%',
+    maxHeight: '100vh',
+    overflowY: 'auto',
+    padding: '48px 40px',
+    boxSizing: 'border-box',
+    fontFamily: FONT_STACK,
+    fontSize: '18px',
+    lineHeight: '1.6',
+    color: CRT_GREEN,
+    // Subtle phosphor glow
+    textShadow: `0 0 8px ${CRT_GREEN}`,
+    scrollbarWidth: 'none',
+    zIndex: 1,
+  },
+
+  line: {
+    display: 'block',
+    minHeight: '1.6em',
+    whiteSpace: 'pre',
+  },
+
+  cursor: {
+    display: 'inline-block',
+    // static cursor while typing — no blink needed
+    opacity: 1,
+  },
+
+  blinkCursor: {
+    display: 'inline-block',
+    animation: 'crt-blink 500ms step-start infinite',
+  },
+
+  inputWrapper: {
+    position: 'relative',
+    display: 'inline-block',
+  },
+
+  input: {
+    background: 'transparent',
+    border: 'none',
+    outline: 'none',
+    color: CRT_GREEN,
+    fontFamily: FONT_STACK,
+    fontSize: '18px',
+    lineHeight: '1.6',
+    textShadow: `0 0 8px ${CRT_GREEN}`,
+    caretColor: 'transparent', // hide browser caret; we use our own blinking _
+    width: '300px',
+    padding: 0,
+    margin: 0,
+    verticalAlign: 'baseline',
+  },
+
+  errorLine: {
+    color: CRT_ERROR,
+    textShadow: `0 0 8px ${CRT_ERROR}`,
+  },
+}

@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CRT terminal cursor blink animation */
+@keyframes crt-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Hide scrollbars in WebKit (used by CRT terminal area) */
+.crt-scrollarea::-webkit-scrollbar {
+  display: none;
+}
