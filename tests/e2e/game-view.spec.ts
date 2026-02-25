@@ -73,6 +73,11 @@ test.describe('Game view', () => {
     await expect(page).toHaveScreenshot('game-view-house.png', {
       maxDiffPixelRatio: 0.15,
       clip: canvasBox ?? undefined,
+      // Three.js renders via requestAnimationFrame — CSS animation disabling
+      // never stops the WebGL canvas, so the default stability check times out.
+      // 'allow' takes one immediate screenshot instead of waiting for identical
+      // consecutive frames. The 15% tolerance covers idle animation variance.
+      animations: 'allow',
     })
   })
 })
