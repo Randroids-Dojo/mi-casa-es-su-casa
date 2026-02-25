@@ -40,4 +40,14 @@ export interface GameInstance {
    * relative to the canvas element, or null if unavailable (e.g. WebGL failed).
    */
   getCharacterHeadScreenPos(): { x: number; y: number } | null
+  /**
+   * Pan the camera by the given screen-pixel delta.
+   * Uses "content follows finger" convention: positive dx pans view left.
+   */
+  applyPanDeltaPixels(dx: number, dy: number): void
+  /**
+   * Zoom by the given scale factor.
+   * factor < 1 zooms in (smaller world view), factor > 1 zooms out.
+   */
+  applyZoomScale(factor: number): void
 }

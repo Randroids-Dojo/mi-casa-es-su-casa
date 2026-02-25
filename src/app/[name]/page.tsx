@@ -7,7 +7,7 @@ interface Props {
 export default async function CharacterPage({ params }: Props) {
   const { name } = await params
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%' }}>
       <GameCanvas characterName={name} />
     </div>
   )

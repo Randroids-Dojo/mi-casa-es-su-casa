@@ -4,13 +4,10 @@ import type { GameInstance } from './types'
 import { Character } from './character'
 
 // ---------------------------------------------------------------------------
-// Camera helpers
+// Camera / pan / zoom helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Computes orthographic camera frustum bounds for the given canvas dimensions.
- * We maintain a fixed "virtual height" in world units and let the width scale.
- */
+/** Orthographic frustum bounds for the given canvas size and world height. */
 function computeFrustum(
   width: number,
   height: number,
@@ -27,13 +24,12 @@ function computeFrustum(
   }
 }
 
-// ---------------------------------------------------------------------------
-// initGame
-// ---------------------------------------------------------------------------
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v))
+}
 
 /**
  * Initialises the Three.js scene, camera, renderer, and animation loop.
- * Returns a GameInstance with a `dispose()` method and `getCurrentThought()`.
  *
  * @param canvas - The target HTMLCanvasElement
  * @param characterName - Name used to seed the character (default: 'resident')
@@ -47,7 +43,13 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   } catch (err) {
     console.warn('WebGL unavailable, returning no-op game instance', err)
-    return { dispose() {}, getCurrentThought() { return null }, getCharacterHeadScreenPos() { return null } }
+    return {
+      dispose() {},
+      getCurrentThought() { return null },
+      getCharacterHeadScreenPos() { return null },
+      applyPanDeltaPixels() {},
+      applyZoomScale() {},
+    }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.setSize(canvas.clientWidth, canvas.clientHeight)
@@ -61,37 +63,58 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   const scene = new THREE.Scene()
 
   // ------------------------------------------------------------------
-  // Camera (orthographic, fixed dollhouse view)
+  // Camera (orthographic, dollhouse view)
   // ------------------------------------------------------------------
   //
-  // The house spans: X: 0..16, Y: 0..18 (3 floors × 6), Z: 0..8
+  // The house spans: X: 0..16, Y: 0..24 (3 floors × 8), Z: 0..8
   // We want to see all 3 floors with a comfortable margin.
   // worldHeight covers the full house height plus margin.
-  const WORLD_HEIGHT = FLOOR_HEIGHT * FLOOR_COUNT + 6 // ~24 units
+  const WORLD_HEIGHT = FLOOR_HEIGHT * FLOOR_COUNT + 6 // 30 units
 
-  const { left, right, top, bottom } = computeFrustum(
-    canvas.clientWidth,
-    canvas.clientHeight,
-    WORLD_HEIGHT,
-  )
+  // Frustum will be set by the first applyPanZoom() call below.
+  const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.1, 200)
 
-  const camera = new THREE.OrthographicCamera(left, right, top, bottom, 0.1, 200)
-
-  // Position: directly in front of the house (no X offset), slightly above center.
-  // The house center in world space:
+  // House center in world space — the pan baseline.
   const houseCenterX = HOUSE_WIDTH / 2    // 8
-  const houseCenterY = (FLOOR_HEIGHT * FLOOR_COUNT) / 2  // 9
+  const houseCenterY = (FLOOR_HEIGHT * FLOOR_COUNT) / 2  // 12
   const houseCenterZ = HOUSE_DEPTH / 2   // 4
 
-  // Dollhouse front-facing view: camera at house center X, slightly above
-  // center Y, and pulled back on -Z so we look at the front face.
-  camera.position.set(
-    houseCenterX,
-    houseCenterY + 2,
-    houseCenterZ - 30,
-  )
-  camera.lookAt(houseCenterX, houseCenterY, houseCenterZ)
-  camera.updateProjectionMatrix()
+  // ------------------------------------------------------------------
+  // Pan / zoom state
+  // ------------------------------------------------------------------
+  let panWorldX = 0
+  let panWorldY = 0
+  let zoomScale = 1
+  const MIN_ZOOM = 0.3
+  const MAX_ZOOM = 3
+  // Maximum pan so the house stays roughly in view
+  const MAX_PAN_X = HOUSE_WIDTH
+  const MAX_PAN_Y = WORLD_HEIGHT * 0.6
+
+  function applyPanZoom(): void {
+    const w = canvas.clientWidth
+    const h = canvas.clientHeight
+    const worldHeight = WORLD_HEIGHT * zoomScale
+    const f = computeFrustum(w, h, worldHeight)
+    camera.left = f.left
+    camera.right = f.right
+    camera.top = f.top
+    camera.bottom = f.bottom
+    camera.position.set(
+      houseCenterX + panWorldX,
+      houseCenterY + 2 + panWorldY,
+      houseCenterZ - 30,
+    )
+    camera.lookAt(
+      houseCenterX + panWorldX,
+      houseCenterY + panWorldY,
+      houseCenterZ,
+    )
+    camera.updateProjectionMatrix()
+  }
+
+  // Establish initial camera position and frustum.
+  applyPanZoom()
 
   // ------------------------------------------------------------------
   // Lighting
@@ -155,13 +178,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     renderer.setSize(w, h)
-
-    const f = computeFrustum(w, h, WORLD_HEIGHT)
-    camera.left = f.left
-    camera.right = f.right
-    camera.top = f.top
-    camera.bottom = f.bottom
-    camera.updateProjectionMatrix()
+    applyPanZoom()
   }
 
   const resizeObserver = new ResizeObserver(onResize)
@@ -190,6 +207,21 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
       const y = Math.max(2, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
       return { x, y }
+    },
+    applyPanDeltaPixels(dx: number, dy: number) {
+      // "Content follows finger": the world point under the touch stays fixed.
+      // X: screen-X and world-X both increase rightward → camera moves opposite to finger: -= dx
+      // Y: screen-Y increases downward, world-Y increases upward → camera moves same as finger: += dy
+      const unitsPerPixel = (WORLD_HEIGHT * zoomScale) / canvas.clientHeight
+      panWorldX -= dx * unitsPerPixel
+      panWorldY += dy * unitsPerPixel
+      panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
+      panWorldY = clamp(panWorldY, -MAX_PAN_Y, MAX_PAN_Y)
+      applyPanZoom()
+    },
+    applyZoomScale(factor: number) {
+      zoomScale = clamp(zoomScale * factor, MIN_ZOOM, MAX_ZOOM)
+      applyPanZoom()
     },
   }
 }
