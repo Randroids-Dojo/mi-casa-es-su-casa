@@ -89,19 +89,9 @@ function buildFloorShell(
   )
 
   // Ceiling slab (= floor slab for the floor above, drawn here as ceiling)
-  if (floor < FLOOR_COUNT) {
-    // The ceiling of this floor is the floor of the next, so we skip
-    // drawing a separate ceiling to avoid doubling geometry.
-    // For floor 3 (top), draw a ceiling.
-  } else {
-    group.add(
-      makeVoxel(
-        { x: hw / 2, y: baseY + FLOOR_HEIGHT - 0.5, z: hd / 2 },
-        PALETTE.CEILING,
-        { x: hw, y: wt, z: hd },
-      ),
-    )
-  }
+  // For floors 1 and 2, the ceiling is the floor of the next level — no
+  // separate slab needed. For floor 3 (top floor) we intentionally omit
+  // the roof to keep the dollhouse open to the sky.
 
   // Left exterior wall (x=0)
   group.add(
