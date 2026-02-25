@@ -99,7 +99,7 @@ function applyWalk(parts: CharacterMeshParts, progress: number): void {
   parts.rightLeg.rotation.x = swing
 
   // Slight body bob
-  parts.body.position.y = 4.5 + Math.abs(oscillate(progress, 0, 0.04))
+  parts.body.position.y = 1.95 + Math.abs(oscillate(progress, 0, 0.04))
 
   // Head stays upright
   parts.head.rotation.x = 0
@@ -203,7 +203,7 @@ function applyIdle(parts: CharacterMeshParts, progress: number): void {
 
   // Reset torso lean
   parts.body.rotation.x = 0
-  parts.body.position.y = 4.5
+  parts.body.position.y = 1.95
 }
 
 /**
@@ -416,7 +416,7 @@ function applyRummage(parts: CharacterMeshParts, progress: number): void {
 function resetPose(parts: CharacterMeshParts): void {
   parts.head.rotation.set(0, 0, 0)
   parts.body.rotation.set(0, 0, 0)
-  parts.body.position.y = 4.5
+  parts.body.position.y = 1.95  // torso center in scaled mesh (top of legs = 1.2, torso half = 0.75)
   parts.body.scale.set(1, 1, 1)
 
   parts.leftArm.rotation.set(0, 0, 0)
