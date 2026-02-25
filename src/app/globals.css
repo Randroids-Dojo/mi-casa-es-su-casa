@@ -14,7 +14,27 @@
   }
 }
 
+/* CRT screen flicker — very subtle opacity variation */
+@keyframes crt-flicker {
+  0%, 100% { opacity: 0.97; }
+  50% { opacity: 1.0; }
+  75% { opacity: 0.98; }
+}
+
 /* Hide scrollbars in WebKit (used by CRT terminal area) */
 .crt-scrollarea::-webkit-scrollbar {
   display: none;
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

@@ -205,8 +205,12 @@ export function BootScreen() {
           <div style={styles.line}>
             {'ENTER CHARACTER NAME: '}
             <span style={styles.inputWrapper}>
+              <label htmlFor="name-input" className="sr-only">
+                Enter character name
+              </label>
               <input
                 ref={inputRef}
+                id="name-input"
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value.toUpperCase())}
@@ -217,7 +221,6 @@ export function BootScreen() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 style={styles.input}
-                aria-label="Enter character name"
               />
               {/* Blinking cursor shown when input is empty */}
               {inputValue === '' && (
@@ -245,15 +248,23 @@ export function BootScreen() {
             <div style={styles.line}>
               {`ENTER CHARACTER NAME: ${submittedName}`}
             </div>
-            <div style={{ ...styles.line, ...styles.errorLine }}>
+            <div
+              role="alert"
+              aria-live="assertive"
+              style={{ ...styles.line, ...styles.errorLine }}
+            >
               {`ERROR: ${errorMessage}`}
             </div>
             <div style={styles.line}>{''}</div>
             <div style={styles.line}>
               {'ENTER CHARACTER NAME: '}
               <span style={styles.inputWrapper}>
+                <label htmlFor="name-input" className="sr-only">
+                  Enter character name
+                </label>
                 <input
                   ref={inputRef}
+                  id="name-input"
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value.toUpperCase())}
@@ -264,7 +275,6 @@ export function BootScreen() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   style={styles.input}
-                  aria-label="Enter character name"
                 />
                 {inputValue === '' && (
                   <span style={styles.blinkCursor} aria-hidden="true">
@@ -308,6 +318,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    animation: 'crt-flicker 8s ease-in-out infinite',
   },
 
   scanlines: {
