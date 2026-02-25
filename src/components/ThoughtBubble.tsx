@@ -33,8 +33,9 @@ export function ThoughtBubble({ text, visible }: ThoughtBubbleProps) {
       <style>{`
         .thought-bubble {
           position: absolute;
-          top: 12%;
-          right: 8%;
+          bottom: 65%;
+          left: 50%;
+          transform: translateX(-50%);
           max-width: 200px;
           padding: 10px 14px;
           background: #ffffff;
