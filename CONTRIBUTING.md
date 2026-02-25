@@ -61,13 +61,40 @@ ESLint runs automatically on every PR via CI. All warnings must be resolved befo
 
 ## Smoke tests
 
-Smoke tests are not yet implemented. Once added they will live in `tests/` and can be run with:
+Smoke tests live in `tests/smoke/` and are written with Node's built-in `node:test` module. Run them against a locally-running server:
 
 ```bash
-npm test
+# In one terminal, build and start the production server
+npm run build && npm start
+
+# In another terminal, run the smoke tests
+npm run test:smoke
 ```
 
-This section will be updated when the first tests land.
+You can override the target URL with the `BASE_URL` environment variable:
+
+```bash
+BASE_URL=https://my-preview.vercel.app npm run test:smoke
+```
+
+## Deployment
+
+### Production
+
+Pushing to `main` triggers an automatic production deployment via the Vercel GitHub integration. No manual steps are required once the Vercel project is linked to this GitHub repository.
+
+### Preview deployments
+
+Every pull request automatically gets a Vercel preview deployment. Vercel posts the preview URL as a comment on the PR. This allows reviewers to test changes in a live environment before merging.
+
+### Setup (one-time, per developer)
+
+Both auto-deploy and preview deploys are configured in the **Vercel dashboard**, not via files in this repository. To enable them:
+
+1. Create a Vercel project (or use an existing one) and link it to this GitHub repository: **Vercel Dashboard → Project → Settings → Git**.
+2. Vercel will automatically enable production deploys on `main` and preview deploys on all branches/PRs.
+
+The `vercel.json` file at the repo root declares `"framework": "nextjs"` so Vercel uses the correct build preset.
 
 ## Project structure
 
