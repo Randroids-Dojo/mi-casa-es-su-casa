@@ -5,13 +5,14 @@
 // House coordinate system:
 //   Width:  16 voxels (x: 0–16)
 //   Depth:   8 voxels (z: 0–8)
-//   Floors: 3, each 6 voxels tall
-//   Floor Y origins: floor1=0, floor2=6, floor3=12
+//   Floors: 3, each FLOOR_HEIGHT voxels tall
+//   Floor Y origins: floor1=0, floor2=FLOOR_HEIGHT, floor3=FLOOR_HEIGHT*2
 //
 // Room centers are the midpoint of each room's bounds in world space.
 // Staircase connects all floors on the right side (x ≈ 13–15).
 
 import * as THREE from 'three'
+import { FLOOR_HEIGHT } from './house'
 
 // ---------------------------------------------------------------------------
 // Activity types
@@ -62,10 +63,9 @@ export interface Room {
 }
 
 // ---------------------------------------------------------------------------
-// House constants (must match house.ts)
+// House constants (imported from house.ts)
 // ---------------------------------------------------------------------------
 
-const FLOOR_HEIGHT = 6
 /** Returns the Y world coordinate of the center of a floor's walkable area */
 function floorCenterY(floor: 1 | 2 | 3): number {
   // Floor slab is at (floor-1)*FLOOR_HEIGHT + 1 (top of slab)

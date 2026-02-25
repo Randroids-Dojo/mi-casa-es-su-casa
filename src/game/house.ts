@@ -9,7 +9,7 @@ import type { Vec3, Room, VoxelSpec } from './types'
 /** Width of the house in voxels */
 export const HOUSE_WIDTH = 16
 /** Height per floor in voxels (walls + ceiling) */
-export const FLOOR_HEIGHT = 6
+export const FLOOR_HEIGHT = 8
 /** Depth of the house in voxels */
 export const HOUSE_DEPTH = 8
 /** Wall thickness in voxels */
