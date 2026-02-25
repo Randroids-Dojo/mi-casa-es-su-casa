@@ -1,0 +1,68 @@
+# Mi Casa Es Su Casa — Agent Instructions
+
+## Stack
+
+- **Next.js** (App Router, TypeScript strict mode)
+- **Three.js** — voxel 3D game renderer, runs client-side only
+- **Tailwind CSS** — UI chrome only (not game canvas)
+- **Vercel KV** (Upstash Redis) — character state persistence
+- **Playwright** — E2E and visual regression tests
+
+## E2E Tests (Playwright)
+
+Tests live in `tests/e2e/`. Run them with a server already running:
+
+```bash
+# Terminal 1
+npm run dev
+
+# Terminal 2
+npm run test:e2e
+```
+
+### Rules for agents
+
+- **Always run `npm run test:e2e` after any change to:**
+  - `src/game/` (house geometry, renderer, character, palette)
+  - `src/components/GameCanvas.tsx` or `ThoughtBubble.tsx`
+  - `src/app/[name]/page.tsx`
+  - `src/app/page.tsx` or `src/components/BootScreen.tsx`
+  - `src/app/api/` routes
+- **Do NOT run tests** after changes to `.dots/`, `Docs/`, or `AGENTS.md` itself.
+
+### Updating the visual snapshot
+
+The `game view matches visual snapshot` test compares against a committed baseline PNG. If you make an **intentional** visual change (camera, geometry, lighting, character), update the snapshot:
+
+```bash
+npm run test:e2e:update-snapshots
+```
+
+Then commit the updated PNG alongside the code change. **Never update snapshots to silence a failing test caused by a bug** — fix the bug instead.
+
+### WebGL in headless Playwright
+
+The Playwright config (`playwright.config.ts`) uses `--use-angle=swiftshader` for software-rendered WebGL. This works on macOS and Linux CI. Do not change these flags without verifying WebGL still initialises in headless mode.
+
+### What each test catches
+
+| Test | What it detects |
+|------|----------------|
+| `canvas is present with non-zero dimensions` | Canvas not mounting, React crash |
+| `canvas renders non-background pixels` | House geometry not rendering, wrong camera |
+| `thought bubble appears within 40 seconds` | Thought bubble system broken |
+| `thought bubble is within the viewport bounds` | Bubble detached from game container |
+| `game view matches visual snapshot` | Camera angle, geometry, character size, furniture, lighting regressions |
+| `valid name navigates to /[name]` | Name entry flow, routing broken |
+| `invalid name shows error alert` | Validation broken |
+| Boot screen tests | CRT animation, name prompt, input focus |
+
+## TypeScript
+
+Always run `npx tsc --noEmit` after code changes. All code must compile with zero errors — strict mode is on.
+
+## Commits
+
+- One logical unit of work per commit
+- Do not push unless explicitly instructed
+- Do not include AI attribution in commit messages
