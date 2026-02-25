@@ -56,7 +56,10 @@ test.describe('Game view', () => {
 
   test('game view matches visual snapshot', async ({ page }) => {
     await gotoCharacterPageDirect(page, 'playwright')
-    await page.waitForTimeout(3_000)
+    // Wait 2 s — the initial activity lasts 3 s, so the character is still
+    // performing (not yet navigating) and the WebGL scene is stable for the
+    // screenshot comparison.
+    await page.waitForTimeout(2_000)
 
     // Freeze animations and hide thought bubble for stable snapshot
     await page.addStyleTag({
