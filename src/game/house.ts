@@ -320,38 +320,51 @@ function buildStorage(group: THREE.Group): void {
 // ---------------------------------------------------------------------------
 
 function buildStaircase(group: THREE.Group): void {
-  // Stepped voxel staircase on the right side (x ~ STAIR_X_START..HOUSE_WIDTH-1)
-  // Interior staircase corridor: x from STAIR_X_START (13) to right wall interior (15)
-  // Steps are centered at a fixed X (14) and progress upward in Y while stepping in Z.
-  // We build stairs connecting floor 1→2 and floor 2→3
+  // Proper voxel staircase: each step rises 1 unit in Y and advances 1 unit
+  // in Z, creating the classic ascending staircase silhouette.
+  //
+  // With FLOOR_HEIGHT=8 we use 8 steps per floor so rise = 8/8 = 1 unit/step.
+  // Steps run in the Z direction (front→back) inside the right-side corridor.
+  //
+  // Step i (0-indexed within a floor):
+  //   top-face Y  = baseY + 1 + (i + 1)       — each step 1 unit above the last
+  //   center Y    = baseY + 1 + (i + 1) - 0.5  — center of 1-unit-tall block
+  //   center Z    = startZ + i + 0.5            — 1 unit deep per step, no overlap
+  //
+  // The step is 2 units wide in X (corridor width) and 1×1 in Y×Z.
+
+  const stairSteps = FLOOR_HEIGHT // one step per voxel of floor height = 8 steps
+  const stepCenterX = STAIR_X_START + 1 // x=14, middle of the staircase corridor
+  const stepWidth = 2 // corridor width in X
+  const startZ = 0.5 // first step starts at the front edge of the corridor
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
     const baseY = floorY(f as 1 | 2 | 3)
-    const stairSteps = 5 // number of steps per floor rise
-
-    // Step center X: midpoint of staircase corridor (between STAIR_X_START and wall)
-    const stepCenterX = STAIR_X_START + 1 // = 14, well inside the right wall at 15.5
 
     for (let step = 0; step < stairSteps; step++) {
-      const stepY = baseY + 1 + step * (FLOOR_HEIGHT / stairSteps)
-      // Steps progress in Z direction (front to back) as they climb
-      const stepZ = 2 + step * 0.8
+      // Top of this step is 1 unit above the previous; the block is 1 unit tall.
+      const stepTopY = baseY + 1 + (step + 1)
+      const stepCenterY = stepTopY - 0.5
+
+      // Each step is 1 unit deep in Z, advancing toward the back wall.
+      const stepCenterZ = startZ + step + 0.5
 
       group.add(
         makeVoxel(
-          { x: stepCenterX, y: stepY, z: stepZ },
+          { x: stepCenterX, y: stepCenterY, z: stepCenterZ },
           PALETTE.STAIRCASE,
-          { x: 1.5, y: 0.5, z: 1 },
+          { x: stepWidth, y: 1, z: 1 },
         ),
       )
     }
 
-    // Stair platform / landing at top of stair run
+    // Landing platform at the top of the run — flush with the floor above.
+    const landingTopY = baseY + FLOOR_HEIGHT + 1
     group.add(
       makeVoxel(
-        { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: 3.5 },
+        { x: stepCenterX, y: landingTopY - 0.5, z: startZ + stairSteps + 0.5 },
         PALETTE.STAIRCASE,
-        { x: 1.5, y: 0.5, z: 1.5 },
+        { x: stepWidth, y: 1, z: 1 },
       ),
     )
   }
