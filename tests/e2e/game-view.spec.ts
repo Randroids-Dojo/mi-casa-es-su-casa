@@ -70,14 +70,13 @@ test.describe('Game view', () => {
     })
 
     const canvasBox = await page.locator('canvas').boundingBox()
-    await expect(page).toHaveScreenshot('game-view-house.png', {
+    // Use page.screenshot() + toMatchSnapshot() instead of toHaveScreenshot()
+    // because toHaveScreenshot() has a stability check that waits for identical
+    // consecutive frames — Three.js requestAnimationFrame always produces
+    // slightly different pixels, so the stability check times out on CI.
+    const screenshot = await page.screenshot({ clip: canvasBox ?? undefined })
+    expect(screenshot).toMatchSnapshot('game-view-house.png', {
       maxDiffPixelRatio: 0.15,
-      clip: canvasBox ?? undefined,
-      // Three.js renders via requestAnimationFrame — CSS animation disabling
-      // never stops the WebGL canvas, so the default stability check times out.
-      // 'allow' takes one immediate screenshot instead of waiting for identical
-      // consecutive frames. The 15% tolerance covers idle animation variance.
-      animations: 'allow',
     })
   })
 })
