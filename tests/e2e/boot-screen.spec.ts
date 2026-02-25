@@ -8,7 +8,8 @@ test.describe('Boot screen', () => {
 
   test('shows MI CASA ES SU CASA title during boot', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText('MI CASA', { exact: false })).toBeVisible({ timeout: 5_000 })
+    // Use locator scoped to main content to avoid matching <title> element
+    await expect(page.locator('main, body > div').getByText('MI CASA', { exact: false }).first()).toBeVisible({ timeout: 5_000 })
   })
 
   test('shows READY and then name prompt', async ({ page }) => {

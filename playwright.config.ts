@@ -15,7 +15,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 800 },
     launchOptions: {
-      args: ['--enable-webgl', '--use-gl=swiftshader'],
+      args: [
+        '--enable-webgl',
+        '--use-angle=swiftshader',      // SwiftShader software WebGL (macOS + Linux)
+        '--ignore-gpu-blocklist',
+        '--disable-gpu-sandbox',
+      ],
     },
   },
   projects: [

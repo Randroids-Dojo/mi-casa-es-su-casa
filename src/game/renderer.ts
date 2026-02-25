@@ -42,7 +42,13 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   // ------------------------------------------------------------------
   // Renderer
   // ------------------------------------------------------------------
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+  let renderer: THREE.WebGLRenderer
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+  } catch (err) {
+    console.warn('WebGL unavailable, returning no-op game instance', err)
+    return { dispose() {}, getCurrentThought() { return null } }
+  }
   renderer.setPixelRatio(window.devicePixelRatio)
   renderer.setSize(canvas.clientWidth, canvas.clientHeight)
   renderer.shadowMap.enabled = true

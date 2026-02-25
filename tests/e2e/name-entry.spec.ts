@@ -24,9 +24,9 @@ test.describe('Name entry', () => {
   test('invalid name (too short) shows error alert', async ({ page }) => {
     await page.fill('#name-input', 'A')
     await page.keyboard.press('Enter')
-    const errorAlert = page.locator('[role="alert"]')
+    // Filter to our error div specifically (Next.js route announcer also has role="alert")
+    const errorAlert = page.locator('[role="alert"]').filter({ hasText: 'ERROR:' })
     await expect(errorAlert).toBeVisible({ timeout: 2_000 })
-    await expect(errorAlert).toContainText('ERROR:')
   })
 
   test('after error the prompt reappears', async ({ page }) => {
