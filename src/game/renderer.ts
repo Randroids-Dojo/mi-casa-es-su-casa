@@ -107,6 +107,10 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   scene.add(dirLight)
   scene.add(dirLight.target)
 
+  // Hemisphere light for soft ambient bounce: warm sky, cool purple-navy ground
+  const hemiLight = new THREE.HemisphereLight(0xfff4e0, 0x2d1b4e, 0.3)
+  scene.add(hemiLight)
+
   // ------------------------------------------------------------------
   // House geometry
   // ------------------------------------------------------------------

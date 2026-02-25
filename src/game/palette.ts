@@ -14,9 +14,9 @@ export const PALETTE = {
   WARDROBE: 0x6b5a3e, // medium wood
 
   // Kitchen
-  COUNTER: 0xd4d4d4, // light grey
+  COUNTER: 0xd4d0c8, // warm light grey (was neutral 0xd4d4d4)
   STOVE: 0x888888, // grey
-  FRIDGE: 0xf0f0f0, // white
+  FRIDGE: 0xf0f0e8, // warm white (was pure white 0xf0f0f0)
 
   // Accents
   TV_SCREEN: 0x222244, // dark blue-black
