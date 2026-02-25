@@ -131,50 +131,56 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
   const wallH = FLOOR_HEIGHT - 1 // leave floor/ceiling gap
   const wt = WALL_THICKNESS
 
+  // Interior walls run the full depth of the house:
+  // from z=0 (front opening) to z=hd-1 (inner face of back wall).
+  // Center at (hd-1)/2, size = hd-1 so walls reach the back wall.
+  const wallZCenter = (hd - 1) / 2  // = 3.5
+  const wallZSize = hd - 1           // = 7
+
   if (floor === 1) {
     // Divide living room / kitchen: vertical wall at x=9
     // Leave gap at bottom 1 voxel for floor
     group.add(
       makeVoxel(
-        { x: 9.5, y: baseY + wallH / 2 + 1, z: (hd - 1) / 2 + 0.5 },
+        { x: 9.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: hd - 2 },
+        { x: wt, y: wallH, z: wallZSize },
       ),
     )
 
     // Entrance hall: narrow wall separating entrance from living room at x=4
     group.add(
       makeVoxel(
-        { x: 4.5, y: baseY + wallH / 2 + 1, z: (hd - 1) / 2 + 0.5 },
+        { x: 4.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: hd - 2 },
+        { x: wt, y: wallH, z: wallZSize },
       ),
     )
   } else if (floor === 2) {
     // Bedroom / study divider at x=6
     group.add(
       makeVoxel(
-        { x: 6.5, y: baseY + wallH / 2 + 1, z: (hd - 1) / 2 + 0.5 },
+        { x: 6.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: hd - 2 },
+        { x: wt, y: wallH, z: wallZSize },
       ),
     )
 
     // Study / bathroom divider at x=10
     group.add(
       makeVoxel(
-        { x: 10.5, y: baseY + wallH / 2 + 1, z: (hd - 1) / 2 + 0.5 },
+        { x: 10.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: hd - 2 },
+        { x: wt, y: wallH, z: wallZSize },
       ),
     )
   } else if (floor === 3) {
     // Hobby room / storage divider at x=9
     group.add(
       makeVoxel(
-        { x: 9.5, y: baseY + wallH / 2 + 1, z: (hd - 1) / 2 + 0.5 },
+        { x: 9.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: hd - 2 },
+        { x: wt, y: wallH, z: wallZSize },
       ),
     )
   }
