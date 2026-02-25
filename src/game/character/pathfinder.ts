@@ -103,7 +103,28 @@ export function getPositionAlongPath(
     return ROOM_MAP[path[fromIdx]].center.clone()
   }
 
-  return getPositionAlongLeg(path[fromIdx], path[toIdx], legProgress)
+  const fromRoomId = path[fromIdx]
+  const toRoomId = path[toIdx]
+
+  // When a leg involves the staircase as a waypoint, adjust its Y so the
+  // character walks horizontally to/from the staircase at the correct floor
+  // height, and Y transitions (climbing) happen naturally during staircase legs.
+  let fromCenter = ROOM_MAP[fromRoomId].center.clone()
+  let toCenter = ROOM_MAP[toRoomId].center.clone()
+
+  if (fromRoomId === 'staircase') {
+    // Moving away from staircase: start at the floor Y the character arrived from
+    const prevRoomId = path[fromIdx - 1]
+    if (prevRoomId) {
+      fromCenter.y = ROOM_MAP[prevRoomId].center.y
+    }
+  } else if (toRoomId === 'staircase') {
+    // Moving toward staircase: keep staircase at current floor Y so character
+    // walks horizontally before climbing begins on the next leg
+    toCenter.y = fromCenter.y
+  }
+
+  return new THREE.Vector3().lerpVectors(fromCenter, toCenter, legProgress)
 }
 
 /**

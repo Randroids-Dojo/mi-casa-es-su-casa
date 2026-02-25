@@ -263,9 +263,11 @@ export class Character {
     )
     this.mesh.group.position.copy(pos)
 
-    // Check if we're passing through the staircase
-    const currentLegDestRoom = movingState.path[movingState.pathIndex]
-    if (currentLegDestRoom === 'staircase' && movingState.legProgress > 0) {
+    // Use climb_stairs animation when moving to or from the staircase room
+    const destRoom = movingState.path[movingState.pathIndex]
+    const fromRoom = movingState.path[movingState.pathIndex - 1]
+    const onStaircase = destRoom === 'staircase' || fromRoom === 'staircase'
+    if (onStaircase) {
       if (this.animationState.name !== 'climb_stairs') {
         this.animationState = createAnimationState('climb_stairs')
       }
@@ -344,17 +346,6 @@ export class Character {
       this._queued = {
         activity: selection.activity,
         durationHours: selection.durationHours,
-      }
-
-      if (path.includes('staircase')) {
-        // Check if changing floors
-        const fromFloor = getRoom(this.currentRoom).floor
-        const toFloor = getRoom(selection.room).floor
-        if (fromFloor !== toFloor) {
-          this.fsm.transitionToStaircase(fromFloor, toFloor, selection.room)
-          this.animationState = createAnimationState('climb_stairs')
-          return
-        }
       }
 
       this.fsm.transitionToMoving(path)
