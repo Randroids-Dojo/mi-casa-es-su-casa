@@ -66,11 +66,13 @@ export interface Room {
 // House constants (imported from house.ts)
 // ---------------------------------------------------------------------------
 
-/** Returns the Y world coordinate of the center of a floor's walkable area */
+/** Returns the Y world coordinate of the floor surface (top of slab) for a floor. */
 function floorCenterY(floor: 1 | 2 | 3): number {
-  // Floor slab is at (floor-1)*FLOOR_HEIGHT + 1 (top of slab)
-  // Character stands on top of the slab; center for nav is 1 voxel above slab
-  return (floor - 1) * FLOOR_HEIGHT + 1.5
+  // Floor slab center is at (floor-1)*FLOOR_HEIGHT + 0.5, so the top surface
+  // (where characters stand) is at (floor-1)*FLOOR_HEIGHT + 1.
+  // The character mesh origin is at feet (y=0 in local space), so placing
+  // the group at this Y means the feet touch the floor exactly.
+  return (floor - 1) * FLOOR_HEIGHT + 1
 }
 
 // ---------------------------------------------------------------------------
