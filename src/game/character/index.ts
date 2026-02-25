@@ -70,6 +70,10 @@ export {
 } from './animations'
 export type { AnimationName, AnimationState } from './animations'
 
+// Phrases
+export { PHRASES, pickPhrase, selectPhraseCategory } from './phrases'
+export type { PhraseCategory } from './phrases'
+
 // Main character class
 export { Character, REAL_SECONDS_PER_GAME_MINUTE } from './character'
 export type { CharacterState } from './character'

@@ -42,6 +42,7 @@ import {
 import type { AnimationState } from './animations'
 import type { RoomId, ActivityType } from '../rooms'
 import { getRoom } from '../rooms'
+import { pickPhrase, selectPhraseCategory } from './phrases'
 
 // ---------------------------------------------------------------------------
 // Configurable constants
@@ -76,18 +77,15 @@ export interface CharacterState {
 }
 
 // ---------------------------------------------------------------------------
-// Thought bubble phrases
+// Thought bubble configuration
 // ---------------------------------------------------------------------------
 
-const THOUGHT_PHRASES: Readonly<Record<keyof Needs | 'working' | 'hobby' | 'happy', string[]>> = {
-  hunger: ["I could eat…", "Something smells good.", "Mmmm, pizza.", "Getting hungry…"],
-  sleep: ["Yawn…", "Just five more minutes.", "So tired.", "Could really use a nap."],
-  hygiene: ["Maybe I should freshen up.", "Time for a shower.", "Feeling a bit grubby."],
-  entertainment: ["What to do…", "Maybe I'll read.", "…", "Kind of bored."],
-  working: ["Almost done.", "Hmm.", "[typing sounds]", "Just one more thing."],
-  hobby: ["I love this.", "Getting better.", "Just one more hour.", "This is nice."],
-  happy: ["This is nice.", "Cozy.", ":)", "Good day."],
-}
+/** How long a thought stays visible (real seconds) */
+const THOUGHT_DURATION = 10
+/** Minimum quiet period between thoughts (real seconds) */
+const THOUGHT_COOLDOWN_MIN = 15
+/** Maximum quiet period between thoughts (real seconds) */
+const THOUGHT_COOLDOWN_MAX = 30
 
 // ---------------------------------------------------------------------------
 // Main Character class
@@ -103,8 +101,13 @@ export class Character {
   private currentRoom: RoomId
   private currentActivity: ActivityType
   private animationState: AnimationState
-  private thoughtBubble: string | null = null
-  private thoughtBubbleTimer = 0
+  private currentThought: string | null = null
+  /** Counts down in real seconds while a thought is visible */
+  private thoughtTimer = 0
+  /** Counts down in real seconds during the quiet gap between thoughts */
+  private thoughtCooldown = 0
+  /** Monotonically increasing seed so consecutive picks stay varied */
+  private thoughtSeed = 0
 
   constructor(name: string, scene: THREE.Scene, initialState?: CharacterState) {
     this.name = name
@@ -399,48 +402,52 @@ export class Character {
   // -------------------------------------------------------------------------
 
   private _updateThoughtBubble(deltaTime: number): void {
-    this.thoughtBubbleTimer -= deltaTime
-
-    if (this.thoughtBubbleTimer <= 0) {
-      this.thoughtBubble = this._generateThought()
-      // Show thought for 3–6 real seconds, then hide for 4–8 seconds
-      this.thoughtBubbleTimer =
-        this.thoughtBubble !== null
-          ? 3 + Math.random() * 3  // display duration
-          : 4 + Math.random() * 4  // quiet duration
-    }
-  }
-
-  private _generateThought(): string | null {
-    // Occasionally no thought (return null to hide bubble)
-    if (Math.random() < 0.3) return null
-
-    // Determine which phrase list to use
-    let category: keyof typeof THOUGHT_PHRASES
-
     const state = this.fsm.state
-    if (this.needs.sleep >= 0.6) {
-      category = 'sleep'
-    } else if (this.needs.hunger >= 0.6) {
-      category = 'hunger'
-    } else if (this.needs.entertainment >= 0.6) {
-      category = 'entertainment'
-    } else if (
-      state.kind === 'active/performing' &&
-      (state.activity === 'work' || state.activity === 'type')
-    ) {
-      category = 'working'
-    } else if (
-      state.kind === 'active/performing' &&
-      ['paint', 'play_instrument', 'tinker', 'read'].includes(state.activity)
-    ) {
-      category = 'hobby'
-    } else {
-      category = 'happy'
+
+    // Suppress thoughts while the character is walking or climbing stairs —
+    // only show when idle or performing a stationary activity.
+    const isStationary =
+      state.kind === 'active/performing' || state.kind === 'sleeping'
+
+    if (!isStationary) {
+      // Clear any showing thought while moving
+      if (this.currentThought !== null) {
+        this.currentThought = null
+        this.thoughtTimer = 0
+      }
+      // Keep the cooldown ticking so thoughts don't appear the instant
+      // the character stops moving.
+      if (this.thoughtCooldown > 0) {
+        this.thoughtCooldown -= deltaTime
+      }
+      return
     }
 
-    const phrases = THOUGHT_PHRASES[category]
-    return phrases[Math.floor(Math.random() * phrases.length)]
+    // If a thought is currently showing, count it down
+    if (this.currentThought !== null) {
+      this.thoughtTimer -= deltaTime
+      if (this.thoughtTimer <= 0) {
+        // Thought expired — enter the quiet cooldown period
+        this.currentThought = null
+        this.thoughtCooldown =
+          THOUGHT_COOLDOWN_MIN +
+          Math.random() * (THOUGHT_COOLDOWN_MAX - THOUGHT_COOLDOWN_MIN)
+      }
+      return
+    }
+
+    // No thought showing — tick the cooldown
+    if (this.thoughtCooldown > 0) {
+      this.thoughtCooldown -= deltaTime
+      return
+    }
+
+    // Cooldown expired — pick a new thought
+    const activity =
+      state.kind === 'active/performing' ? state.activity : 'sleep'
+    const category = selectPhraseCategory(this.needs, activity)
+    this.currentThought = pickPhrase(category, this.thoughtSeed++)
+    this.thoughtTimer = THOUGHT_DURATION
   }
 
   // -------------------------------------------------------------------------
@@ -449,9 +456,10 @@ export class Character {
 
   /**
    * Returns the current thought bubble text, or null if none is showing.
+   * Returns null while the character is walking or climbing stairs.
    */
   getCurrentThought(): string | null {
-    return this.thoughtBubble
+    return this.currentThought
   }
 
   /**
