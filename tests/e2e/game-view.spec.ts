@@ -22,8 +22,9 @@ test.describe('Game view', () => {
 
     // A solid-color canvas (nothing rendered) compresses to ~2-5 KB PNG.
     // A rendered 3D dollhouse will be significantly larger due to color variety.
+    // Threshold is 15 KB to accommodate SwiftShader variance across platforms.
     const sizeKB = screenshotBuffer.length / 1024
-    expect(sizeKB).toBeGreaterThan(20)
+    expect(sizeKB).toBeGreaterThan(15)
   })
 
   test('thought bubble appears within 40 seconds', async ({ page }) => {
