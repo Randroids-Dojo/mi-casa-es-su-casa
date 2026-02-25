@@ -30,6 +30,11 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
     lastDist: number
   }>({ type: 'none', lastX: 0, lastY: 0, lastDist: 0 })
 
+  // Mouse drag state
+  const mouseStateRef = useRef<{ isDown: boolean; lastX: number; lastY: number }>(
+    { isDown: false, lastX: 0, lastY: 0 },
+  )
+
   useEffect(() => {
     if (!canvasRef.current) return
 
@@ -134,6 +139,55 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
     }
   }, [])
 
+  // Mouse drag and wheel — desktop pan/zoom
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    function onMouseDown(e: MouseEvent): void {
+      mouseStateRef.current = { isDown: true, lastX: e.clientX, lastY: e.clientY }
+      container!.style.cursor = 'grabbing'
+    }
+
+    function onMouseMove(e: MouseEvent): void {
+      const state = mouseStateRef.current
+      if (!state.isDown) return
+      const game = gameRef.current
+      if (!game) return
+      const dx = e.clientX - state.lastX
+      const dy = e.clientY - state.lastY
+      game.applyPanDeltaPixels(dx, dy)
+      state.lastX = e.clientX
+      state.lastY = e.clientY
+    }
+
+    function onMouseUp(): void {
+      mouseStateRef.current.isDown = false
+      container!.style.cursor = 'grab'
+    }
+
+    function onWheel(e: WheelEvent): void {
+      e.preventDefault()
+      const game = gameRef.current
+      if (!game) return
+      // Scroll up (deltaY < 0) → zoom in; scroll down → zoom out
+      const factor = Math.pow(0.999, e.deltaY)
+      game.applyZoomScale(factor)
+    }
+
+    container.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    container.addEventListener('wheel', onWheel, { passive: false })
+
+    return () => {
+      container.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      container.removeEventListener('wheel', onWheel)
+    }
+  }, [])
+
   return (
     <div
       ref={containerRef}
@@ -142,6 +196,7 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
         width: '100%',
         height: '100%',
         touchAction: 'none',
+        cursor: 'grab',
       }}
     >
       <canvas

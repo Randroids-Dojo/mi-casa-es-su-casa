@@ -103,7 +103,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   let panWorldX = 0
   let panWorldY = 0
   let zoomScale = 1
-  const MIN_ZOOM = 1   // can't zoom out past the full-house view
+  const MIN_ZOOM = 0.5 // can zoom out to show twice the house area
   const MAX_ZOOM = 5
 
   // Cached frustum size — updated each applyPanZoom call, used for pan delta
@@ -115,7 +115,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   const MAX_PAN_Y = FLOOR_HEIGHT * FLOOR_COUNT * 0.5
 
   // On mobile, start zoomed in on the living room / floor 1
-  const isMobile = window.innerWidth <= 768
+  const isMobile = Math.min(window.innerWidth, window.innerHeight) < 768
   if (isMobile) {
     zoomScale = 2.5
     panWorldX = -6   // shift left to center on living room (x≈10)
@@ -242,7 +242,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       const unitsPerPixelX = frustumVisibleW / canvas.clientWidth
       const unitsPerPixelY = frustumVisibleH / canvas.clientHeight
       panWorldX -= dx * unitsPerPixelX
-      panWorldY += dy * unitsPerPixelY
+      panWorldY -= dy * unitsPerPixelY
       panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
       panWorldY = clamp(panWorldY, -MAX_PAN_Y, MAX_PAN_Y)
       applyPanZoom()
