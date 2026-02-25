@@ -3,13 +3,17 @@
 // ---------------------------------------------------------------------------
 //
 // House coordinate system:
-//   Width:  16 voxels (x: 0–16)
+//   Width:  32 voxels (x: 0–32)
 //   Depth:   8 voxels (z: 0–8)
 //   Floors: 3, each FLOOR_HEIGHT voxels tall
 //   Floor Y origins: floor1=0, floor2=FLOOR_HEIGHT, floor3=FLOOR_HEIGHT*2
 //
-// Room centers are the midpoint of each room's bounds in world space.
-// Staircase connects all floors on the right side (x ≈ 13–15).
+// Layout (LCP-inspired):
+//   Floor 1: Entry(x 1–4) | Living(x 4–16) | Kitchen(x 16–27) | Stair(x 27–32)
+//   Floor 2: Bedroom(x 1–14) | Bathroom(x 14–20) | Study(x 20–27) | Stair
+//   Floor 3: Music Room(x 1–16) | Library(x 16–27) | Stair
+//
+// Staircase connects all floors on the right side (x ≈ 27–32).
 
 import * as THREE from 'three'
 import { FLOOR_HEIGHT } from './house'
@@ -90,56 +94,56 @@ export const ROOMS: readonly Room[] = [
   {
     id: 'living_room',
     floor: 1,
-    center: new THREE.Vector3(7, floorCenterY(1), 4),
+    center: new THREE.Vector3(10, floorCenterY(1), 4),
     activities: ['relax', 'watch_tv', 'read', 'idle'],
     adjacentRooms: ['entrance', 'kitchen', 'staircase'],
   },
   {
     id: 'kitchen',
     floor: 1,
-    center: new THREE.Vector3(11.5, floorCenterY(1), 4),
+    center: new THREE.Vector3(21.5, floorCenterY(1), 4),
     activities: ['cook', 'eat', 'idle'],
     adjacentRooms: ['living_room', 'staircase'],
   },
   {
     id: 'bedroom',
     floor: 2,
-    center: new THREE.Vector3(3.5, floorCenterY(2), 4),
+    center: new THREE.Vector3(7.5, floorCenterY(2), 4),
     activities: ['sleep', 'dress', 'idle'],
     adjacentRooms: ['study', 'staircase'],
   },
   {
     id: 'study',
     floor: 2,
-    center: new THREE.Vector3(8.5, floorCenterY(2), 4),
+    center: new THREE.Vector3(23.5, floorCenterY(2), 4),
     activities: ['work', 'type', 'read', 'idle'],
     adjacentRooms: ['bedroom', 'bathroom', 'staircase'],
   },
   {
     id: 'bathroom',
     floor: 2,
-    center: new THREE.Vector3(12, floorCenterY(2), 4),
+    center: new THREE.Vector3(17, floorCenterY(2), 4),
     activities: ['bathe', 'groom', 'idle'],
-    adjacentRooms: ['study', 'staircase'],
+    adjacentRooms: ['bedroom', 'study', 'staircase'],
   },
   {
     id: 'hobby_room',
     floor: 3,
-    center: new THREE.Vector3(5, floorCenterY(3), 4),
+    center: new THREE.Vector3(8.5, floorCenterY(3), 4),
     activities: ['paint', 'play_instrument', 'tinker', 'read', 'idle'],
     adjacentRooms: ['storage', 'staircase'],
   },
   {
     id: 'storage',
     floor: 3,
-    center: new THREE.Vector3(11.5, floorCenterY(3), 4),
+    center: new THREE.Vector3(21.5, floorCenterY(3), 4),
     activities: ['rummage', 'idle'],
     adjacentRooms: ['hobby_room', 'staircase'],
   },
   {
     id: 'staircase',
     floor: 1, // spans all floors; floor 1 is just the base designation
-    center: new THREE.Vector3(14, floorCenterY(1), 4),
+    center: new THREE.Vector3(29.5, floorCenterY(1), 4),
     activities: ['idle'],
     adjacentRooms: [
       'entrance',

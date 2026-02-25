@@ -7,21 +7,34 @@ import { Character } from './character'
 // Camera / pan / zoom helpers
 // ---------------------------------------------------------------------------
 
-/** Orthographic frustum bounds for the given canvas size and world width. */
+/**
+ * Orthographic frustum that "contains" the given world rect (worldW × worldH)
+ * within the canvas (canvasW × canvasH), with minimal padding.
+ *
+ * When the canvas is wider than the world rect the house fills the full canvas
+ * height and gets small horizontal margins. When the canvas is narrower/taller
+ * the house fills the full width with vertical margins. Either way the entire
+ * house is always visible at zoomScale=1.
+ */
 function computeFrustum(
-  width: number,
-  height: number,
-  worldWidth: number,
+  canvasW: number,
+  canvasH: number,
+  worldW: number,
+  worldH: number,
 ): { left: number; right: number; top: number; bottom: number } {
-  const aspect = width / height
-  const halfW = worldWidth / 2
-  const halfH = halfW / aspect
-  return {
-    left: -halfW,
-    right: halfW,
-    top: halfH,
-    bottom: -halfH,
+  const screenAspect = canvasW / canvasH
+  const worldAspect = worldW / worldH
+  let halfW: number, halfH: number
+  if (screenAspect >= worldAspect) {
+    // Canvas is wider than the house: fit by height, small side margins
+    halfH = worldH / 2
+    halfW = halfH * screenAspect
+  } else {
+    // Canvas is taller/narrower: fit by width, small top/bottom margins
+    halfW = worldW / 2
+    halfH = halfW / screenAspect
   }
+  return { left: -halfW, right: halfW, top: halfH, bottom: -halfH }
 }
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -63,40 +76,60 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   const scene = new THREE.Scene()
 
   // ------------------------------------------------------------------
-  // Camera (orthographic, dollhouse view)
+  // Camera (orthographic, dollhouse front view)
   // ------------------------------------------------------------------
   //
-  // The house spans: X: 0..16, Y: 0..24 (3 floors × 8), Z: 0..8
-  // Fit by width so the house spans the full screen with a small margin.
-  // On landscape screens the full 3 floors won't all be visible at once;
-  // players can pan vertically to see all floors.
-  const WORLD_WIDTH = HOUSE_WIDTH + 4 // 20 units — house fills full screen width
+  // House spans: X: 0..32, Y: 0..24 (3 floors × 8), Z: 0..8
+  // BASE_WORLD_W/H are the world-space extents that fill the screen at
+  // zoomScale=1, with a small margin so the house isn't flush against edges.
+  const MARGIN = 2
+  const BASE_WORLD_W = HOUSE_WIDTH + MARGIN // 34 units
+  const BASE_WORLD_H = FLOOR_HEIGHT * FLOOR_COUNT + MARGIN // 26 units
 
-  // Frustum will be set by the first applyPanZoom() call below.
   const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.1, 200)
 
-  // House center in world space — the pan baseline.
-  const houseCenterX = HOUSE_WIDTH / 2    // 8
+  // House center in world space — the default camera target.
+  const houseCenterX = HOUSE_WIDTH / 2    // 16
   const houseCenterY = (FLOOR_HEIGHT * FLOOR_COUNT) / 2  // 12
-  const houseCenterZ = HOUSE_DEPTH / 2   // 4
+  const houseCenterZ = HOUSE_DEPTH / 2    // 4
 
   // ------------------------------------------------------------------
   // Pan / zoom state
+  //
+  // zoomScale=1 → full house visible (contain fit)
+  // zoomScale>1 → zoomed in (see less of the house)
+  // zoomScale<1 → zoomed out past the full house (not normally reachable)
   // ------------------------------------------------------------------
   let panWorldX = 0
   let panWorldY = 0
   let zoomScale = 1
-  const MIN_ZOOM = 0.3
-  const MAX_ZOOM = 3
+  const MIN_ZOOM = 1   // can't zoom out past the full-house view
+  const MAX_ZOOM = 5
+
+  // Cached frustum size — updated each applyPanZoom call, used for pan delta
+  let frustumVisibleW = BASE_WORLD_W
+  let frustumVisibleH = BASE_WORLD_H
+
   // Maximum pan so the house stays roughly in view
-  const MAX_PAN_X = HOUSE_WIDTH
-  const MAX_PAN_Y = FLOOR_HEIGHT * FLOOR_COUNT * 0.6
+  const MAX_PAN_X = HOUSE_WIDTH * 0.5
+  const MAX_PAN_Y = FLOOR_HEIGHT * FLOOR_COUNT * 0.5
+
+  // On mobile, start zoomed in on the living room / floor 1
+  const isMobile = window.innerWidth <= 768
+  if (isMobile) {
+    zoomScale = 2.5
+    panWorldX = -6   // shift left to center on living room (x≈10)
+    panWorldY = -8   // shift down to show floor 1 (y≈0..8)
+  }
 
   function applyPanZoom(): void {
     const w = canvas.clientWidth
     const h = canvas.clientHeight
-    const worldWidth = WORLD_WIDTH * zoomScale
-    const f = computeFrustum(w, h, worldWidth)
+    const worldW = BASE_WORLD_W / zoomScale
+    const worldH = BASE_WORLD_H / zoomScale
+    const f = computeFrustum(w, h, worldW, worldH)
+    frustumVisibleW = f.right - f.left
+    frustumVisibleH = f.top - f.bottom
     camera.left = f.left
     camera.right = f.right
     camera.top = f.top
@@ -114,7 +147,6 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     camera.updateProjectionMatrix()
   }
 
-  // Establish initial camera position and frustum.
   applyPanZoom()
 
   // ------------------------------------------------------------------
@@ -131,14 +163,13 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   dirLight.shadow.mapSize.height = 2048
   dirLight.shadow.camera.near = 1
   dirLight.shadow.camera.far = 100
-  dirLight.shadow.camera.left = -30
-  dirLight.shadow.camera.right = 30
+  dirLight.shadow.camera.left = -40
+  dirLight.shadow.camera.right = 40
   dirLight.shadow.camera.top = 30
   dirLight.shadow.camera.bottom = -30
   scene.add(dirLight)
   scene.add(dirLight.target)
 
-  // Hemisphere light for soft ambient bounce: warm sky, cool purple-navy ground
   const hemiLight = new THREE.HemisphereLight(0xfff4e0, 0x2d1b4e, 0.3)
   scene.add(hemiLight)
 
@@ -163,7 +194,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     animFrameId = requestAnimationFrame(animate)
 
     const now = performance.now()
-    const deltaTime = Math.min((now - lastTime) / 1000, 0.1) // cap at 100ms
+    const deltaTime = Math.min((now - lastTime) / 1000, 0.1)
     lastTime = now
 
     character.update(deltaTime)
@@ -176,9 +207,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   // Resize handler
   // ------------------------------------------------------------------
   function onResize(): void {
-    const w = canvas.clientWidth
-    const h = canvas.clientHeight
-    renderer.setSize(w, h)
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight)
     applyPanZoom()
   }
 
@@ -199,28 +228,27 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       return character.getCurrentThought()
     },
     getCharacterHeadScreenPos() {
-      // Project the top of the character's head from world space to canvas percentages.
-      // Character local space: feet=0, head center≈3.2, head top≈3.7
       const worldPos = character.getMeshGroup().position.clone()
       worldPos.y += 3.7
       const ndc = worldPos.project(camera)
-      // NDC x,y are in [-1,1]; convert to [0,100]% with y-axis flipped
       const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
       const y = Math.max(2, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
       // "Content follows finger": the world point under the touch stays fixed.
-      // X: screen-X and world-X both increase rightward → camera moves opposite to finger: -= dx
-      // Y: screen-Y increases downward, world-Y increases upward → camera moves same as finger: += dy
-      const unitsPerPixel = (WORLD_WIDTH * zoomScale) / canvas.clientWidth
-      panWorldX -= dx * unitsPerPixel
-      panWorldY += dy * unitsPerPixel
+      // X: screen-X and world-X both increase rightward → pan is inverse of drag: -= dx
+      // Y: screen-Y increases downward, world-Y increases upward → pan matches drag: += dy
+      const unitsPerPixelX = frustumVisibleW / canvas.clientWidth
+      const unitsPerPixelY = frustumVisibleH / canvas.clientHeight
+      panWorldX -= dx * unitsPerPixelX
+      panWorldY += dy * unitsPerPixelY
       panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
       panWorldY = clamp(panWorldY, -MAX_PAN_Y, MAX_PAN_Y)
       applyPanZoom()
     },
     applyZoomScale(factor: number) {
+      // factor > 1 = zoom in (fingers spread); factor < 1 = zoom out (fingers pinch)
       zoomScale = clamp(zoomScale * factor, MIN_ZOOM, MAX_ZOOM)
       applyPanZoom()
     },

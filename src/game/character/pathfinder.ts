@@ -111,8 +111,8 @@ export function getPositionAlongPath(
  * Used during floor transitions to position the character correctly.
  */
 export function getStaircasePosition(floor: 1 | 2 | 3): THREE.Vector3 {
-  // Staircase is on the right side of the house at x≈14, z≈4
-  return new THREE.Vector3(14, getFloorCenterY(floor), 4)
+  // Staircase corridor center: x≈29.5, z≈4 (right column, x=27–32)
+  return new THREE.Vector3(29.5, getFloorCenterY(floor), 4)
 }
 
 /**

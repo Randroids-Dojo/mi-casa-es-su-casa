@@ -7,7 +7,7 @@ import type { Vec3, Room, VoxelSpec } from './types'
 // ---------------------------------------------------------------------------
 
 /** Width of the house in voxels */
-export const HOUSE_WIDTH = 16
+export const HOUSE_WIDTH = 32
 /** Height per floor in voxels (walls + ceiling) */
 export const FLOOR_HEIGHT = 8
 /** Depth of the house in voxels */
@@ -17,8 +17,8 @@ export const WALL_THICKNESS = 1
 /** Number of floors */
 export const FLOOR_COUNT = 3
 
-// Staircase occupies the rightmost 2 columns
-const STAIR_X_START = HOUSE_WIDTH - 3
+// Staircase occupies a 5-wide column on the far right (x = 27..32)
+const STAIR_X_START = 27
 
 // ---------------------------------------------------------------------------
 // Voxel builder helpers
@@ -66,7 +66,6 @@ function floorY(floor: 1 | 2 | 3): number {
  * - Left wall
  * - Right wall
  * - Back wall
- * - Ceiling slab
  * (No front wall — dollhouse cutaway)
  */
 function buildFloorShell(
@@ -78,8 +77,7 @@ function buildFloorShell(
   const hd = HOUSE_DEPTH
   const wt = WALL_THICKNESS
 
-  // Floor slab — full width, full depth, 1 voxel thick
-  // Centered at X=hw/2, Y=baseY+0.5, Z=hd/2
+  // Floor slab
   group.add(
     makeVoxel(
       { x: hw / 2, y: baseY + 0.5, z: hd / 2 },
@@ -88,12 +86,7 @@ function buildFloorShell(
     ),
   )
 
-  // Ceiling slab (= floor slab for the floor above, drawn here as ceiling)
-  // For floors 1 and 2, the ceiling is the floor of the next level — no
-  // separate slab needed. For floor 3 (top floor) we intentionally omit
-  // the roof to keep the dollhouse open to the sky.
-
-  // Left exterior wall (x=0)
+  // Left exterior wall
   group.add(
     makeVoxel(
       { x: 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
@@ -102,7 +95,7 @@ function buildFloorShell(
     ),
   )
 
-  // Right exterior wall (x=hw-1)
+  // Right exterior wall
   group.add(
     makeVoxel(
       { x: hw - 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
@@ -111,7 +104,7 @@ function buildFloorShell(
     ),
   )
 
-  // Back exterior wall (z=hd-1)
+  // Back exterior wall
   group.add(
     makeVoxel(
       { x: hw / 2, y: baseY + FLOOR_HEIGHT / 2, z: hd - 0.5 },
@@ -128,27 +121,23 @@ function buildFloorShell(
 function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
   const baseY = floorY(floor)
   const hd = HOUSE_DEPTH
-  const wallH = FLOOR_HEIGHT - 1 // leave floor/ceiling gap
+  const wallH = FLOOR_HEIGHT - 1
   const wt = WALL_THICKNESS
 
-  // Interior walls run the full depth of the house:
-  // from z=0 (front opening) to z=hd-1 (inner face of back wall).
-  // Center at (hd-1)/2, size = hd-1 so walls reach the back wall.
-  const wallZCenter = (hd - 1) / 2  // = 3.5
-  const wallZSize = hd - 1           // = 7
+  const wallZCenter = (hd - 1) / 2  // 3.5
+  const wallZSize = hd - 1           // 7
+
+  // Staircase divider wall (shared by all floors)
+  group.add(
+    makeVoxel(
+      { x: STAIR_X_START + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+      PALETTE.WALL_INTERIOR,
+      { x: wt, y: wallH, z: wallZSize },
+    ),
+  )
 
   if (floor === 1) {
-    // Divide living room / kitchen: vertical wall at x=9
-    // Leave gap at bottom 1 voxel for floor
-    group.add(
-      makeVoxel(
-        { x: 9.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-        PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: wallZSize },
-      ),
-    )
-
-    // Entrance hall: narrow wall separating entrance from living room at x=4
+    // Entry / living room divider at x=4
     group.add(
       makeVoxel(
         { x: 4.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
@@ -156,29 +145,36 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: wt, y: wallH, z: wallZSize },
       ),
     )
-  } else if (floor === 2) {
-    // Bedroom / study divider at x=6
+    // Living room / kitchen divider at x=16
     group.add(
       makeVoxel(
-        { x: 6.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+        { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
       ),
     )
-
-    // Study / bathroom divider at x=10
+  } else if (floor === 2) {
+    // Bedroom / bathroom divider at x=14
     group.add(
       makeVoxel(
-        { x: 10.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+        { x: 14.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+        PALETTE.WALL_INTERIOR,
+        { x: wt, y: wallH, z: wallZSize },
+      ),
+    )
+    // Bathroom / study divider at x=20
+    group.add(
+      makeVoxel(
+        { x: 20.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
       ),
     )
   } else if (floor === 3) {
-    // Hobby room / storage divider at x=9
+    // Music room / library divider at x=16
     group.add(
       makeVoxel(
-        { x: 9.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+        { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
       ),
@@ -190,128 +186,257 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
 // Furniture builders per room
 // ---------------------------------------------------------------------------
 
-function buildLivingRoom(group: THREE.Group): void {
+// Floor 1: Entry Hall (x=1..4)
+function buildEntranceHall(group: THREE.Group): void {
   const baseY = floorY(1)
-  const floorTop = baseY + 1 // top face of floor slab
+  const ft = baseY + 1
 
-  // Sofa — 3 wide × 1 deep × 1 tall seat, with 1-tall back
   addVoxels(group, [
-    // Sofa seat
-    { position: { x: 2, y: floorTop + 0.5, z: 6 }, color: PALETTE.SOFA, size: { x: 3, y: 1, z: 1 } },
-    // Sofa back
-    { position: { x: 2, y: floorTop + 1.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 3, y: 1, z: 0.5 } },
-    // TV on a small stand
-    { position: { x: 2, y: floorTop + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 2, y: 1, z: 1 } },
-    { position: { x: 2, y: floorTop + 1.5, z: 1.5 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1, z: 0.5 } },
-    // Bookshelf against back wall
-    { position: { x: 3.5, y: floorTop + 1.5, z: 7 }, color: PALETTE.BOOKSHELF, size: { x: 1, y: 2, z: 1 } },
+    // Front door frame on back wall
+    { position: { x: 2.5, y: ft + 2, z: 7.5 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
+    // Coat rack
+    { position: { x: 1.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
+    // Coat rack hooks (small horizontal protrusions)
+    { position: { x: 1.75, y: ft + 3, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+    { position: { x: 1.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+    // Entry rug (thin flat slab)
+    { position: { x: 2.5, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
   ])
 }
 
+// Floor 1: Living Room (x=4..16)
+function buildLivingRoom(group: THREE.Group): void {
+  const baseY = floorY(1)
+  const ft = baseY + 1
+
+  addVoxels(group, [
+    // Sofa — wide 3-seater
+    { position: { x: 8, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
+    { position: { x: 8, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
+    // Sofa cushions (accent)
+    { position: { x: 7, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    { position: { x: 9, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    // TV stand
+    { position: { x: 8, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
+    // TV screen
+    { position: { x: 8, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
+    // Fireplace (right side of living room, near divider)
+    { position: { x: 14.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
+    // Fireplace mantel
+    { position: { x: 14.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
+    // Fire glow (orange block inside fireplace)
+    { position: { x: 14.5, y: ft + 0.5, z: 7.3 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
+    // Armchair
+    { position: { x: 12, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: 12, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1.5, z: 0.5 } },
+    // Coffee table
+    { position: { x: 8, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
+    // Bookshelf (left side)
+    { position: { x: 5.5, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
+    // Books on shelf (color accents)
+    { position: { x: 5, y: ft + 1, z: 7.4 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 5.5, y: ft + 2, z: 7.4 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 6, y: ft + 3, z: 7.4 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Lamp
+    { position: { x: 6, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
+    { position: { x: 6, y: ft + 2.2, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
+  ])
+}
+
+// Floor 1: Kitchen (x=16..27)
 function buildKitchen(group: THREE.Group): void {
   const baseY = floorY(1)
-  const floorTop = baseY + 1
+  const ft = baseY + 1
 
   addVoxels(group, [
     // Counter along back wall
-    { position: { x: 12, y: floorTop + 0.5, z: 7 }, color: PALETTE.COUNTER, size: { x: 3, y: 1, z: 1 } },
-    // Stove on counter
-    { position: { x: 11, y: floorTop + 1.5, z: 7 }, color: PALETTE.STOVE, size: { x: 1, y: 1, z: 0.5 } },
-    // Fridge — tall (2 high)
-    { position: { x: 13.5, y: floorTop + 1, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 2, z: 1 } },
+    { position: { x: 22.5, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: 9, y: 1, z: 1 } },
+    // Counter backsplash
+    { position: { x: 22.5, y: ft + 2, z: 7.8 }, color: 0xd0e8e8, size: { x: 9, y: 2, z: 0.3 } },
+    // Stove (on counter, left side)
+    { position: { x: 18.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
+    // Stove top burners
+    { position: { x: 18, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    { position: { x: 19, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    // Sink (on counter, center)
+    { position: { x: 22.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
+    // Fridge (tall, right of counter)
+    { position: { x: 25.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
+    // Fridge handle
+    { position: { x: 24.9, y: ft + 2, z: 7 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
     // Dining table
-    { position: { x: 11.5, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.TABLE, size: { x: 2, y: 1, z: 2 } },
-    // Table legs (implied by table slab; skip for MVP blocky style)
+    { position: { x: 21, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
+    // Table leg detail
+    { position: { x: 19.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
+    { position: { x: 22.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
+    // Chairs
+    { position: { x: 19.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: 22.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
+    // Upper cabinet
+    { position: { x: 20, y: ft + 4.5, z: 7.6 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
   ])
 }
 
-function buildEntranceHall(group: THREE.Group): void {
-  const baseY = floorY(1)
-  const floorTop = baseY + 1
-
-  addVoxels(group, [
-    // Front door (open cutaway — just the frame color on the back wall side)
-    { position: { x: 2, y: floorTop + 1.5, z: 7 }, color: PALETTE.DOOR, size: { x: 2, y: 3, z: 0.5 } },
-    // Coat rack (narrow vertical)
-    { position: { x: 1.5, y: floorTop + 1.5, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 3, z: 0.5 } },
-  ])
-}
-
+// Floor 2: Bedroom (x=1..14)
 function buildBedroom(group: THREE.Group): void {
   const baseY = floorY(2)
-  const floorTop = baseY + 1
+  const ft = baseY + 1
 
   addVoxels(group, [
-    // Bed — 3 wide × 2 deep
-    { position: { x: 3, y: floorTop + 0.5, z: 6 }, color: PALETTE.BED, size: { x: 3, y: 1, z: 2 } },
-    // Pillow
-    { position: { x: 3, y: floorTop + 1, z: 5.5 }, color: PALETTE.CEILING, size: { x: 2, y: 0.5, z: 0.5 } },
-    // Nightstand
-    { position: { x: 5, y: floorTop + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
-    // Wardrobe — 2 wide × 2 tall
-    { position: { x: 2, y: floorTop + 1.5, z: 7 }, color: PALETTE.WARDROBE, size: { x: 2, y: 3, z: 1 } },
+    // Bed (wide double bed)
+    { position: { x: 5.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
+    // Duvet / blanket
+    { position: { x: 5.5, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 2 } },
+    // Pillows
+    { position: { x: 4, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    { position: { x: 6.5, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Bed headboard
+    { position: { x: 5.5, y: ft + 2, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
+    // Nightstand (left side)
+    { position: { x: 2.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
+    // Bedside lamp
+    { position: { x: 2.5, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
+    { position: { x: 2.5, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    // Wardrobe (double, against back wall left)
+    { position: { x: 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
+    // Wardrobe door detail
+    { position: { x: 1.5, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+    { position: { x: 2.5, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+    // Dresser (against back wall right)
+    { position: { x: 11, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
+    { position: { x: 11, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
+    // Dresser drawer handles
+    { position: { x: 10, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
+    { position: { x: 12, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
+    // Rug
+    { position: { x: 6, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: 7, y: 0.1, z: 3 } },
   ])
 }
 
-function buildStudy(group: THREE.Group): void {
-  const baseY = floorY(2)
-  const floorTop = baseY + 1
-
-  addVoxels(group, [
-    // Desk
-    { position: { x: 8, y: floorTop + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 2 } },
-    // Computer monitor (on desk)
-    { position: { x: 8, y: floorTop + 1.5, z: 7 }, color: PALETTE.TV_SCREEN, size: { x: 1, y: 1, z: 0.5 } },
-    // Chair (in front of desk, behind character walk path)
-    { position: { x: 8, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.SOFA, size: { x: 1, y: 1, z: 1 } },
-    // Bookshelf on the wall
-    { position: { x: 9.5, y: floorTop + 1.5, z: 7 }, color: PALETTE.BOOKSHELF, size: { x: 1, y: 2, z: 1 } },
-  ])
-}
-
+// Floor 2: Bathroom (x=14..20)
 function buildBathroom(group: THREE.Group): void {
   const baseY = floorY(2)
-  const floorTop = baseY + 1
+  const ft = baseY + 1
 
   addVoxels(group, [
     // Bathtub
-    { position: { x: 12, y: floorTop + 0.5, z: 6.5 }, color: PALETTE.COUNTER, size: { x: 2, y: 1, z: 2 } },
-    // Bathtub interior (slightly recessed, lighter color)
-    { position: { x: 12, y: floorTop + 0.75, z: 6.5 }, color: PALETTE.WALL_INTERIOR, size: { x: 1.5, y: 0.5, z: 1.5 } },
-    // Sink — small
-    { position: { x: 11.5, y: floorTop + 1, z: 2 }, color: PALETTE.FRIDGE, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: 16.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.COUNTER, size: { x: 4, y: 1, z: 2 } },
+    { position: { x: 16.5, y: ft + 0.9, z: 6.5 }, color: PALETTE.WALL_INTERIOR, size: { x: 3, y: 0.5, z: 1.5 } },
+    // Bath tap
+    { position: { x: 15.3, y: ft + 1.5, z: 7 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 0.7, z: 0.3 } },
+    // Sink
+    { position: { x: 15.5, y: ft + 1, z: 2.5 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.5, z: 1 } },
+    // Sink pedestal
+    { position: { x: 15.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WALL_INTERIOR, size: { x: 0.8, y: 1, z: 0.8 } },
     // Toilet
-    { position: { x: 13, y: floorTop + 0.5, z: 2 }, color: PALETTE.FRIDGE, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: 18.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: 18.5, y: ft + 1, z: 3.2 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Mirror above sink
+    { position: { x: 15.5, y: ft + 3, z: 7.6 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
+    // Towel rail
+    { position: { x: 18, y: ft + 2.5, z: 7.6 }, color: PALETTE.STAIRCASE, size: { x: 2, y: 0.3, z: 0.3 } },
+    // Towel (on rail)
+    { position: { x: 18, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
   ])
 }
 
-function buildHobbyRoom(group: THREE.Group): void {
-  const baseY = floorY(3)
-  const floorTop = baseY + 1
+// Floor 2: Study (x=20..27)
+function buildStudy(group: THREE.Group): void {
+  const baseY = floorY(2)
+  const ft = baseY + 1
 
   addVoxels(group, [
-    // Easel (angled stand — approximate with two voxels)
-    { position: { x: 4, y: floorTop + 1.5, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 3, z: 0.5 } },
-    // Canvas on easel
-    { position: { x: 4, y: floorTop + 2.5, z: 4.5 }, color: PALETTE.CEILING, size: { x: 1.5, y: 1.5, z: 0.25 } },
-    // Workbench
-    { position: { x: 6.5, y: floorTop + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 2 } },
-    // Instrument (small block)
-    { position: { x: 2, y: floorTop + 1, z: 3 }, color: PALETTE.SOFA, size: { x: 1, y: 1, z: 0.5 } },
+    // Desk (L-shaped: main desk + side return)
+    { position: { x: 23, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
+    { position: { x: 21, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
+    // Computer monitor
+    { position: { x: 22.5, y: ft + 1.75, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
+    // Keyboard
+    { position: { x: 22.5, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
+    // Desk chair
+    { position: { x: 23, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: 23, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
+    // Tall bookshelf (left side)
+    { position: { x: 21, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
+    // Book spines (color accents)
+    { position: { x: 20.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 21, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 21.5, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Tall bookshelf (right side)
+    { position: { x: 25.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
+    // More book accents
+    { position: { x: 25, y: ft + 1, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 26, y: ft + 2.5, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Desk lamp
+    { position: { x: 24.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    { position: { x: 24.5, y: ft + 2.2, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
   ])
 }
 
-function buildStorage(group: THREE.Group): void {
+// Floor 3: Music Room / Piano Room (x=1..16) — LCP-inspired
+function buildMusicRoom(group: THREE.Group): void {
   const baseY = floorY(3)
-  const floorTop = baseY + 1
+  const ft = baseY + 1
 
   addVoxels(group, [
-    // Boxes stacked
-    { position: { x: 11, y: floorTop + 0.5, z: 7 }, color: PALETTE.TABLE, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 12.5, y: floorTop + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 11.5, y: floorTop + 1.5, z: 7 }, color: PALETTE.BOOKSHELF, size: { x: 1.5, y: 1, z: 1.5 } },
-    // Old furniture (low block)
-    { position: { x: 12, y: floorTop + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
+    // Upright piano (against back-left wall)
+    { position: { x: 4, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
+    // Piano keys (lighter strip on front)
+    { position: { x: 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.CEILING, size: { x: 3.5, y: 0.5, z: 0.5 } },
+    // Piano black keys (dark accent)
+    { position: { x: 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
+    { position: { x: 4.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
+    // Piano bench
+    { position: { x: 4, y: ft + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
+    // Record player / stereo on cabinet
+    { position: { x: 10, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
+    { position: { x: 10, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+    // Record player arm
+    { position: { x: 10.8, y: ft + 2, z: 7.1 }, color: PALETTE.STAIRCASE, size: { x: 1.2, y: 0.2, z: 0.2 } },
+    // Speakers (either side)
+    { position: { x: 7.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+    { position: { x: 12.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+    // Couch (center)
+    { position: { x: 8, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 4, y: 1, z: 1.5 } },
+    { position: { x: 8, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
+    // Rug
+    { position: { x: 8, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: 6, y: 0.1, z: 4 } },
+    // Easel (right side)
+    { position: { x: 14, y: ft + 2, z: 5 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
+    { position: { x: 14, y: ft + 3, z: 4.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
+  ])
+}
+
+// Floor 3: Library (x=16..27)
+function buildLibrary(group: THREE.Group): void {
+  const baseY = floorY(3)
+  const ft = baseY + 1
+
+  addVoxels(group, [
+    // Three tall bookshelves across the back wall
+    { position: { x: 18, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+    { position: { x: 21.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+    { position: { x: 25, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+    // Book color accents on shelves
+    { position: { x: 17.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 18.5, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 19, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 21, y: ft + 1.5, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 22.5, y: ft + 3, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: 24.5, y: ft + 2, z: 7.2 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Reading armchair
+    { position: { x: 19, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
+    { position: { x: 19, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
+    // Side table (with lamp)
+    { position: { x: 21, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: 21, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    { position: { x: 21, y: ft + 2.1, z: 4 }, color: 0xfff4c0, size: { x: 0.8, y: 0.3, z: 0.8 } },
+    // Writing desk (right side)
+    { position: { x: 24.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 1.5 } },
+    // Quill / pen pot
+    { position: { x: 25, y: ft + 1.2, z: 3.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.4, y: 1, z: 0.4 } },
+    // Rug
+    { position: { x: 21.5, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: 8, y: 0.1, z: 5 } },
   ])
 }
 
@@ -320,33 +445,22 @@ function buildStorage(group: THREE.Group): void {
 // ---------------------------------------------------------------------------
 
 function buildStaircase(group: THREE.Group): void {
-  // Proper voxel staircase: each step rises 1 unit in Y and advances 1 unit
-  // in Z, creating the classic ascending staircase silhouette.
-  //
-  // With FLOOR_HEIGHT=8 we use 8 steps per floor so rise = 8/8 = 1 unit/step.
-  // Steps run in the Z direction (front→back) inside the right-side corridor.
-  //
-  // Step i (0-indexed within a floor):
-  //   top-face Y  = baseY + 1 + (i + 1)       — each step 1 unit above the last
-  //   center Y    = baseY + 1 + (i + 1) - 0.5  — center of 1-unit-tall block
-  //   center Z    = startZ + i + 0.5            — 1 unit deep per step, no overlap
-  //
-  // The step is 2 units wide in X (corridor width) and 1×1 in Y×Z.
+  // Staircase corridor: x = STAIR_X_START..HOUSE_WIDTH (27..32), 5 wide.
+  // Steps are 3 wide, centered in the corridor.
+  // 8 steps per floor (one step per voxel of FLOOR_HEIGHT).
+  // Steps rise in Y and advance in Z (front→back).
 
-  const stairSteps = FLOOR_HEIGHT // one step per voxel of floor height = 8 steps
-  const stepCenterX = STAIR_X_START + 1 // x=14, middle of the staircase corridor
-  const stepWidth = 2 // corridor width in X
-  const startZ = 0.5 // first step starts at the front edge of the corridor
+  const stairSteps = FLOOR_HEIGHT
+  const stepCenterX = STAIR_X_START + 2.5  // = 29.5
+  const stepWidth = 3
+  const startZ = 0.5
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
     const baseY = floorY(f as 1 | 2 | 3)
 
     for (let step = 0; step < stairSteps; step++) {
-      // Top of this step is 1 unit above the previous; the block is 1 unit tall.
       const stepTopY = baseY + 1 + (step + 1)
       const stepCenterY = stepTopY - 0.5
-
-      // Each step is 1 unit deep in Z, advancing toward the back wall.
       const stepCenterZ = startZ + step + 0.5
 
       group.add(
@@ -358,7 +472,7 @@ function buildStaircase(group: THREE.Group): void {
       )
     }
 
-    // Landing platform at the top of the run — flush with the floor above.
+    // Landing platform at the top
     const landingTopY = baseY + FLOOR_HEIGHT + 1
     group.add(
       makeVoxel(
@@ -388,15 +502,15 @@ export function getRooms(): Room[] {
       id: 'living_room',
       floor: 1,
       bounds: {
-        min: { x: 5, y: floorY(1), z: 1 },
-        max: { x: 9, y: floorY(1) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        min: { x: 4, y: floorY(1), z: 1 },
+        max: { x: 16, y: floorY(1) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
       id: 'kitchen',
       floor: 1,
       bounds: {
-        min: { x: 10, y: floorY(1), z: 1 },
+        min: { x: 16, y: floorY(1), z: 1 },
         max: { x: STAIR_X_START, y: floorY(1) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
@@ -405,23 +519,23 @@ export function getRooms(): Room[] {
       floor: 2,
       bounds: {
         min: { x: 1, y: floorY(2), z: 1 },
-        max: { x: 6, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        max: { x: 14, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
       id: 'study',
       floor: 2,
       bounds: {
-        min: { x: 7, y: floorY(2), z: 1 },
-        max: { x: 10, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        min: { x: 20, y: floorY(2), z: 1 },
+        max: { x: STAIR_X_START, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
       id: 'bathroom',
       floor: 2,
       bounds: {
-        min: { x: 11, y: floorY(2), z: 1 },
-        max: { x: STAIR_X_START, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        min: { x: 14, y: floorY(2), z: 1 },
+        max: { x: 20, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
@@ -429,14 +543,14 @@ export function getRooms(): Room[] {
       floor: 3,
       bounds: {
         min: { x: 1, y: floorY(3), z: 1 },
-        max: { x: 9, y: floorY(3) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        max: { x: 16, y: floorY(3) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
       id: 'storage',
       floor: 3,
       bounds: {
-        min: { x: 10, y: floorY(3), z: 1 },
+        min: { x: 16, y: floorY(3), z: 1 },
         max: { x: STAIR_X_START, y: floorY(3) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
@@ -458,27 +572,28 @@ export function getRooms(): Room[] {
 /**
  * Builds the complete house geometry as a THREE.Group.
  * The house origin is at (0,0,0) — bottom-left-front corner.
+ *
+ * Layout (LCP-inspired, left→right):
+ *   Floor 1: Entry Hall (x 1–4) | Living Room (x 4–16) | Kitchen (x 16–27) | Staircase (x 27–32)
+ *   Floor 2: Bedroom (x 1–14) | Bathroom (x 14–20) | Study (x 20–27) | Staircase
+ *   Floor 3: Music Room (x 1–16) | Library (x 16–27) | Staircase
  */
 export function buildHouse(): THREE.Group {
   const house = new THREE.Group()
 
-  // Build floor shells (structure)
   for (const floor of [1, 2, 3] as const) {
     buildFloorShell(house, floor)
     buildInteriorWalls(house, floor)
   }
 
-  // Build furniture per room
+  buildEntranceHall(house)
   buildLivingRoom(house)
   buildKitchen(house)
-  buildEntranceHall(house)
   buildBedroom(house)
-  buildStudy(house)
   buildBathroom(house)
-  buildHobbyRoom(house)
-  buildStorage(house)
-
-  // Build staircase
+  buildStudy(house)
+  buildMusicRoom(house)
+  buildLibrary(house)
   buildStaircase(house)
 
   return house
