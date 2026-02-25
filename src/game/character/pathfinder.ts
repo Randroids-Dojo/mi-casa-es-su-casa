@@ -82,9 +82,37 @@ export function getPositionAlongLeg(
   return new THREE.Vector3().lerpVectors(from, to, progress)
 }
 
+// ---------------------------------------------------------------------------
+// Staircase geometry constants (must match buildStaircase in house.ts)
+// ---------------------------------------------------------------------------
+
+/** World-space X center of the staircase column */
+const STAIR_X = ROOM_MAP['staircase'].center.x  // 29.5
+
+/**
+ * Z coordinate of the bottom step (front of house, closest to camera).
+ * The camera looks in the +Z direction so low-Z = close to viewer.
+ */
+const STAIR_Z_BOTTOM = 1
+
+/**
+ * Z coordinate near the top step (toward back wall).
+ * Using 7 rather than 8 keeps the character clear of the back wall geometry.
+ */
+const STAIR_Z_TOP = 7
+
+// ---------------------------------------------------------------------------
+
 /**
  * Returns the world-space position of a character partway along a full path,
  * given their current leg index and progress within that leg.
+ *
+ * Staircase legs use a two-phase movement:
+ *   - Room → Staircase: walk horizontally to the stair entry at the
+ *     current floor level and the correct front/back Z for the climb direction.
+ *   - Staircase → Room: Phase 1 climbs at x=STAIR_X so the Y change happens
+ *     entirely inside the staircase column (no floor clipping). Phase 2 walks
+ *     horizontally at the destination floor Y to the room center.
  */
 export function getPositionAlongPath(
   path: RoomId[],
@@ -106,25 +134,56 @@ export function getPositionAlongPath(
   const fromRoomId = path[fromIdx]
   const toRoomId = path[toIdx]
 
-  // When a leg involves the staircase as a waypoint, adjust its Y so the
-  // character walks horizontally to/from the staircase at the correct floor
-  // height, and Y transitions (climbing) happen naturally during staircase legs.
-  let fromCenter = ROOM_MAP[fromRoomId].center.clone()
-  let toCenter = ROOM_MAP[toRoomId].center.clone()
+  // ---- Leg toward the staircase ----
+  if (toRoomId === 'staircase') {
+    // Determine ascent/descent by looking at the room after the staircase.
+    const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
+    const fromFloor = ROOM_MAP[fromRoomId].floor
+    const nextFloor = nextRoomId ? ROOM_MAP[nextRoomId].floor : fromFloor
+    const ascending = nextFloor > fromFloor
 
-  if (fromRoomId === 'staircase') {
-    // Moving away from staircase: start at the floor Y the character arrived from
-    const prevRoomId = path[fromIdx - 1]
-    if (prevRoomId) {
-      fromCenter.y = ROOM_MAP[prevRoomId].center.y
-    }
-  } else if (toRoomId === 'staircase') {
-    // Moving toward staircase: keep staircase at current floor Y so character
-    // walks horizontally before climbing begins on the next leg
-    toCenter.y = fromCenter.y
+    // Walk horizontally at the current floor Y to the correct stair entry Z.
+    const fromCenter = ROOM_MAP[fromRoomId].center
+    const entryZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
+    const staircaseEntry = new THREE.Vector3(STAIR_X, fromCenter.y, entryZ)
+    return new THREE.Vector3().lerpVectors(fromCenter, staircaseEntry, legProgress)
   }
 
-  return new THREE.Vector3().lerpVectors(fromCenter, toCenter, legProgress)
+  // ---- Leg away from the staircase ----
+  if (fromRoomId === 'staircase') {
+    // Determine ascent/descent from the room that preceded the staircase.
+    const prevRoomId = fromIdx > 0 ? path[fromIdx - 1] : null
+    const prevFloor = prevRoomId ? ROOM_MAP[prevRoomId].floor : ROOM_MAP[toRoomId].floor
+    const toFloor = ROOM_MAP[toRoomId].floor
+    const ascending = toFloor > prevFloor
+
+    const climbStartY = prevRoomId ? ROOM_MAP[prevRoomId].center.y : ROOM_MAP[toRoomId].center.y
+    const climbEndY = ROOM_MAP[toRoomId].center.y
+    const climbStartZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
+    const climbEndZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
+
+    // Phase 1 (0 → 0.5): climb/descend at staircase X; Y and Z follow stair slope.
+    // Phase 2 (0.5 → 1): walk horizontally at destination floor Y to room center.
+    if (legProgress <= 0.5) {
+      const t = legProgress / 0.5
+      return new THREE.Vector3(
+        STAIR_X,
+        THREE.MathUtils.lerp(climbStartY, climbEndY, t),
+        THREE.MathUtils.lerp(climbStartZ, climbEndZ, t),
+      )
+    } else {
+      const t = (legProgress - 0.5) / 0.5
+      const destCenter = ROOM_MAP[toRoomId].center
+      return new THREE.Vector3(
+        THREE.MathUtils.lerp(STAIR_X, destCenter.x, t),
+        climbEndY,
+        THREE.MathUtils.lerp(climbEndZ, destCenter.z, t),
+      )
+    }
+  }
+
+  // ---- Normal leg between two non-staircase rooms ----
+  return getPositionAlongLeg(fromRoomId, toRoomId, legProgress)
 }
 
 /**
