@@ -315,22 +315,27 @@ function buildStorage(group: THREE.Group): void {
 
 function buildStaircase(group: THREE.Group): void {
   // Stepped voxel staircase on the right side (x ~ STAIR_X_START..HOUSE_WIDTH-1)
+  // Interior staircase corridor: x from STAIR_X_START (13) to right wall interior (15)
+  // Steps are centered at a fixed X (14) and progress upward in Y while stepping in Z.
   // We build stairs connecting floor 1→2 and floor 2→3
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
     const baseY = floorY(f as 1 | 2 | 3)
     const stairSteps = 5 // number of steps per floor rise
 
+    // Step center X: midpoint of staircase corridor (between STAIR_X_START and wall)
+    const stepCenterX = STAIR_X_START + 1 // = 14, well inside the right wall at 15.5
+
     for (let step = 0; step < stairSteps; step++) {
-      const stepX = STAIR_X_START + 0.5 + step * 0.5
       const stepY = baseY + 1 + step * (FLOOR_HEIGHT / stairSteps)
-      const stepZ = 3.5
+      // Steps progress in Z direction (front to back) as they climb
+      const stepZ = 2 + step * 0.8
 
       group.add(
         makeVoxel(
-          { x: stepX, y: stepY, z: stepZ },
+          { x: stepCenterX, y: stepY, z: stepZ },
           PALETTE.STAIRCASE,
-          { x: 2, y: 0.5, z: 1.5 },
+          { x: 1.5, y: 0.5, z: 1 },
         ),
       )
     }
@@ -338,9 +343,9 @@ function buildStaircase(group: THREE.Group): void {
     // Stair platform / landing at top of stair run
     group.add(
       makeVoxel(
-        { x: STAIR_X_START + 1.5, y: baseY + FLOOR_HEIGHT + 0.5, z: 3.5 },
+        { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: 3.5 },
         PALETTE.STAIRCASE,
-        { x: 2, y: 0.5, z: 1.5 },
+        { x: 1.5, y: 0.5, z: 1.5 },
       ),
     )
   }
