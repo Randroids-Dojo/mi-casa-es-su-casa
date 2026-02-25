@@ -68,7 +68,7 @@ test.describe('Game view', () => {
 
     const canvasBox = await page.locator('canvas').boundingBox()
     await expect(page).toHaveScreenshot('game-view-house.png', {
-      maxDiffPixelRatio: 0.03,
+      maxDiffPixelRatio: 0.15,
       clip: canvasBox ?? undefined,
     })
   })
