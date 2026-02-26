@@ -13,6 +13,15 @@ type Phase =
   | 'ERROR'
   | 'SUCCESS'
 
+// ─── Suffix options ────────────────────────────────────────────────────────────
+
+const SUFFIXES: { label: string; display: string; slug: string }[] = [
+  { label: '', display: '──', slug: '' },
+  { label: ' The Third', display: 'The Third', slug: '-the-third' },
+  { label: ' Jr.', display: 'Jr.', slug: '-jr' },
+  { label: ' Sr.', display: 'Sr.', slug: '-sr' },
+]
+
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
@@ -52,6 +61,7 @@ export function BootScreen() {
 
   // Name entry
   const [inputValue, setInputValue] = useState<string>('')
+  const [suffixValue, setSuffixValue] = useState<string>('')
   const [submittedName, setSubmittedName] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string>('')
 
@@ -125,18 +135,20 @@ export function BootScreen() {
 
   const handleSubmit = useCallback(async () => {
     const raw = inputValue
+    const suffix = SUFFIXES.find((s) => s.label === suffixValue) ?? SUFFIXES[0]
+    const displayName = raw + suffixValue
 
-    // 1. Client-side validation (instant)
+    // 1. Client-side validation (base name only)
     const clientResult = validateNameFormat(raw)
     if (!clientResult.valid) {
-      setSubmittedName(raw)
+      setSubmittedName(displayName)
       setErrorMessage(clientResult.error ?? 'INVALID NAME')
       setInputValue('')
       setPhase('ERROR')
       return
     }
 
-    setSubmittedName(raw)
+    setSubmittedName(displayName)
     setPhase('VALIDATING')
 
     // 2. Server-side validation
@@ -157,15 +169,16 @@ export function BootScreen() {
         return
       }
 
-      const normalized = data.normalizedName ?? normalizeName(raw)
+      const normalizedBase = data.normalizedName ?? normalizeName(raw)
+      const urlSlug = normalizedBase + suffix.slug
       setPhase('SUCCESS')
-      router.push(`/${normalized}`)
+      router.push(`/${urlSlug}`)
     } catch {
       setErrorMessage('CONNECTION ERROR — TRY AGAIN')
       setInputValue('')
       setPhase('ERROR')
     }
-  }, [inputValue, router])
+  }, [inputValue, suffixValue, router])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -202,34 +215,54 @@ export function BootScreen() {
 
         {/* Name prompt — NAME_PROMPT phase */}
         {phase === 'NAME_PROMPT' && (
-          <div style={styles.line}>
-            {'ENTER CHARACTER NAME: '}
-            <span style={styles.inputWrapper}>
-              <label htmlFor="name-input" className="sr-only">
-                Enter character name
+          <>
+            <div style={styles.line}>
+              {'ENTER CHARACTER NAME: '}
+              <span style={styles.inputWrapper}>
+                <label htmlFor="name-input" className="sr-only">
+                  Enter character name
+                </label>
+                <input
+                  ref={inputRef}
+                  id="name-input"
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  maxLength={20}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  style={styles.input}
+                />
+                {/* Blinking cursor shown when input is empty */}
+                {inputValue === '' && (
+                  <span style={styles.blinkCursor} aria-hidden="true">
+                    _
+                  </span>
+                )}
+              </span>
+              <label htmlFor="suffix-select" className="sr-only">
+                Name suffix
               </label>
-              <input
-                ref={inputRef}
-                id="name-input"
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value.toUpperCase())}
-                onKeyDown={handleKeyDown}
-                maxLength={20}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                style={styles.input}
-              />
-              {/* Blinking cursor shown when input is empty */}
-              {inputValue === '' && (
-                <span style={styles.blinkCursor} aria-hidden="true">
-                  _
-                </span>
-              )}
-            </span>
-          </div>
+              <select
+                id="suffix-select"
+                value={suffixValue}
+                onChange={(e) => setSuffixValue(e.target.value)}
+                style={styles.suffixSelect}
+              >
+                {SUFFIXES.map((s) => (
+                  <option key={s.slug} value={s.label} style={styles.suffixOption}>
+                    {s.display}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={styles.tapHint} aria-hidden="true">
+              {'  ↑ CLICK OR TAP TO ENTER YOUR NAME'}
+            </div>
+          </>
         )}
 
         {/* Validating phase */}
@@ -282,6 +315,24 @@ export function BootScreen() {
                   </span>
                 )}
               </span>
+              <label htmlFor="suffix-select" className="sr-only">
+                Name suffix
+              </label>
+              <select
+                id="suffix-select"
+                value={suffixValue}
+                onChange={(e) => setSuffixValue(e.target.value)}
+                style={styles.suffixSelect}
+              >
+                {SUFFIXES.map((s) => (
+                  <option key={s.slug} value={s.label} style={styles.suffixOption}>
+                    {s.display}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={styles.tapHint} aria-hidden="true">
+              {'  ↑ CLICK OR TAP TO ENTER YOUR NAME'}
             </div>
           </>
         )}
@@ -374,6 +425,7 @@ const styles: Record<string, React.CSSProperties> = {
   input: {
     background: 'transparent',
     border: 'none',
+    borderBottom: `2px solid rgba(51, 255, 51, 0.45)`,
     outline: 'none',
     color: CRT_GREEN,
     fontFamily: FONT_STACK,
@@ -381,10 +433,40 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '1.6',
     textShadow: `0 0 8px ${CRT_GREEN}`,
     caretColor: 'transparent', // hide browser caret; we use our own blinking _
-    width: '300px',
+    width: '220px',
     padding: 0,
     margin: 0,
     verticalAlign: 'baseline',
+  },
+
+  suffixSelect: {
+    background: 'transparent',
+    border: 'none',
+    borderBottom: `2px solid rgba(51, 255, 51, 0.45)`,
+    outline: 'none',
+    color: CRT_GREEN,
+    fontFamily: FONT_STACK,
+    fontSize: '18px',
+    lineHeight: '1.6',
+    textShadow: `0 0 8px ${CRT_GREEN}`,
+    marginLeft: '10px',
+    padding: 0,
+    verticalAlign: 'baseline',
+    cursor: 'pointer',
+    maxWidth: '120px',
+  },
+
+  suffixOption: {
+    background: '#000',
+    color: CRT_GREEN,
+  },
+
+  tapHint: {
+    display: 'block',
+    minHeight: '1.6em',
+    whiteSpace: 'pre',
+    opacity: 0.5,
+    fontSize: '14px',
   },
 
   errorLine: {
