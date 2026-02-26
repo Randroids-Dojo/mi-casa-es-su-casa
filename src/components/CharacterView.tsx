@@ -25,7 +25,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100dvh' }}>
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         <GameCanvas characterName={name} onGameReady={handleGameReady} />
       </div>

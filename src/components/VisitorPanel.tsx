@@ -104,7 +104,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
               ? `${count} VISITOR${count !== 1 ? 'S' : ''} FOR ${displayName}`
               : `VISITOR MESSAGES FOR ${displayName}`}
           </span>
-          <span style={styles.toggleArrow}>{collapsed ? '▲' : '▼'}</span>
+          <span style={styles.toggleArrow}>{collapsed ? '▼' : '▲'}</span>
         </button>
 
         <div style={styles.divider} aria-hidden="true">{'─'.repeat(44)}</div>
