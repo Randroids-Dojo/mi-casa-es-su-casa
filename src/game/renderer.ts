@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
+import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
+import type { ClothingItem } from '@/lib/characterSchema'
 
 // ---------------------------------------------------------------------------
 // Camera / pan / zoom helpers
@@ -47,7 +49,11 @@ function clamp(v: number, lo: number, hi: number): number {
  * @param canvas - The target HTMLCanvasElement
  * @param characterName - Name used to seed the character (default: 'resident')
  */
-export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'): GameInstance {
+export function initGame(
+  canvas: HTMLCanvasElement,
+  characterName = 'resident',
+  initialState?: SchemaCharacterState,
+): GameInstance {
   // ------------------------------------------------------------------
   // Renderer
   // ------------------------------------------------------------------
@@ -63,6 +69,8 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       applyPanDeltaPixels() {},
       applyZoomScale() {},
       injectThought() {},
+      putOnClothes() {},
+      getCharacterState() { return null },
     }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -183,7 +191,19 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   // ------------------------------------------------------------------
   // Character
   // ------------------------------------------------------------------
-  const character = new Character(characterName, scene)
+  const gameCharacterState = initialState
+    ? {
+        name: initialState.name,
+        currentRoom: initialState.currentRoom,
+        currentActivity: initialState.currentActivity,
+        needs: initialState.needs,
+        clock: initialState.clock,
+        position: initialState.position,
+        accessories: (initialState.accessories ?? []) as ClothingItem[],
+      }
+    : undefined
+
+  const character = new Character(characterName, scene, gameCharacterState)
 
   // ------------------------------------------------------------------
   // Animation loop
@@ -233,7 +253,8 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       worldPos.y += 3.7
       const ndc = worldPos.project(camera)
       const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
-      const y = Math.max(15, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
+      // 15% minimum gives the bubble (~60px) + tail (14px) room to sit above the head
+      const y = Math.max(15, Math.min(90, (1 - (ndc.y + 1) / 2) * 100))
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
@@ -255,6 +276,30 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
     },
     injectThought(text: string) {
       character.injectThought(text)
+    },
+    putOnClothes(item: string) {
+      character.putOnClothes(item as ClothingItem)
+    },
+    getCharacterState(): SchemaCharacterState | null {
+      const s = character.getState()
+      // 'staircase' is a transit-only room not persisted in the schema;
+      // fall back to the last real room stored in initialState if mid-transit.
+      const persistableRoom = (
+        s.currentRoom === 'staircase'
+          ? (initialState?.currentRoom ?? 'living_room')
+          : s.currentRoom
+      ) as SchemaCharacterState['currentRoom']
+      return {
+        name: s.name,
+        createdAt: initialState?.createdAt ?? new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+        currentRoom: persistableRoom,
+        currentActivity: s.currentActivity as SchemaCharacterState['currentActivity'],
+        needs: s.needs,
+        clock: s.clock,
+        position: s.position,
+        accessories: s.accessories,
+      }
     },
   }
 }

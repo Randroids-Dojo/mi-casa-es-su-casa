@@ -31,6 +31,8 @@ export interface Room {
   }
 }
 
+import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
+
 export interface GameInstance {
   dispose(): void
   /** Returns the current thought bubble text, or null if none is showing. */
@@ -56,4 +58,13 @@ export interface GameInstance {
    * until the next time the character stops moving.
    */
   injectThought(text: string): void
+  /**
+   * Walks the character to the wardrobe and puts on the given clothing item.
+   * The item persists in the character's saved state.
+   */
+  putOnClothes(item: string): void
+  /**
+   * Returns the current character state snapshot for persistence.
+   */
+  getCharacterState(): SchemaCharacterState | null
 }

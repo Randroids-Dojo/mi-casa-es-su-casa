@@ -74,6 +74,9 @@ export type { AnimationName, AnimationState } from './animations'
 export { PHRASES, pickPhrase, selectPhraseCategory } from './phrases'
 export type { PhraseCategory } from './phrases'
 
+// Accessories
+export { attachClothing, detachClothing } from './accessories'
+
 // Main character class
 export { Character, REAL_SECONDS_PER_GAME_MINUTE } from './character'
 export type { CharacterState } from './character'

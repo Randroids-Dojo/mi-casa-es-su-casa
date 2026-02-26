@@ -16,6 +16,8 @@
 
 import * as THREE from 'three'
 import type { CharacterAppearance } from './seeder'
+import type { ClothingItem } from '@/lib/characterSchema'
+import { attachClothing } from './accessories'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,7 +83,10 @@ function withPivot(mesh: THREE.Mesh, offsetY: number): THREE.Group {
  * The returned `group` has its origin at the character's feet.
  * Attach body part references (via `parts`) for animation.
  */
-export function buildCharacterMesh(appearance: CharacterAppearance): CharacterMesh {
+export function buildCharacterMesh(
+  appearance: CharacterAppearance,
+  accessories: ClothingItem[] = [],
+): CharacterMesh {
   const { skinTone, outfitPrimary, outfitSecondary } = appearance
 
   const group = new THREE.Group()
@@ -133,6 +138,13 @@ export function buildCharacterMesh(appearance: CharacterAppearance): CharacterMe
   const head = makeMesh(1, 1, 1, skinTone)
   head.position.set(0, 3.2, 0)
   group.add(head)
+
+  // ------------------------------------------------------------------
+  // Accessories — attach to head so they move with the character
+  // ------------------------------------------------------------------
+  for (const item of accessories) {
+    attachClothing(item, head)
+  }
 
   // ------------------------------------------------------------------
   // Assemble result

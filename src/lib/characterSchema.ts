@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+export const ClothingItemSchema = z.enum(['COWBOY_HAT'])
+export type ClothingItem = z.infer<typeof ClothingItemSchema>
+
 export const NeedsSchema = z.object({
   hunger: z.number().min(0).max(1),
   sleep: z.number().min(0).max(1),
@@ -51,6 +54,7 @@ export const CharacterStateSchema = z.object({
     y: z.number(),
     z: z.number(),
   }),
+  accessories: z.array(ClothingItemSchema).optional(),
 })
 
 export type CharacterState = z.infer<typeof CharacterStateSchema>

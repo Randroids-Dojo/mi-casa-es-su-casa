@@ -2,13 +2,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { initGame } from '@/game'
 import type { GameInstance } from '@/game/types'
+import type { CharacterState } from '@/lib/characterSchema'
 import { ThoughtBubble } from './ThoughtBubble'
+
+export interface GameActions {
+  injectThought: (text: string) => void
+  putOnClothes: (item: string) => void
+  getState: () => CharacterState | null
+}
 
 interface GameCanvasProps {
   /** Character name used to seed appearance and behaviour (default: 'resident') */
   characterName?: string
-  /** Called once the game is initialised, with a function to inject visitor thoughts */
-  onGameReady?: (injectThought: (text: string) => void) => void
+  /** Pre-loaded character state to restore on init */
+  initialState?: CharacterState
+  /** Called once the game is initialised with the available game actions */
+  onGameReady?: (actions: GameActions) => void
 }
 
 function getTouchDistance(touches: TouchList): number {
@@ -17,7 +26,7 @@ function getTouchDistance(touches: TouchList): number {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-export function GameCanvas({ characterName = 'resident', onGameReady }: GameCanvasProps) {
+export function GameCanvas({ characterName = 'resident', initialState, onGameReady }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<GameInstance | null>(null)
@@ -40,14 +49,15 @@ export function GameCanvas({ characterName = 'resident', onGameReady }: GameCanv
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const game = initGame(canvasRef.current, characterName)
+    const game = initGame(canvasRef.current, characterName, initialState)
     gameRef.current = game
 
-    // Expose injectThought to the parent once the game is ready.
-    // The closure captures gameRef (the ref object) so it stays current
-    // even if the game instance is later replaced.
     if (onGameReady) {
-      onGameReady((text: string) => { gameRef.current?.injectThought(text) })
+      onGameReady({
+        injectThought: (text: string) => { gameRef.current?.injectThought(text) },
+        putOnClothes: (item: string) => { gameRef.current?.putOnClothes(item) },
+        getState: () => gameRef.current?.getCharacterState() ?? null,
+      })
     }
 
     const pollId = setInterval(() => {
@@ -63,7 +73,7 @@ export function GameCanvas({ characterName = 'resident', onGameReady }: GameCanv
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName, onGameReady])
+  }, [characterName, initialState, onGameReady])
 
   // Native touch event listeners (non-passive so we can preventDefault)
   useEffect(() => {

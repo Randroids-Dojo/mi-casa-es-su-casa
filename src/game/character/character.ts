@@ -22,6 +22,8 @@ import * as THREE from 'three'
 import { seedFromName } from './seeder'
 import { buildCharacterMesh } from './mesh'
 import type { CharacterMesh } from './mesh'
+import { attachClothing } from './accessories'
+import type { ClothingItem } from '@/lib/characterSchema'
 import { CharacterStateMachine } from './stateMachine'
 import type { CharacterStateData } from './stateMachine'
 import { advanceNeeds, applyActivityEffect, DEFAULT_NEEDS } from './needs'
@@ -74,6 +76,7 @@ export interface CharacterState {
   needs: Needs
   clock: GameClock
   position: { x: number; y: number; z: number }
+  accessories: ClothingItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +113,10 @@ export class Character {
   private thoughtSeed = 0
   /** Visitor message queued for display; consumed on next stationary frame */
   private _injectedThought: string | null = null
+  /** Clothing items currently worn by this character */
+  private _accessories: ClothingItem[] = []
+  /** Clothing item queued to be applied after the next 'dress' activity completes */
+  private _clothingQueue: ClothingItem | null = null
 
   constructor(name: string, scene: THREE.Scene, initialState?: CharacterState) {
     this.name = name
@@ -118,8 +125,13 @@ export class Character {
     // Build appearance from name seed
     const appearance = seedFromName(name)
 
-    // Build Three.js mesh
-    this.mesh = buildCharacterMesh(appearance)
+    // Initialize accessories from saved state (before building mesh so hat appears immediately)
+    if (initialState) {
+      this._accessories = [...(initialState.accessories ?? [])]
+    }
+
+    // Build Three.js mesh (passes accessories so they render on first frame)
+    this.mesh = buildCharacterMesh(appearance, this._accessories)
     scene.add(this.mesh.group)
 
     // Initialize state from saved state or defaults
@@ -247,6 +259,11 @@ export class Character {
   private _updatePerforming(deltaGameHours: number): void {
     const done = this.fsm.advanceActivity(deltaGameHours)
     if (done) {
+      // If a clothing item was queued and we just finished dressing, apply it now
+      if (this.currentActivity === 'dress' && this._clothingQueue !== null) {
+        this._applyClothing(this._clothingQueue)
+        this._clothingQueue = null
+      }
       this._selectAndStartNextActivity()
     }
   }
@@ -493,7 +510,37 @@ export class Character {
         y: this.mesh.group.position.y,
         z: this.mesh.group.position.z,
       },
+      accessories: [...this._accessories],
     }
+  }
+
+  /**
+   * Walks the character to the bedroom wardrobe and puts on the given item.
+   * The item is applied visually when the 'dress' activity completes.
+   * No-op if the character is already wearing the item.
+   */
+  putOnClothes(item: ClothingItem): void {
+    if (this._accessories.includes(item)) return
+    this._clothingQueue = item
+
+    if (this.currentRoom === 'bedroom') {
+      this._startPerforming('dress', 0.15)
+    } else {
+      const path = findPath(
+        this.currentRoom,
+        'bedroom',
+        `${this.name}:dress:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+      )
+      this._queued = { activity: 'dress', durationHours: 0.15 }
+      this.fsm.transitionToMoving(path)
+      this.animationState = createAnimationState('walk')
+    }
+  }
+
+  private _applyClothing(item: ClothingItem): void {
+    if (this._accessories.includes(item)) return
+    this._accessories.push(item)
+    attachClothing(item, this.mesh.parts.head)
   }
 
   /**
