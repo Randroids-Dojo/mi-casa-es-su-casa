@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import FeedbackButton from '@/components/FeedbackButton'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -41,7 +42,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-black text-white min-h-screen">{children}</body>
+      <body className="bg-black text-white min-h-screen">
+        {children}
+        <FeedbackButton />
+      </body>
     </html>
   )
 }
