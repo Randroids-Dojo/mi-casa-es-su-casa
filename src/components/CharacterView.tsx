@@ -25,8 +25,8 @@ export function CharacterView({ name }: CharacterViewProps) {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh' }}>
-      <div style={{ flex: 1, minHeight: '50vh', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         <GameCanvas characterName={name} onGameReady={handleGameReady} />
       </div>
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />

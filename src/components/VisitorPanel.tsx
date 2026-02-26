@@ -26,6 +26,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
   const [inputValue, setInputValue] = useState('')
   const [status, setStatus] = useState<'idle' | 'submitting' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [collapsed, setCollapsed] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const displayName = characterName.replace(/-/g, ' ').toUpperCase()
@@ -86,17 +87,25 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
   const count = log?.totalCount ?? 0
 
   return (
-    <div style={styles.panel}>
+    <div style={{ ...styles.panel, height: collapsed ? '40px' : '260px', transition: 'height 0.2s ease' }}>
       {/* Scanline overlay */}
       <div style={styles.scanlines} aria-hidden="true" />
 
       <div style={styles.inner}>
-        {/* Header */}
-        <div style={styles.header}>
-          {count > 0
-            ? `${count} VISITOR${count !== 1 ? 'S' : ''} HAVE LEFT MESSAGES FOR ${displayName}`
-            : `VISITOR MESSAGES FOR ${displayName}`}
-        </div>
+        {/* Toggle header */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          style={styles.toggleBar}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand visitor messages' : 'Collapse visitor messages'}
+        >
+          <span>
+            {count > 0
+              ? `${count} VISITOR${count !== 1 ? 'S' : ''} FOR ${displayName}`
+              : `VISITOR MESSAGES FOR ${displayName}`}
+          </span>
+          <span style={styles.toggleArrow}>{collapsed ? '▲' : '▼'}</span>
+        </button>
 
         <div style={styles.divider} aria-hidden="true">{'─'.repeat(44)}</div>
 
@@ -173,6 +182,30 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#000',
     borderTop: '1px solid rgba(51,255,51,0.25)',
     overflow: 'hidden',
+    flexShrink: 0,
+  },
+  toggleBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    background: 'none',
+    border: 'none',
+    color: CRT_GREEN,
+    fontFamily: FONT,
+    fontSize: '12px',
+    textShadow: `0 0 6px ${CRT_GREEN}`,
+    cursor: 'pointer',
+    padding: '0',
+    marginBottom: '8px',
+    height: '24px',
+    flexShrink: 0,
+  },
+  toggleArrow: {
+    fontSize: '10px',
+    opacity: 0.7,
+    flexShrink: 0,
+    marginLeft: '8px',
   },
   scanlines: {
     position: 'absolute',
