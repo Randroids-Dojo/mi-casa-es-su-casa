@@ -327,9 +327,14 @@ export function getInitialActivity(characterName?: string): ActivitySelection {
     'study', 'bathroom', 'hobby_room', 'storage',
   ]
 
-  // Math.random() provides per-load entropy so the same name gets a
-  // different room on each visit
-  const rng = seededRngFromKey(`${characterName}:start:${Math.random()}`)
+  // Use a URL query param for test determinism; otherwise Math.random()
+  // provides per-load entropy so the same name gets a different room.
+  let entropy: number | string = Math.random()
+  if (typeof window !== 'undefined') {
+    const testSeed = new URLSearchParams(window.location.search).get('__test_seed')
+    if (testSeed) entropy = testSeed
+  }
+  const rng = seededRngFromKey(`${characterName}:start:${entropy}`)
   const room = rng.pick(startableRooms)
   const roomDef = ROOM_MAP[room]
   const activity = rng.pick(roomDef.activities)

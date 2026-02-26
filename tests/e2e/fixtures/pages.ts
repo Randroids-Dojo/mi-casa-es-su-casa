@@ -13,6 +13,6 @@ export async function gotoCharacterPageDirect(
   page: Page,
   characterName = 'playwright',
 ): Promise<void> {
-  await page.goto(`/${characterName}`)
+  await page.goto(`/${characterName}?__test_seed=42`)
   await page.waitForSelector('canvas', { timeout: 10_000 })
 }
