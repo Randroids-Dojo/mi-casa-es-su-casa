@@ -49,11 +49,11 @@ body {
 /* --- Floating Feedback Button --- */
 .fab {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+  bottom: 5rem;
+  right: 1.5rem;
   z-index: 3000;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 1px solid rgba(231, 76, 60, 0.4);
   background: #e74c3c;
@@ -111,8 +111,8 @@ body {
 /* --- Feedback Panel --- */
 .feedback-panel {
   position: fixed;
-  bottom: 6rem;
-  right: 2rem;
+  bottom: 9rem;
+  right: 1.5rem;
   z-index: 2999;
   width: 360px;
   background: #111;
@@ -279,16 +279,16 @@ body {
 
 @media (max-width: 768px) {
   .fab {
-    bottom: 1.25rem;
-    right: 1.25rem;
-    width: 50px;
-    height: 50px;
+    bottom: 4rem;
+    right: 1rem;
+    width: 44px;
+    height: 44px;
   }
 
   .feedback-panel {
-    right: 1.25rem;
-    left: 1.25rem;
-    bottom: 5rem;
+    right: 1rem;
+    left: 1rem;
+    bottom: 7.5rem;
     width: auto;
   }
 }
