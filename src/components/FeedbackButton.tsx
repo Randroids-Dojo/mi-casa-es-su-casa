@@ -92,7 +92,7 @@ export default function FeedbackButton() {
 
       <div ref={panelRef} className={'feedback-panel' + (open ? ' open' : '')}>
         <div className="feedback-header">
-          <span className="feedback-label">// say hi or send feedback</span>
+          <span className="feedback-label">{'// say hi or send feedback'}</span>
         </div>
 
         {submitState !== 'success' ? (
