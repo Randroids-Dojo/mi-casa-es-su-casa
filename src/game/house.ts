@@ -32,9 +32,17 @@ function makeVoxel(
   position: Vec3,
   color: number,
   size: Vec3 = { x: 1, y: 1, z: 1 },
+  structural = false,
 ): THREE.Mesh {
   const geometry = new THREE.BoxGeometry(size.x, size.y, size.z)
   const material = new THREE.MeshLambertMaterial({ color })
+  // Structural elements (walls, floors) use polygonOffset so that furniture
+  // at the same depth always renders in front, eliminating z-fighting.
+  if (structural) {
+    material.polygonOffset = true
+    material.polygonOffsetFactor = 1
+    material.polygonOffsetUnits = 1
+  }
   const mesh = new THREE.Mesh(geometry, material)
   mesh.position.set(position.x, position.y, position.z)
   mesh.castShadow = true
@@ -83,6 +91,7 @@ function buildFloorShell(
       { x: hw / 2, y: baseY + 0.5, z: hd / 2 },
       PALETTE.FLOOR_WOOD,
       { x: hw, y: wt, z: hd },
+      true,
     ),
   )
 
@@ -92,6 +101,7 @@ function buildFloorShell(
       { x: 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
       PALETTE.WALL_EXTERIOR,
       { x: wt, y: FLOOR_HEIGHT, z: hd },
+      true,
     ),
   )
 
@@ -101,6 +111,7 @@ function buildFloorShell(
       { x: hw - 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
       PALETTE.WALL_EXTERIOR,
       { x: wt, y: FLOOR_HEIGHT, z: hd },
+      true,
     ),
   )
 
@@ -110,6 +121,7 @@ function buildFloorShell(
       { x: hw / 2, y: baseY + FLOOR_HEIGHT / 2, z: hd - 0.5 },
       PALETTE.WALL_EXTERIOR,
       { x: hw, y: FLOOR_HEIGHT, z: wt },
+      true,
     ),
   )
 }
@@ -133,6 +145,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
       { x: STAIR_X_START + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
       PALETTE.WALL_INTERIOR,
       { x: wt, y: wallH, z: wallZSize },
+      true,
     ),
   )
 
@@ -143,6 +156,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: 4.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
+        true,
       ),
     )
     // Living room / kitchen divider at x=16
@@ -151,6 +165,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
+        true,
       ),
     )
   } else if (floor === 2) {
@@ -160,6 +175,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: 14.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
+        true,
       ),
     )
     // Bathroom / study divider at x=20
@@ -168,6 +184,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: 20.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
+        true,
       ),
     )
   } else if (floor === 3) {
@@ -177,6 +194,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
         { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
+        true,
       ),
     )
   }
