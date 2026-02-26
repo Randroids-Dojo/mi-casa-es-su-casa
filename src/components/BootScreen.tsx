@@ -263,6 +263,7 @@ export function BootScreen() {
               </select>
             </div>
             <div style={styles.fineprint}>(For Marvin and Miggy)</div>
+
             <div style={styles.visitBtnRow}>
               <button
                 onClick={() => void handleSubmit()}
@@ -346,6 +347,7 @@ export function BootScreen() {
                 </select>
               </div>
               <div style={styles.fineprint}>(For Marvin and Miggy)</div>
+
               <div style={styles.visitBtnRow}>
                 <button
                   onClick={() => void handleSubmit()}
@@ -474,7 +476,17 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 0,
     verticalAlign: 'baseline',
     cursor: 'pointer',
-    maxWidth: '120px',
+    maxWidth: '140px',
+  },
+
+  hint: {
+    display: 'block',
+    fontFamily: FONT_STACK,
+    fontSize: '13px',
+    lineHeight: '1.6',
+    color: `rgba(51, 255, 51, 0.45)`,
+    marginTop: '2px',
+    marginBottom: '2px',
   },
 
   suffixOption: {
