@@ -313,14 +313,28 @@ export function selectNextActivity(
 
 /**
  * Returns the initial activity for a brand-new character at game start.
- * Starts them in the living room, idle.
+ * When a character name is provided, picks a random room and valid activity
+ * so each page load feels different.
  */
-export function getInitialActivity(): ActivitySelection {
-  return {
-    room: 'living_room',
-    activity: 'idle',
-    durationHours: 0.25,
+export function getInitialActivity(characterName?: string): ActivitySelection {
+  if (!characterName) {
+    return { room: 'living_room', activity: 'idle', durationHours: 0.25 }
   }
+
+  // Rooms where it makes sense to start (exclude staircase — it's a transit hub)
+  const startableRooms: RoomId[] = [
+    'entrance', 'living_room', 'kitchen', 'bedroom',
+    'study', 'bathroom', 'hobby_room', 'storage',
+  ]
+
+  // Math.random() provides per-load entropy so the same name gets a
+  // different room on each visit
+  const rng = seededRngFromKey(`${characterName}:start:${Math.random()}`)
+  const room = rng.pick(startableRooms)
+  const roomDef = ROOM_MAP[room]
+  const activity = rng.pick(roomDef.activities)
+
+  return { room, activity, durationHours: 0.25 }
 }
 
 /**
