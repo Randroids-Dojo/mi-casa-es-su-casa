@@ -25,7 +25,7 @@ const SUFFIXES: { label: string; display: string; slug: string }[] = [
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
-  'MI CASA ES SU CASA v0.1',
+  'MI CASA ES SU CASA v0.2',
   '',
   '',
   'LOADING HOUSE SUBSYSTEM.......... OK',
@@ -37,9 +37,9 @@ const BOOT_LINES: string[] = [
 ]
 
 // Timing constants (ms)
-const CHAR_DELAY = 80
-const LINE_PAUSE = 200
-const READY_PAUSE = 800
+const CHAR_DELAY = 25
+const LINE_PAUSE = 80
+const READY_PAUSE = 400
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -215,7 +215,7 @@ export function BootScreen() {
 
         {/* Name prompt — NAME_PROMPT phase */}
         {phase === 'NAME_PROMPT' && (
-          <>
+          <div style={styles.inputBlock}>
             <div style={styles.line}>
               {'ENTER CHARACTER NAME: '}
               <span style={styles.inputWrapper}>
@@ -259,10 +259,16 @@ export function BootScreen() {
                 ))}
               </select>
             </div>
-            <div style={styles.tapHint} aria-hidden="true">
-              {'  ↑ CLICK OR TAP TO ENTER YOUR NAME'}
+            <div style={styles.visitBtnRow}>
+              <button
+                onClick={() => void handleSubmit()}
+                disabled={inputValue === ''}
+                style={inputValue === '' ? { ...styles.visitBtn, ...styles.visitBtnDisabled } : styles.visitBtn}
+              >
+                [ VISIT ]
+              </button>
             </div>
-          </>
+          </div>
         )}
 
         {/* Validating phase */}
@@ -289,50 +295,58 @@ export function BootScreen() {
               {`ERROR: ${errorMessage}`}
             </div>
             <div style={styles.line}>{''}</div>
-            <div style={styles.line}>
-              {'ENTER CHARACTER NAME: '}
-              <span style={styles.inputWrapper}>
-                <label htmlFor="name-input" className="sr-only">
-                  Enter character name
+            <div style={styles.inputBlock}>
+              <div style={styles.line}>
+                {'ENTER CHARACTER NAME: '}
+                <span style={styles.inputWrapper}>
+                  <label htmlFor="name-input" className="sr-only">
+                    Enter character name
+                  </label>
+                  <input
+                    ref={inputRef}
+                    id="name-input"
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value.toUpperCase())}
+                    onKeyDown={handleKeyDown}
+                    maxLength={20}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    style={styles.input}
+                  />
+                  {inputValue === '' && (
+                    <span style={styles.blinkCursor} aria-hidden="true">
+                      _
+                    </span>
+                  )}
+                </span>
+                <label htmlFor="suffix-select" className="sr-only">
+                  Name suffix
                 </label>
-                <input
-                  ref={inputRef}
-                  id="name-input"
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value.toUpperCase())}
-                  onKeyDown={handleKeyDown}
-                  maxLength={20}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="characters"
-                  spellCheck={false}
-                  style={styles.input}
-                />
-                {inputValue === '' && (
-                  <span style={styles.blinkCursor} aria-hidden="true">
-                    _
-                  </span>
-                )}
-              </span>
-              <label htmlFor="suffix-select" className="sr-only">
-                Name suffix
-              </label>
-              <select
-                id="suffix-select"
-                value={suffixValue}
-                onChange={(e) => setSuffixValue(e.target.value)}
-                style={styles.suffixSelect}
-              >
-                {SUFFIXES.map((s) => (
-                  <option key={s.slug} value={s.label} style={styles.suffixOption}>
-                    {s.display}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.tapHint} aria-hidden="true">
-              {'  ↑ CLICK OR TAP TO ENTER YOUR NAME'}
+                <select
+                  id="suffix-select"
+                  value={suffixValue}
+                  onChange={(e) => setSuffixValue(e.target.value)}
+                  style={styles.suffixSelect}
+                >
+                  {SUFFIXES.map((s) => (
+                    <option key={s.slug} value={s.label} style={styles.suffixOption}>
+                      {s.display}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.visitBtnRow}>
+                <button
+                  onClick={() => void handleSubmit()}
+                  disabled={inputValue === ''}
+                  style={inputValue === '' ? { ...styles.visitBtn, ...styles.visitBtnDisabled } : styles.visitBtn}
+                >
+                  [ VISIT ]
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -461,12 +475,34 @@ const styles: Record<string, React.CSSProperties> = {
     color: CRT_GREEN,
   },
 
-  tapHint: {
+  inputBlock: {
+    display: 'inline-block',
+  },
+
+  visitBtnRow: {
     display: 'block',
-    minHeight: '1.6em',
-    whiteSpace: 'pre',
-    opacity: 0.5,
-    fontSize: '14px',
+    textAlign: 'center',
+    marginTop: '16px',
+  },
+
+  visitBtn: {
+    background: 'transparent',
+    border: 'none',
+    outline: 'none',
+    color: CRT_GREEN,
+    fontFamily: FONT_STACK,
+    fontSize: '28px',
+    lineHeight: '1.4',
+    textShadow: `0 0 12px ${CRT_GREEN}`,
+    padding: 0,
+    margin: 0,
+    cursor: 'pointer',
+    letterSpacing: '0.1em',
+  },
+
+  visitBtnDisabled: {
+    opacity: 0.3,
+    cursor: 'not-allowed',
   },
 
   errorLine: {
