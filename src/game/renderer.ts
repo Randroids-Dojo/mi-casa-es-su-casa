@@ -233,7 +233,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       worldPos.y += 3.7
       const ndc = worldPos.project(camera)
       const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
-      const y = Math.max(2, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
+      const y = Math.max(15, Math.min(95, (1 - (ndc.y + 1) / 2) * 100))
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
