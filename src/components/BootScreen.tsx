@@ -412,7 +412,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
     maxHeight: '100vh',
     overflowY: 'auto',
-    padding: '48px 40px',
+    padding: 'clamp(24px, 5vh, 48px) clamp(16px, 4vw, 40px)',
     boxSizing: 'border-box',
     fontFamily: FONT_STACK,
     fontSize: '18px',
@@ -457,7 +457,7 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '1.6',
     textShadow: `0 0 8px ${CRT_GREEN}`,
     caretColor: 'transparent', // hide browser caret; we use our own blinking _
-    width: '220px',
+    width: 'min(220px, calc(100vw - 300px))',
     padding: 0,
     margin: 0,
     verticalAlign: 'baseline',
