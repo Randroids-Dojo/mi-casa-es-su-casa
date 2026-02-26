@@ -86,7 +86,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
   const BASE_WORLD_W = HOUSE_WIDTH + MARGIN // 34 units
   const BASE_WORLD_H = FLOOR_HEIGHT * FLOOR_COUNT + MARGIN // 26 units
 
-  const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0.1, 200)
+  const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 1, 60)
 
   // House center in world space — the default camera target.
   const houseCenterX = HOUSE_WIDTH / 2    // 16
