@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Needs } from './needs'
+import { seededRngFromKey } from './seeder'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -128,7 +129,9 @@ export const PHRASES: Readonly<Record<PhraseCategory, readonly string[]>> = {
  */
 export function pickPhrase(category: PhraseCategory, seed: number): string {
   const list = PHRASES[category]
-  return list[seed % list.length]
+  // Use a seeded RNG so consecutive seeds produce varied (non-sequential) picks
+  const rng = seededRngFromKey(`phrase:${category}:${seed}`)
+  return rng.pick(list)
 }
 
 /**

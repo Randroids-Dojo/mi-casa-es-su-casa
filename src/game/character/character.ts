@@ -134,7 +134,7 @@ export class Character {
     } else {
       this.needs = { ...DEFAULT_NEEDS }
       this.clock = { hour: 8, day: 0 } // Start at 8am on day 0
-      const initial = getInitialActivity()
+      const initial = getInitialActivity(name)
       this.currentRoom = initial.room
       this.currentActivity = initial.activity
       // Place character at room center
@@ -340,7 +340,11 @@ export class Character {
       this._startPerforming(selection.activity, selection.durationHours)
     } else {
       // Need to navigate to a different room
-      const path = findPath(this.currentRoom, selection.room)
+      const path = findPath(
+        this.currentRoom,
+        selection.room,
+        `${this.name}:path:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+      )
 
       // Queue the activity to start upon arrival
       this._queued = {

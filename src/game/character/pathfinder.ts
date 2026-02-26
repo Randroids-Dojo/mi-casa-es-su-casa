@@ -11,20 +11,49 @@
 import * as THREE from 'three'
 import type { RoomId } from '../rooms'
 import { ROOM_MAP, ROOMS, getFloorCenterY } from '../rooms'
+import { seededRngFromKey } from './seeder'
 
 // ---------------------------------------------------------------------------
 // BFS pathfinding
 // ---------------------------------------------------------------------------
 
 /**
- * Finds the shortest path from `from` to `to` by room count.
- * Returns an array of RoomIds including both start and end.
- * If no path exists (shouldn't happen in a connected house), returns [from, to].
+ * Finds a path from `from` to `to`.
+ *
+ * When a seed string is provided the path is randomized:
+ *   - 70%: shuffled BFS (picks among equally-short paths at random)
+ *   - 30%: scenic detour — visits a random neighbor of `from` first,
+ *     then BFS from there (adds one extra room hop for variety)
+ *
+ * Without a seed, returns the deterministic shortest path (original BFS).
  */
-export function findPath(from: RoomId, to: RoomId): RoomId[] {
+export function findPath(from: RoomId, to: RoomId, seed?: string): RoomId[] {
   if (from === to) return [from]
 
-  // BFS
+  if (!seed) {
+    return _bfsPath(from, to)
+  }
+
+  const rng = seededRngFromKey(seed)
+
+  // Scenic detour (30% chance): visit a random neighbor first
+  const fromRoom = ROOM_MAP[from]
+  const eligibleDetours = fromRoom.adjacentRooms.filter(
+    (r) => r !== to && r !== from,
+  )
+
+  if (rng.next() < 0.3 && eligibleDetours.length > 0) {
+    const detourRoom = rng.pick(eligibleDetours)
+    const restPath = _bfsShuffled(detourRoom, to, rng)
+    return [from, ...restPath]
+  }
+
+  // Shuffled BFS (70% chance)
+  return _bfsShuffled(from, to, rng)
+}
+
+/** Standard deterministic BFS (original implementation). */
+function _bfsPath(from: RoomId, to: RoomId): RoomId[] {
   const queue: RoomId[][] = [[from]]
   const visited = new Set<RoomId>([from])
 
@@ -42,7 +71,41 @@ export function findPath(from: RoomId, to: RoomId): RoomId[] {
     }
   }
 
-  // Fallback: direct route (should never happen with valid adjacency graph)
+  return [from, to]
+}
+
+/** BFS with Fisher-Yates shuffled neighbor exploration order. */
+function _bfsShuffled(
+  from: RoomId,
+  to: RoomId,
+  rng: { next(): number; pick<T>(arr: readonly T[]): T },
+): RoomId[] {
+  if (from === to) return [from]
+
+  const queue: RoomId[][] = [[from]]
+  const visited = new Set<RoomId>([from])
+
+  while (queue.length > 0) {
+    const path = queue.shift()!
+    const current = path[path.length - 1]
+    const room = ROOM_MAP[current]
+
+    // Shuffle neighbors so BFS explores equally-short paths in random order
+    const neighbors = [...room.adjacentRooms]
+    for (let i = neighbors.length - 1; i > 0; i--) {
+      const j = Math.floor(rng.next() * (i + 1))
+      ;[neighbors[i], neighbors[j]] = [neighbors[j], neighbors[i]]
+    }
+
+    for (const neighbor of neighbors) {
+      if (visited.has(neighbor)) continue
+      const newPath = [...path, neighbor]
+      if (neighbor === to) return newPath
+      visited.add(neighbor)
+      queue.push(newPath)
+    }
+  }
+
   return [from, to]
 }
 
