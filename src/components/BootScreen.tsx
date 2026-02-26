@@ -19,7 +19,7 @@ const BOOT_LINES: string[] = [
   'MI CASA ES SU CASA v0.1',
   '',
   '',
-  'LOADING HOUSE SUBSYSTEM......... OK',
+  'LOADING HOUSE SUBSYSTEM.......... OK',
   'LOADING CHARACTER ENGINE......... OK',
   'LOADING THOUGHT PROCESSOR........ OK',
   '',
