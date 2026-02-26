@@ -85,12 +85,13 @@ function buildFloorShell(
   const hd = HOUSE_DEPTH
   const wt = WALL_THICKNESS
 
-  // Floor slab
+  // Floor slab — inset by wall thickness on all enclosed sides so its outer
+  // faces don't coincide with the wall faces and cause z-fighting.
   group.add(
     makeVoxel(
-      { x: hw / 2, y: baseY + 0.5, z: hd / 2 },
+      { x: hw / 2, y: baseY + 0.5, z: (hd - wt) / 2 },
       PALETTE.FLOOR_WOOD,
-      { x: hw, y: wt, z: hd },
+      { x: hw - 2 * wt, y: wt, z: hd - wt },
       true,
     ),
   )
@@ -409,8 +410,6 @@ function buildMusicRoom(group: THREE.Group): void {
     // Record player / stereo on cabinet
     { position: { x: 10, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
     { position: { x: 10, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
-    // Record player arm
-    { position: { x: 10.8, y: ft + 2, z: 7.1 }, color: PALETTE.STAIRCASE, size: { x: 1.2, y: 0.2, z: 0.2 } },
     // Speakers (either side)
     { position: { x: 7.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
     { position: { x: 12.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
@@ -419,9 +418,9 @@ function buildMusicRoom(group: THREE.Group): void {
     { position: { x: 8, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
     // Rug
     { position: { x: 8, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: 6, y: 0.1, z: 4 } },
-    // Easel (right side)
-    { position: { x: 14, y: ft + 2, z: 5 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
-    { position: { x: 14, y: ft + 3, z: 4.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
+    // Easel (right side, against back wall so character transit path doesn't clip it)
+    { position: { x: 14, y: ft + 2, z: 7 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
+    { position: { x: 14, y: ft + 3, z: 6.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
   ])
 }
 

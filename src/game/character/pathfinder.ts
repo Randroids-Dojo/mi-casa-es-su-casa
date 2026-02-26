@@ -205,10 +205,13 @@ export function getPositionAlongPath(
     const nextFloor = nextRoomId ? ROOM_MAP[nextRoomId].floor : fromFloor
     const ascending = nextFloor > fromFloor
 
-    // Walk horizontally at the current floor Y to the correct stair entry Z.
+    // Walk to the correct stair entry Z, rising 1 unit when ascending so the
+    // character steps onto the first stair tread (top surface = floor Y + 1)
+    // rather than clipping through it.
     const fromCenter = ROOM_MAP[fromRoomId].center
     const entryZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
-    const staircaseEntry = new THREE.Vector3(STAIR_X, fromCenter.y, entryZ)
+    const entryY = ascending ? fromCenter.y + 1 : fromCenter.y
+    const staircaseEntry = new THREE.Vector3(STAIR_X, entryY, entryZ)
     return new THREE.Vector3().lerpVectors(fromCenter, staircaseEntry, legProgress)
   }
 
@@ -219,28 +222,54 @@ export function getPositionAlongPath(
     const prevFloor = prevRoomId ? ROOM_MAP[prevRoomId].floor : ROOM_MAP[toRoomId].floor
     const toFloor = ROOM_MAP[toRoomId].floor
     const ascending = toFloor > prevFloor
+    const numFlights = Math.abs(toFloor - prevFloor)
 
-    const climbStartY = prevRoomId ? ROOM_MAP[prevRoomId].center.y : ROOM_MAP[toRoomId].center.y
-    const climbEndY = ROOM_MAP[toRoomId].center.y
-    const climbStartZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
-    const climbEndZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
+    const destCenter = ROOM_MAP[toRoomId].center
 
-    // Phase 1 (0 → 0.5): climb/descend at staircase X; Y and Z follow stair slope.
-    // Phase 2 (0.5 → 1): walk horizontally at destination floor Y to room center.
-    if (legProgress <= 0.5) {
-      const t = legProgress / 0.5
-      return new THREE.Vector3(
-        STAIR_X,
-        THREE.MathUtils.lerp(climbStartY, climbEndY, t),
-        THREE.MathUtils.lerp(climbStartZ, climbEndZ, t),
-      )
-    } else {
+    // Phase 2 (0.5 → 1): walk from the stair exit point to the room center.
+    // When descending, lerp Y from the bottom tread back down to floor level.
+    if (legProgress > 0.5) {
       const t = (legProgress - 0.5) / 0.5
-      const destCenter = ROOM_MAP[toRoomId].center
+      const exitY = ascending ? destCenter.y : destCenter.y + 1
+      const exitZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
       return new THREE.Vector3(
         THREE.MathUtils.lerp(STAIR_X, destCenter.x, t),
-        climbEndY,
-        THREE.MathUtils.lerp(climbEndZ, destCenter.z, t),
+        THREE.MathUtils.lerp(exitY, destCenter.y, t),
+        THREE.MathUtils.lerp(exitZ, destCenter.z, t),
+      )
+    }
+
+    // Phase 1 (0 → 0.5): traverse each flight of stairs in sequence.
+    // Progress [0, 0.5] maps to [0, numFlights] in flight-space so multi-floor
+    // paths route through each intermediate landing rather than cutting through
+    // the next flight's geometry.
+    const climbProgress = (legProgress / 0.5) * numFlights
+    const flightIdx = Math.min(Math.floor(climbProgress), numFlights - 1)
+    const flightT = climbProgress - flightIdx  // [0, 1] within this flight
+
+    if (ascending) {
+      const flightFromFloor = (prevFloor + flightIdx) as 1 | 2 | 3
+      const flightToFloor = (prevFloor + flightIdx + 1) as 1 | 2 | 3
+      return new THREE.Vector3(
+        STAIR_X,
+        THREE.MathUtils.lerp(
+          getFloorCenterY(flightFromFloor) + 1,  // first step tread of this flight
+          getFloorCenterY(flightToFloor),          // top landing of this flight
+          flightT,
+        ),
+        THREE.MathUtils.lerp(STAIR_Z_BOTTOM, STAIR_Z_TOP, flightT),
+      )
+    } else {
+      const flightFromFloor = (prevFloor - flightIdx) as 1 | 2 | 3
+      const flightToFloor = (prevFloor - flightIdx - 1) as 1 | 2 | 3
+      return new THREE.Vector3(
+        STAIR_X,
+        THREE.MathUtils.lerp(
+          getFloorCenterY(flightFromFloor),        // top landing of this flight
+          getFloorCenterY(flightToFloor) + 1,      // first step tread of this flight (bottom)
+          flightT,
+        ),
+        THREE.MathUtils.lerp(STAIR_Z_TOP, STAIR_Z_BOTTOM, flightT),
       )
     }
   }
