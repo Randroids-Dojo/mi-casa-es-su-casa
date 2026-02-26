@@ -62,6 +62,7 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       getCharacterHeadScreenPos() { return null },
       applyPanDeltaPixels() {},
       applyZoomScale() {},
+      injectThought() {},
     }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -251,6 +252,9 @@ export function initGame(canvas: HTMLCanvasElement, characterName = 'resident'):
       // factor > 1 = zoom in (fingers spread); factor < 1 = zoom out (fingers pinch)
       zoomScale = clamp(zoomScale * factor, MIN_ZOOM, MAX_ZOOM)
       applyPanZoom()
+    },
+    injectThought(text: string) {
+      character.injectThought(text)
     },
   }
 }

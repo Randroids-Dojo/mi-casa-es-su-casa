@@ -108,6 +108,8 @@ export class Character {
   private thoughtCooldown = 0
   /** Monotonically increasing seed so consecutive picks stay varied */
   private thoughtSeed = 0
+  /** Visitor message queued for display; consumed on next stationary frame */
+  private _injectedThought: string | null = null
 
   constructor(name: string, scene: THREE.Scene, initialState?: CharacterState) {
     this.name = name
@@ -418,6 +420,15 @@ export class Character {
       return
     }
 
+    // If a visitor message is queued and the character is stationary, show it now
+    if (this._injectedThought !== null) {
+      this.currentThought = this._injectedThought
+      this._injectedThought = null
+      this.thoughtTimer = THOUGHT_DURATION + 2
+      this.thoughtCooldown = 0
+      return
+    }
+
     // If a thought is currently showing, count it down
     if (this.currentThought !== null) {
       this.thoughtTimer -= deltaTime
@@ -455,6 +466,15 @@ export class Character {
    */
   getCurrentThought(): string | null {
     return this.currentThought
+  }
+
+  /**
+   * Queues a visitor message to appear in the thought bubble.
+   * Displayed immediately if the character is stationary; otherwise waits
+   * until the next time they stop moving.
+   */
+  injectThought(text: string): void {
+    this._injectedThought = text
   }
 
   /**

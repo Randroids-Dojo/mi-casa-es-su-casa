@@ -50,4 +50,10 @@ export interface GameInstance {
    * factor < 1 zooms in (smaller world view), factor > 1 zooms out.
    */
   applyZoomScale(factor: number): void
+  /**
+   * Queues a visitor message to be shown in the character's thought bubble.
+   * If the character is stationary, it appears immediately; otherwise it waits
+   * until the next time the character stops moving.
+   */
+  injectThought(text: string): void
 }

@@ -1,5 +1,6 @@
 import { kv } from '@vercel/kv'
 import { CharacterState, CharacterStateSchema } from './characterSchema'
+import { VisitorLog, VisitorLogSchema, VisitorMessage } from './visitorSchema'
 
 const KEY_PREFIX = 'character:'
 
@@ -17,6 +18,46 @@ export async function getCharacter(name: string): Promise<CharacterState | null>
 export async function saveCharacter(state: CharacterState): Promise<void> {
   await kv.set(characterKey(state.name), state)
 }
+
+// ---------------------------------------------------------------------------
+// Visitor log helpers
+// ---------------------------------------------------------------------------
+
+const VISITORS_KEY_PREFIX = 'visitors:'
+
+export function visitorsKey(name: string): string {
+  return `${VISITORS_KEY_PREFIX}${name.toLowerCase()}`
+}
+
+export async function getVisitorLog(name: string): Promise<VisitorLog | null> {
+  const raw = await kv.get(visitorsKey(name))
+  if (!raw) return null
+  const parsed = VisitorLogSchema.safeParse(raw)
+  return parsed.success ? parsed.data : null
+}
+
+export function createEmptyVisitorLog(name: string): VisitorLog {
+  return { name: name.toLowerCase(), messages: [], totalCount: 0 }
+}
+
+export async function appendVisitorMessage(name: string, text: string): Promise<VisitorLog> {
+  const existing = (await getVisitorLog(name)) ?? createEmptyVisitorLog(name)
+  const newMessage: VisitorMessage = {
+    text,
+    postedAt: new Date().toISOString(),
+  }
+  const updated: VisitorLog = {
+    name: existing.name,
+    messages: [...existing.messages, newMessage].slice(-20),
+    totalCount: existing.totalCount + 1,
+  }
+  await kv.set(visitorsKey(name), updated)
+  return updated
+}
+
+// ---------------------------------------------------------------------------
+// Character helpers
+// ---------------------------------------------------------------------------
 
 export function createDefaultCharacter(name: string): CharacterState {
   return {

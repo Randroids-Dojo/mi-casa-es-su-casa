@@ -7,6 +7,8 @@ import { ThoughtBubble } from './ThoughtBubble'
 interface GameCanvasProps {
   /** Character name used to seed appearance and behaviour (default: 'resident') */
   characterName?: string
+  /** Called once the game is initialised, with a function to inject visitor thoughts */
+  onGameReady?: (injectThought: (text: string) => void) => void
 }
 
 function getTouchDistance(touches: TouchList): number {
@@ -15,7 +17,7 @@ function getTouchDistance(touches: TouchList): number {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
+export function GameCanvas({ characterName = 'resident', onGameReady }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<GameInstance | null>(null)
@@ -41,6 +43,13 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
     const game = initGame(canvasRef.current, characterName)
     gameRef.current = game
 
+    // Expose injectThought to the parent once the game is ready.
+    // The closure captures gameRef (the ref object) so it stays current
+    // even if the game instance is later replaced.
+    if (onGameReady) {
+      onGameReady((text: string) => { gameRef.current?.injectThought(text) })
+    }
+
     const pollId = setInterval(() => {
       const current = game.getCurrentThought()
       setThought((prev) => (prev !== current ? current : prev))
@@ -54,7 +63,7 @@ export function GameCanvas({ characterName = 'resident' }: GameCanvasProps) {
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName])
+  }, [characterName, onGameReady])
 
   // Native touch event listeners (non-passive so we can preventDefault)
   useEffect(() => {
