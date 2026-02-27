@@ -428,11 +428,16 @@ export class Character {
       state.kind === 'active/performing' || state.kind === 'sleeping'
 
     if (!isStationary) {
-      // Clear any showing thought while moving (but keep injected + queue
-      // so the first phrase appears on arrival).
+      // Clear any showing thought while moving.
       if (this.currentThought !== null) {
         this.currentThought = null
         this.thoughtTimer = 0
+      }
+      // If no injected thought is pending, this isn't the initial transit
+      // from goToRoom — discard leftover queue so trigger phrases don't
+      // leak into an unrelated room.
+      if (this._injectedThought === null) {
+        this._thoughtQueue = []
       }
       // Keep the cooldown ticking so thoughts don't appear the instant
       // the character stops moving.
@@ -501,10 +506,12 @@ export class Character {
   /**
    * Queues a visitor message to appear in the thought bubble.
    * Displayed immediately if the character is stationary; otherwise waits
-   * until the next time they stop moving.
+   * until the next time they stop moving.  Clears any pending phrase queue
+   * so a new message doesn't get followed by stale trigger phrases.
    */
   injectThought(text: string): void {
     this._injectedThought = text
+    this._thoughtQueue = []
   }
 
   /**

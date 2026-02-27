@@ -4,7 +4,7 @@
 //
 // When a visitor posts a message containing certain keywords, the character
 // reacts by navigating to the relevant room, performing an activity, and
-// showing a fun response thought bubble on arrival.
+// showing 1–3 fun response thought bubbles with short gaps between them.
 
 import { seededRngFromKey } from './seeder'
 import type { RoomId, ActivityType } from '../rooms'
