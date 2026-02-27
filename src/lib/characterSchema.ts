@@ -56,6 +56,7 @@ export const CharacterStateSchema = z.object({
     z: z.number(),
   }),
   accessories: z.array(ClothingItemSchema).optional(),
+  lastActiveAt: z.string().datetime().optional(),
 })
 
 export type CharacterState = z.infer<typeof CharacterStateSchema>
