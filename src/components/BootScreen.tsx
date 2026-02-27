@@ -397,8 +397,6 @@ export function BootScreen() {
                 ))}
               </select>
             </div>
-            <div style={styles.fineprint}>(For Marvin and Miggy)</div>
-
             <div style={styles.visitBtnRow}>
               <button
                 onClick={() => void handleSubmit()}
@@ -483,8 +481,6 @@ export function BootScreen() {
                   ))}
                 </select>
               </div>
-              <div style={styles.fineprint}>(For Marvin and Miggy)</div>
-
               <div style={styles.visitBtnRow}>
                 <button
                   onClick={() => void handleSubmit()}
@@ -695,16 +691,6 @@ const styles: Record<string, React.CSSProperties> = {
   errorLine: {
     color: CRT_ERROR,
     textShadow: `0 0 8px ${CRT_ERROR}`,
-  },
-
-  fineprint: {
-    display: 'block',
-    fontFamily: FONT_STACK,
-    fontSize: '12px',
-    lineHeight: '1.6',
-    color: `rgba(51, 255, 51, 0.5)`,
-    marginTop: '2px',
-    marginBottom: '4px',
   },
 
   // ── Cowboy hat ───────────────────────────────────────────────────────────
