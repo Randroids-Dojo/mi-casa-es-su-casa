@@ -269,6 +269,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '8px',
     marginBottom: '4px',
+    paddingRight: '56px', // clear the fixed-position feedback FAB
   },
   prompt: {
     color: CRT_DIM,
@@ -309,5 +310,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
     textAlign: 'right' as const,
     textShadow: 'none',
+    paddingRight: '56px', // match inputRow offset for feedback FAB
   },
 }
