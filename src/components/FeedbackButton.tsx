@@ -11,7 +11,7 @@ function captureScreenshot(): string | null {
     const canvas = document.querySelector('canvas')
     if (!canvas || canvas.width === 0 || canvas.height === 0) return null
 
-    const maxWidth = 480
+    const maxWidth = 320
     const scale = Math.min(1, maxWidth / canvas.width)
     const w = Math.round(canvas.width * scale)
     const h = Math.round(canvas.height * scale)
@@ -23,7 +23,7 @@ function captureScreenshot(): string | null {
     if (!ctx) return null
 
     ctx.drawImage(canvas, 0, 0, w, h)
-    return tmp.toDataURL('image/jpeg', 0.6)
+    return tmp.toDataURL('image/jpeg', 0.5)
   } catch {
     return null
   }

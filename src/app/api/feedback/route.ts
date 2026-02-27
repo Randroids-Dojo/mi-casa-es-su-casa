@@ -19,7 +19,12 @@ interface FeedbackContext {
 function extractCharacterName(urlPath: string | undefined): string | null {
   if (!urlPath) return null
   const match = urlPath.match(/^\/([^/]+)$/)
-  return match ? decodeURIComponent(match[1]) : null
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return match[1]
+  }
 }
 
 function formatConsoleLogs(logs: LogEntry[]): string {
@@ -38,7 +43,7 @@ function buildIssueBody(
 ): string {
   const parts: string[] = [userMessage]
 
-  if (!context) return parts.join('\n\n')
+  if (!context) return userMessage
 
   // --- Context section ---
   const meta: string[] = []
@@ -75,7 +80,21 @@ function buildIssueBody(
     )
   }
 
-  return parts.join('\n\n')
+  let result = parts.join('\n\n')
+
+  // GitHub issue body limit is 65536 chars. Drop the screenshot section if
+  // the body is too large — everything else is more useful for debugging.
+  const GH_BODY_LIMIT = 65_536
+  if (result.length > GH_BODY_LIMIT && context.screenshot) {
+    const screenshotIdx = parts.findIndex((p) => p.includes('Screenshot (base64'))
+    if (screenshotIdx !== -1) {
+      parts.splice(screenshotIdx, 1)
+      parts.push('> _Screenshot omitted — body size exceeded GitHub limit._')
+      result = parts.join('\n\n')
+    }
+  }
+
+  return result
 }
 
 export async function POST(req: NextRequest) {
