@@ -123,12 +123,12 @@ export function initGame(
   const MAX_PAN_X = HOUSE_WIDTH * 0.5
   const MAX_PAN_Y = FLOOR_HEIGHT * FLOOR_COUNT * 0.5
 
-  // On mobile, start zoomed in on the living room / floor 1
+  // On mobile, start zoomed in enough to fill the screen nicely
   const isMobile = Math.min(window.innerWidth, window.innerHeight) < 768
   if (isMobile) {
-    zoomScale = 2.5
-    panWorldX = -6   // shift left to center on living room (x≈10)
-    panWorldY = -8   // shift down to show floor 1 (y≈0..8)
+    zoomScale = 1.5
+    panWorldX = 0    // center horizontally to show the full cross-section
+    panWorldY = -2   // slight shift down to emphasise ground floor
   }
 
   function applyPanZoom(): void {
@@ -145,7 +145,7 @@ export function initGame(
     camera.bottom = f.bottom
     camera.position.set(
       houseCenterX + panWorldX,
-      houseCenterY + 2 + panWorldY,
+      houseCenterY + 1 + panWorldY,
       houseCenterZ - 30,
     )
     camera.lookAt(
