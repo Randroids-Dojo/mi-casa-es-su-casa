@@ -4,6 +4,7 @@ import type { GameInstance } from './types'
 import { Character } from './character'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
 import type { ClothingItem } from '@/lib/characterSchema'
+import type { RoomId, ActivityType } from './rooms'
 
 // ---------------------------------------------------------------------------
 // Camera / pan / zoom helpers
@@ -70,6 +71,7 @@ export function initGame(
       applyZoomScale() {},
       injectThought() {},
       putOnClothes() {},
+      goToRoom() {},
       getCharacterState() { return null },
     }
   }
@@ -298,6 +300,14 @@ export function initGame(
     },
     putOnClothes(item: string) {
       character.putOnClothes(item as ClothingItem)
+    },
+    goToRoom(room: string, activity: string, durationHours: number, responseThought: string) {
+      character.goToRoom(
+        room as RoomId,
+        activity as ActivityType,
+        durationHours,
+        responseThought,
+      )
     },
     getCharacterState(): SchemaCharacterState | null {
       const s = character.getState()

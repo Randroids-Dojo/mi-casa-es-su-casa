@@ -74,6 +74,10 @@ export type { AnimationName, AnimationState } from './animations'
 export { PHRASES, pickPhrase, selectPhraseCategory } from './phrases'
 export type { PhraseCategory } from './phrases'
 
+// Chat triggers
+export { CHAT_TRIGGERS, matchChatTrigger, pickResponsePhrase } from './chatTriggers'
+export type { ChatTrigger, ChatTriggerMatch } from './chatTriggers'
+
 // Accessories
 export { attachClothing, detachClothing } from './accessories'
 

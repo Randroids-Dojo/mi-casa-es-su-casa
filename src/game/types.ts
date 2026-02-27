@@ -64,6 +64,11 @@ export interface GameInstance {
    */
   putOnClothes(item: string): void
   /**
+   * Interrupts the current activity and sends the character to a specific room
+   * to perform the given activity, showing a response thought on arrival.
+   */
+  goToRoom(room: string, activity: string, durationHours: number, responseThought: string): void
+  /**
    * Returns the current character state snapshot for persistence.
    */
   getCharacterState(): SchemaCharacterState | null

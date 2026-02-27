@@ -515,6 +515,34 @@ export class Character {
   }
 
   /**
+   * Interrupts the current activity and sends the character to a specific room
+   * to perform the given activity.  A response thought is queued and will be
+   * shown in the thought bubble once the character arrives and becomes
+   * stationary (the existing `_updateThoughtBubble` handles the timing).
+   */
+  goToRoom(
+    room: RoomId,
+    activity: ActivityType,
+    durationHours: number,
+    responseThought: string,
+  ): void {
+    this._injectedThought = responseThought
+
+    if (this.currentRoom === room) {
+      this._startPerforming(activity, durationHours)
+    } else {
+      const path = findPath(
+        this.currentRoom,
+        room,
+        `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+      )
+      this._queued = { activity, durationHours }
+      this.fsm.transitionToMoving(path)
+      this.animationState = createAnimationState('walk')
+    }
+  }
+
+  /**
    * Walks the character to the bedroom wardrobe and puts on the given item.
    * The item is applied visually when the 'dress' activity completes.
    * No-op if the character is already wearing the item.
