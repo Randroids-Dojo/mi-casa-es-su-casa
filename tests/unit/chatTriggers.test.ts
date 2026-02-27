@@ -142,6 +142,37 @@ describe('matchChatTrigger', () => {
     assert.equal(result.trigger.room, 'kitchen')
     assert.equal(result.matchedKeyword, 'eat')
   })
+
+  test('inflected forms match — "eating" triggers kitchen', () => {
+    const result = matchChatTrigger('keep eating')
+    assert.ok(result)
+    assert.equal(result.trigger.room, 'kitchen')
+    assert.equal(result.matchedKeyword, 'eating')
+  })
+
+  test('inflected forms match — "sleeping" triggers bedroom', () => {
+    const result = matchChatTrigger('stop sleeping')
+    assert.ok(result)
+    assert.equal(result.trigger.room, 'bedroom')
+    assert.equal(result.matchedKeyword, 'sleeping')
+  })
+
+  test('word embedded in larger word does not match — "beaten" is not "eat"', () => {
+    const result = matchChatTrigger('beaten by the system')
+    assert.equal(result, null)
+  })
+
+  test('multi-word keyword respects word boundaries — "become intelligent" does not match "come in"', () => {
+    const result = matchChatTrigger('become intelligent')
+    assert.equal(result, null)
+  })
+
+  test('multi-word keyword still matches at word boundaries', () => {
+    const result = matchChatTrigger('please come in')
+    assert.ok(result)
+    assert.equal(result.trigger.room, 'entrance')
+    assert.equal(result.matchedKeyword, 'come in')
+  })
 })
 
 // ---------------------------------------------------------------------------

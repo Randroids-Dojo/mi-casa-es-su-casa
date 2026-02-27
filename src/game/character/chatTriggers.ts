@@ -36,9 +36,10 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'eat',
     durationHours: 0.5,
     keywords: [
-      'eat', 'food', 'apple', 'hungry', 'snack', 'cook', 'meal', 'dinner',
-      'lunch', 'breakfast', 'pizza', 'sandwich', 'recipe', 'chef', 'fridge',
-      'starving', 'thirsty', 'drink', 'water', 'juice', 'coffee', 'tea',
+      'eat', 'eating', 'food', 'apple', 'hungry', 'snack', 'cook', 'cooking',
+      'meal', 'dinner', 'lunch', 'breakfast', 'pizza', 'sandwich', 'recipe',
+      'chef', 'fridge', 'starving', 'thirsty', 'drink', 'drinking', 'water',
+      'juice', 'coffee', 'tea',
     ],
     responsePhrases: [
       'Ooh good idea, I AM hungry!',
@@ -56,8 +57,9 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'use_bathroom',
     durationHours: 0.25,
     keywords: [
-      'poop', 'pee', 'bathroom', 'potty', 'wash', 'shower', 'bath',
-      'brush teeth', 'toilet', 'hygiene', 'soap', 'stinky', 'smell',
+      'poop', 'pee', 'bathroom', 'potty', 'wash', 'washing', 'shower',
+      'showering', 'bath', 'bathing', 'brush teeth', 'toilet', 'hygiene',
+      'soap', 'stinky', 'smell',
     ],
     responsePhrases: [
       '...excuse me for a moment.',
@@ -75,8 +77,9 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'sleep',
     durationHours: 1.0,
     keywords: [
-      'sleep', 'nap', 'tired', 'rest', 'bed', 'dream', 'pajamas',
-      'pillow', 'blanket', 'yawn', 'exhausted', 'goodnight',
+      'sleep', 'sleeping', 'nap', 'napping', 'tired', 'rest', 'resting',
+      'bed', 'dream', 'dreaming', 'pajamas', 'pillow', 'blanket', 'yawn',
+      'exhausted', 'goodnight',
     ],
     responsePhrases: [
       "Yawwwn... you're right, a nap sounds perfect.",
@@ -94,8 +97,8 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'watch_tv',
     durationHours: 1.0,
     keywords: [
-      'tv', 'movie', 'relax', 'couch', 'chill', 'watch', 'netflix',
-      'show', 'lounge', 'sofa', 'unwind',
+      'tv', 'movie', 'relax', 'relaxing', 'couch', 'chill', 'chilling',
+      'watch', 'watching', 'netflix', 'show', 'lounge', 'sofa', 'unwind',
     ],
     responsePhrases: [
       'Couch potato mode: ON',
@@ -113,8 +116,9 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'work',
     durationHours: 1.0,
     keywords: [
-      'work', 'study', 'write', 'email', 'computer', 'laptop', 'desk',
-      'focus', 'homework', 'learn', 'type', 'research',
+      'work', 'working', 'study', 'studying', 'write', 'writing', 'email',
+      'computer', 'laptop', 'desk', 'focus', 'homework', 'learn', 'learning',
+      'type', 'typing', 'research',
     ],
     responsePhrases: [
       'Back to the grind!',
@@ -132,8 +136,9 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'paint',
     durationHours: 1.0,
     keywords: [
-      'paint', 'music', 'guitar', 'piano', 'art', 'craft', 'hobby',
-      'tinker', 'create', 'draw', 'sing', 'instrument', 'jam', 'build',
+      'paint', 'painting', 'music', 'guitar', 'piano', 'art', 'craft',
+      'hobby', 'tinker', 'tinkering', 'create', 'draw', 'drawing', 'sing',
+      'singing', 'instrument', 'jam', 'build', 'building',
     ],
     responsePhrases: [
       'Creative juices flowing!',
@@ -151,8 +156,8 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
     activity: 'rummage',
     durationHours: 0.5,
     keywords: [
-      'stuff', 'box', 'find', 'search', 'organize', 'storage', 'attic',
-      'lost', 'junk', 'rummage',
+      'stuff', 'box', 'find', 'search', 'searching', 'organize', 'storage',
+      'attic', 'lost', 'junk', 'rummage',
     ],
     responsePhrases: [
       "I wonder what's in these boxes...",
@@ -190,6 +195,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
 // ---------------------------------------------------------------------------
 
 interface MultiWordEntry {
+  pattern: RegExp
   phrase: string
   trigger: ChatTrigger
 }
@@ -198,7 +204,14 @@ const MULTI_WORD_KEYWORDS: MultiWordEntry[] = []
 for (const trigger of CHAT_TRIGGERS) {
   for (const kw of trigger.keywords) {
     if (kw.includes(' ')) {
-      MULTI_WORD_KEYWORDS.push({ phrase: kw, trigger })
+      // Escape regex special chars, then wrap in word boundaries so
+      // "come in" doesn't match inside "become intelligent".
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      MULTI_WORD_KEYWORDS.push({
+        pattern: new RegExp(`\\b${escaped}\\b`),
+        phrase: kw,
+        trigger,
+      })
     }
   }
 }
@@ -226,8 +239,8 @@ const SINGLE_WORD_MAP: ReadonlyMap<string, ChatTrigger> = (() => {
 /**
  * Scan a visitor message for the earliest keyword match.
  *
- * Multi-word keywords (e.g. "fresh air", "brush teeth") are checked as
- * substring matches first. Single-word keywords are then matched against
+ * Multi-word keywords (e.g. "fresh air", "brush teeth") are checked with
+ * word-boundary regex first. Single-word keywords are then matched against
  * individual words (punctuation stripped). The match at the earliest
  * character position in the text wins.
  */
@@ -238,11 +251,11 @@ export function matchChatTrigger(text: string): ChatTriggerMatch | null {
   let bestPos = Infinity
   let bestMatch: ChatTriggerMatch | null = null
 
-  // Pass 1: multi-word keywords (substring search)
+  // Pass 1: multi-word keywords (word-boundary regex search)
   for (const entry of MULTI_WORD_KEYWORDS) {
-    const pos = lower.indexOf(entry.phrase)
-    if (pos !== -1 && pos < bestPos) {
-      bestPos = pos
+    const m = entry.pattern.exec(lower)
+    if (m && m.index < bestPos) {
+      bestPos = m.index
       bestMatch = { trigger: entry.trigger, matchedKeyword: entry.phrase }
     }
   }
