@@ -537,6 +537,7 @@ export function activityToAnimation(
     play_instrument: 'play_instrument',
     tinker: 'tinker',
     rummage: 'rummage',
+    use_bathroom: 'sit',
     idle: 'idle',
   }
   return map[activity] ?? 'idle'

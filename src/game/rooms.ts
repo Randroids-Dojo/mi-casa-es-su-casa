@@ -38,6 +38,7 @@ export type ActivityType =
   | 'play_instrument'
   | 'tinker'
   | 'rummage'
+  | 'use_bathroom'
   | 'idle'
 
 // ---------------------------------------------------------------------------
@@ -123,7 +124,7 @@ export const ROOMS: readonly Room[] = [
     id: 'bathroom',
     floor: 2,
     center: new THREE.Vector3(17, floorCenterY(2), 4),
-    activities: ['bathe', 'groom', 'idle'],
+    activities: ['bathe', 'groom', 'use_bathroom', 'idle'],
     adjacentRooms: ['bedroom', 'study', 'staircase'],
   },
   {
