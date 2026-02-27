@@ -272,10 +272,14 @@ export function initGame(
     getCharacterHeadScreenPos() {
       const worldPos = character.getMeshGroup().position.clone()
       worldPos.y += 3.7
+      // Ensure camera matrices are up-to-date (pan/zoom may have changed
+      // the camera position since the last renderer.render() call).
+      camera.updateMatrixWorld()
       const ndc = worldPos.project(camera)
-      const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
-      // 15% minimum gives the bubble (~60px) + tail (14px) room to sit above the head
-      const y = Math.max(15, Math.min(90, (1 - (ndc.y + 1) / 2) * 100))
+      // Return raw percentages — no clamping so the bubble keeps its natural
+      // size/shape and simply gets clipped by the container when off-screen.
+      const x = (ndc.x + 1) / 2 * 100
+      const y = (1 - (ndc.y + 1) / 2) * 100
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
