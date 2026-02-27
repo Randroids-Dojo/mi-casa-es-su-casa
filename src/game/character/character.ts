@@ -60,7 +60,7 @@ import { pickPhrase, selectPhraseCategory } from './phrases'
 export const REAL_SECONDS_PER_GAME_MINUTE = 1 / 10
 
 /** Movement speed: how many path-leg progress units per real second */
-const MOVEMENT_SPEED = 0.4
+const MOVEMENT_SPEED = 0.2
 
 /** Staircase traversal speed: progress units per real second */
 const STAIRCASE_SPEED = 0.3
