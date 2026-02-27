@@ -220,6 +220,7 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
         height: '100%',
         touchAction: 'none',
         cursor: 'grab',
+        overflow: 'hidden',
       }}
     >
       <canvas

@@ -272,10 +272,14 @@ export function initGame(
     getCharacterHeadScreenPos() {
       const worldPos = character.getMeshGroup().position.clone()
       worldPos.y += 3.7
+      // Ensure camera matrices are up-to-date (pan/zoom may have changed
+      // the camera position since the last renderer.render() call).
+      camera.updateMatrixWorld()
       const ndc = worldPos.project(camera)
-      const x = Math.max(5, Math.min(95, (ndc.x + 1) / 2 * 100))
-      // 15% minimum gives the bubble (~60px) + tail (14px) room to sit above the head
-      const y = Math.max(15, Math.min(90, (1 - (ndc.y + 1) / 2) * 100))
+      // Return pixel coordinates within the canvas so the bubble can be
+      // positioned entirely via CSS transform (which doesn't affect layout).
+      const x = (ndc.x + 1) / 2 * canvas.clientWidth
+      const y = (1 - (ndc.y + 1) / 2) * canvas.clientHeight
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
