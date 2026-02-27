@@ -89,6 +89,8 @@ const THOUGHT_DURATION = 10
 const THOUGHT_COOLDOWN_MIN = 15
 /** Maximum quiet period between thoughts (real seconds) */
 const THOUGHT_COOLDOWN_MAX = 30
+/** Short gap between queued chat-trigger phrases (real seconds) */
+const QUEUED_THOUGHT_GAP = 3
 
 // ---------------------------------------------------------------------------
 // Main Character class
@@ -113,6 +115,8 @@ export class Character {
   private thoughtSeed = 0
   /** Visitor message queued for display; consumed on next stationary frame */
   private _injectedThought: string | null = null
+  /** Additional chat-trigger phrases waiting to be shown after the first */
+  private _thoughtQueue: string[] = []
   /** Clothing items currently worn by this character */
   private _accessories: ClothingItem[] = []
   /** Clothing item queued to be applied after the next 'dress' activity completes */
@@ -424,10 +428,16 @@ export class Character {
       state.kind === 'active/performing' || state.kind === 'sleeping'
 
     if (!isStationary) {
-      // Clear any showing thought while moving
+      // Clear any showing thought while moving.
       if (this.currentThought !== null) {
         this.currentThought = null
         this.thoughtTimer = 0
+      }
+      // If no injected thought is pending, this isn't the initial transit
+      // from goToRoom — discard leftover queue so trigger phrases don't
+      // leak into an unrelated room.
+      if (this._injectedThought === null) {
+        this._thoughtQueue = []
       }
       // Keep the cooldown ticking so thoughts don't appear the instant
       // the character stops moving.
@@ -450,11 +460,12 @@ export class Character {
     if (this.currentThought !== null) {
       this.thoughtTimer -= deltaTime
       if (this.thoughtTimer <= 0) {
-        // Thought expired — enter the quiet cooldown period
+        // Thought expired — use a short gap if more queued phrases remain
         this.currentThought = null
-        this.thoughtCooldown =
-          THOUGHT_COOLDOWN_MIN +
-          Math.random() * (THOUGHT_COOLDOWN_MAX - THOUGHT_COOLDOWN_MIN)
+        this.thoughtCooldown = this._thoughtQueue.length > 0
+          ? QUEUED_THOUGHT_GAP
+          : THOUGHT_COOLDOWN_MIN +
+            Math.random() * (THOUGHT_COOLDOWN_MAX - THOUGHT_COOLDOWN_MIN)
       }
       return
     }
@@ -465,7 +476,14 @@ export class Character {
       return
     }
 
-    // Cooldown expired — pick a new thought
+    // Cooldown expired — drain queued phrases before falling through to auto
+    if (this._thoughtQueue.length > 0) {
+      this.currentThought = this._thoughtQueue.shift()!
+      this.thoughtTimer = THOUGHT_DURATION
+      return
+    }
+
+    // No queued phrases — pick a new automatic thought
     const activity =
       state.kind === 'active/performing' ? state.activity : 'sleep'
     const category = selectPhraseCategory(this.needs, activity)
@@ -488,10 +506,12 @@ export class Character {
   /**
    * Queues a visitor message to appear in the thought bubble.
    * Displayed immediately if the character is stationary; otherwise waits
-   * until the next time they stop moving.
+   * until the next time they stop moving.  Clears any pending phrase queue
+   * so a new message doesn't get followed by stale trigger phrases.
    */
   injectThought(text: string): void {
     this._injectedThought = text
+    this._thoughtQueue = []
   }
 
   /**
@@ -511,6 +531,35 @@ export class Character {
         z: this.mesh.group.position.z,
       },
       accessories: [...this._accessories],
+    }
+  }
+
+  /**
+   * Interrupts the current activity and sends the character to a specific room
+   * to perform the given activity.  The first response phrase is shown on
+   * arrival; any additional phrases are queued and shown with short gaps
+   * between them.
+   */
+  goToRoom(
+    room: RoomId,
+    activity: ActivityType,
+    durationHours: number,
+    responsePhrases: string[],
+  ): void {
+    this._injectedThought = responsePhrases[0] ?? null
+    this._thoughtQueue = responsePhrases.slice(1)
+
+    if (this.currentRoom === room) {
+      this._startPerforming(activity, durationHours)
+    } else {
+      const path = findPath(
+        this.currentRoom,
+        room,
+        `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+      )
+      this._queued = { activity, durationHours }
+      this.fsm.transitionToMoving(path)
+      this.animationState = createAnimationState('walk')
     }
   }
 

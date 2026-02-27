@@ -6,6 +6,7 @@ import type { GameActions } from './GameCanvas'
 import { VisitorPanel } from './VisitorPanel'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
+import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
 
 interface CharacterViewProps {
   name: string
@@ -20,6 +21,8 @@ export function CharacterView({ name }: CharacterViewProps) {
   // hook always calls the latest getState without re-registering the interval.
   const gameActionsRef = useRef<GameActions | null>(null)
   gameActionsRef.current = gameActions
+
+  const triggerSeedRef = useRef(0)
 
   // Fetch initial character state once on mount.
   // Abort after 4 s so a slow/unavailable KV store doesn't block rendering.
@@ -55,10 +58,28 @@ export function CharacterView({ name }: CharacterViewProps) {
 
   const handleMessagePosted = useCallback(
     (text: string) => {
-      gameActionsRef.current?.injectThought(`💌 ${text}`)
+      // Cowboy hat easter egg
       if (text.trim().toLowerCase() === 'giddy up') {
+        gameActionsRef.current?.injectThought(`💌 ${text}`)
         gameActionsRef.current?.putOnClothes('COWBOY_HAT')
+        return
       }
+
+      // Check for keyword triggers — character reacts by going to the room
+      const match = matchChatTrigger(text)
+      if (match) {
+        const phrases = pickResponsePhrases(match.trigger, triggerSeedRef.current++)
+        gameActionsRef.current?.goToRoom(
+          match.trigger.room,
+          match.trigger.activity,
+          match.trigger.durationHours,
+          phrases,
+        )
+        return
+      }
+
+      // No trigger matched — show message as thought bubble
+      gameActionsRef.current?.injectThought(`💌 ${text}`)
     },
     [],
   )
