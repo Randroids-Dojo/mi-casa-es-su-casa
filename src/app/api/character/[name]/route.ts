@@ -33,7 +33,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
       }
     }
 
-    const updated = { ...simulated, lastSeenAt: new Date().toISOString() }
+    const now = new Date().toISOString()
+    // Update lastActiveAt after simulation so subsequent GETs don't
+    // re-simulate from the same old base (compounding simulation time).
+    const updated = { ...simulated, lastSeenAt: now, lastActiveAt: now }
     await saveCharacter(updated)
     return NextResponse.json(updated, { status: 200 })
   } catch {
