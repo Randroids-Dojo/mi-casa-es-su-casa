@@ -301,12 +301,12 @@ export function initGame(
     putOnClothes(item: string) {
       character.putOnClothes(item as ClothingItem)
     },
-    goToRoom(room: string, activity: string, durationHours: number, responseThought: string) {
+    goToRoom(room: string, activity: string, durationHours: number, responsePhrases: string[]) {
       character.goToRoom(
         room as RoomId,
         activity as ActivityType,
         durationHours,
-        responseThought,
+        responsePhrases,
       )
     },
     getCharacterState(): SchemaCharacterState | null {

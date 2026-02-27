@@ -6,7 +6,7 @@ import type { GameActions } from './GameCanvas'
 import { VisitorPanel } from './VisitorPanel'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
-import { matchChatTrigger, pickResponsePhrase } from '@/game/character/chatTriggers'
+import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
 
 interface CharacterViewProps {
   name: string
@@ -68,12 +68,12 @@ export function CharacterView({ name }: CharacterViewProps) {
       // Check for keyword triggers — character reacts by going to the room
       const match = matchChatTrigger(text)
       if (match) {
-        const response = pickResponsePhrase(match.trigger, triggerSeedRef.current++)
+        const phrases = pickResponsePhrases(match.trigger, triggerSeedRef.current++)
         gameActionsRef.current?.goToRoom(
           match.trigger.room,
           match.trigger.activity,
           match.trigger.durationHours,
-          response,
+          phrases,
         )
         return
       }

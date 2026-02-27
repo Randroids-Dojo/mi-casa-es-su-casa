@@ -34,7 +34,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'kitchen',
     activity: 'eat',
-    durationHours: 0.5,
+    durationHours: 6,
     keywords: [
       'eat', 'eating', 'food', 'apple', 'hungry', 'snack', 'cook', 'cooking',
       'meal', 'dinner', 'lunch', 'breakfast', 'pizza', 'sandwich', 'recipe',
@@ -55,7 +55,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'bathroom',
     activity: 'use_bathroom',
-    durationHours: 0.25,
+    durationHours: 4,
     keywords: [
       'poop', 'pee', 'bathroom', 'potty', 'wash', 'washing', 'shower',
       'showering', 'bath', 'bathing', 'brush teeth', 'toilet', 'hygiene',
@@ -75,7 +75,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'bedroom',
     activity: 'sleep',
-    durationHours: 1.0,
+    durationHours: 8,
     keywords: [
       'sleep', 'sleeping', 'nap', 'napping', 'tired', 'rest', 'resting',
       'bed', 'dream', 'dreaming', 'pajamas', 'pillow', 'blanket', 'yawn',
@@ -95,7 +95,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'living_room',
     activity: 'watch_tv',
-    durationHours: 1.0,
+    durationHours: 6,
     keywords: [
       'tv', 'movie', 'relax', 'relaxing', 'couch', 'chill', 'chilling',
       'watch', 'watching', 'netflix', 'show', 'lounge', 'sofa', 'unwind',
@@ -114,7 +114,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'study',
     activity: 'work',
-    durationHours: 1.0,
+    durationHours: 6,
     keywords: [
       'work', 'working', 'study', 'studying', 'write', 'writing', 'email',
       'computer', 'laptop', 'desk', 'focus', 'homework', 'learn', 'learning',
@@ -134,7 +134,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'hobby_room',
     activity: 'paint',
-    durationHours: 1.0,
+    durationHours: 6,
     keywords: [
       'paint', 'painting', 'music', 'guitar', 'piano', 'art', 'craft',
       'hobby', 'tinker', 'tinkering', 'create', 'draw', 'drawing', 'sing',
@@ -154,7 +154,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'storage',
     activity: 'rummage',
-    durationHours: 0.5,
+    durationHours: 5,
     keywords: [
       'stuff', 'box', 'find', 'search', 'searching', 'organize', 'storage',
       'attic', 'lost', 'junk', 'rummage',
@@ -172,7 +172,7 @@ export const CHAT_TRIGGERS: readonly ChatTrigger[] = [
   {
     room: 'entrance',
     activity: 'idle',
-    durationHours: 0.25,
+    durationHours: 3,
     keywords: [
       'door', 'outside', 'leave', 'walk', 'fresh air', 'hello', 'hi',
       'come in', 'welcome', 'enter', 'visit', 'arrive',
@@ -287,10 +287,19 @@ export function matchChatTrigger(text: string): ChatTriggerMatch | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Pick a response phrase from a trigger's response list.
- * Uses seeded RNG so consecutive seeds produce varied picks.
+ * Pick 1–3 unique response phrases from a trigger's response list.
+ * Uses seeded RNG so consecutive seeds produce varied, non-repeating picks.
+ * The first phrase is shown on arrival; the rest are queued with short gaps.
  */
-export function pickResponsePhrase(trigger: ChatTrigger, seed: number): string {
+export function pickResponsePhrases(trigger: ChatTrigger, seed: number): string[] {
   const rng = seededRngFromKey(`chat-response:${trigger.room}:${seed}`)
-  return rng.pick(trigger.responsePhrases)
+  const count = 1 + rng.nextInt(3) // 1, 2, or 3
+  const available = [...trigger.responsePhrases]
+  const phrases: string[] = []
+  for (let i = 0; i < count && available.length > 0; i++) {
+    const idx = rng.nextInt(available.length)
+    phrases.push(available[idx])
+    available.splice(idx, 1)
+  }
+  return phrases
 }

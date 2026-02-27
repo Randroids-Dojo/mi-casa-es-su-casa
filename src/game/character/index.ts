@@ -75,7 +75,7 @@ export { PHRASES, pickPhrase, selectPhraseCategory } from './phrases'
 export type { PhraseCategory } from './phrases'
 
 // Chat triggers
-export { CHAT_TRIGGERS, matchChatTrigger, pickResponsePhrase } from './chatTriggers'
+export { CHAT_TRIGGERS, matchChatTrigger, pickResponsePhrases } from './chatTriggers'
 export type { ChatTrigger, ChatTriggerMatch } from './chatTriggers'
 
 // Accessories

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 
 import {
   matchChatTrigger,
-  pickResponsePhrase,
+  pickResponsePhrases,
   CHAT_TRIGGERS,
 } from '../../src/game/character/chatTriggers'
 
@@ -176,30 +176,41 @@ describe('matchChatTrigger', () => {
 })
 
 // ---------------------------------------------------------------------------
-// pickResponsePhrase
+// pickResponsePhrases
 // ---------------------------------------------------------------------------
 
-describe('pickResponsePhrase', () => {
-  test('returns a string from the trigger response phrases', () => {
+describe('pickResponsePhrases', () => {
+  test('returns 1–3 phrases from the trigger response list', () => {
     const trigger = CHAT_TRIGGERS.find((t) => t.room === 'kitchen')!
-    const phrase = pickResponsePhrase(trigger, 0)
-    assert.ok(trigger.responsePhrases.includes(phrase))
-  })
-
-  test('different seeds produce varied phrases', () => {
-    const trigger = CHAT_TRIGGERS.find((t) => t.room === 'kitchen')!
-    const phrases = new Set<string>()
-    for (let i = 0; i < 20; i++) {
-      phrases.add(pickResponsePhrase(trigger, i))
+    const phrases = pickResponsePhrases(trigger, 0)
+    assert.ok(phrases.length >= 1 && phrases.length <= 3)
+    for (const p of phrases) {
+      assert.ok(trigger.responsePhrases.includes(p))
     }
-    // With 8 phrases and 20 seeds, we should hit at least 3 unique
-    assert.ok(phrases.size >= 3, `Expected >=3 unique phrases, got ${phrases.size}`)
   })
 
-  test('same seed always returns the same phrase', () => {
+  test('returned phrases are unique (no duplicates)', () => {
+    const trigger = CHAT_TRIGGERS.find((t) => t.room === 'kitchen')!
+    for (let i = 0; i < 20; i++) {
+      const phrases = pickResponsePhrases(trigger, i)
+      assert.equal(phrases.length, new Set(phrases).size, `Seed ${i} produced duplicate phrases`)
+    }
+  })
+
+  test('different seeds produce varied results', () => {
+    const trigger = CHAT_TRIGGERS.find((t) => t.room === 'kitchen')!
+    const firstPhrases = new Set<string>()
+    for (let i = 0; i < 20; i++) {
+      firstPhrases.add(pickResponsePhrases(trigger, i)[0])
+    }
+    // With 8 phrases and 20 seeds, we should hit at least 3 unique first phrases
+    assert.ok(firstPhrases.size >= 3, `Expected >=3 unique first phrases, got ${firstPhrases.size}`)
+  })
+
+  test('same seed always returns the same phrases', () => {
     const trigger = CHAT_TRIGGERS.find((t) => t.room === 'bathroom')!
-    const a = pickResponsePhrase(trigger, 42)
-    const b = pickResponsePhrase(trigger, 42)
-    assert.equal(a, b)
+    const a = pickResponsePhrases(trigger, 42)
+    const b = pickResponsePhrases(trigger, 42)
+    assert.deepEqual(a, b)
   })
 })
