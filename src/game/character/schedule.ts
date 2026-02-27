@@ -85,6 +85,7 @@ const BASE_SCHEDULE: readonly ScheduleSlot[] = [
       { room: 'hobby_room', activity: 'paint', durationHours: 1, weight: 4 },
       { room: 'hobby_room', activity: 'tinker', durationHours: 1, weight: 3 },
       { room: 'hobby_room', activity: 'play_instrument', durationHours: 1, weight: 3 },
+      { room: 'bathroom', activity: 'use_bathroom', durationHours: 0.25, weight: 1 },
     ],
   },
   // 12pm – 1pm: lunch
@@ -108,6 +109,7 @@ const BASE_SCHEDULE: readonly ScheduleSlot[] = [
       { room: 'hobby_room', activity: 'tinker', durationHours: 1, weight: 3 },
       { room: 'hobby_room', activity: 'play_instrument', durationHours: 1, weight: 3 },
       { room: 'study', activity: 'read', durationHours: 0.75, weight: 2 },
+      { room: 'bathroom', activity: 'use_bathroom', durationHours: 0.25, weight: 1 },
     ],
   },
   // 5pm – 7pm: dinner prep / eating
@@ -130,6 +132,7 @@ const BASE_SCHEDULE: readonly ScheduleSlot[] = [
       { room: 'hobby_room', activity: 'play_instrument', durationHours: 1, weight: 3 },
       { room: 'hobby_room', activity: 'tinker', durationHours: 1, weight: 2 },
       { room: 'study', activity: 'read', durationHours: 0.75, weight: 3 },
+      { room: 'bathroom', activity: 'use_bathroom', durationHours: 0.25, weight: 1 },
     ],
   },
   // 11pm – midnight: bed
@@ -214,6 +217,23 @@ const CRITICAL_NEED_RESOLUTION: Readonly<
 }
 
 // ---------------------------------------------------------------------------
+// Idle location variety
+// ---------------------------------------------------------------------------
+
+/**
+ * Comfortable rooms the character may wander to when idling.
+ * Excludes staircase (transit hub), entrance (too small), and storage (not cozy).
+ */
+const COZY_IDLE_ROOMS: readonly RoomId[] = [
+  'living_room',
+  'kitchen',
+  'bedroom',
+  'study',
+  'hobby_room',
+  'bathroom',
+]
+
+// ---------------------------------------------------------------------------
 // Main selection function
 // ---------------------------------------------------------------------------
 
@@ -271,7 +291,9 @@ export function selectNextActivity(
   })
 
   if (viableCandidates.length === 0) {
-    return { room: 'bedroom', activity: 'idle', durationHours: 0.25 }
+    const idleRoom = rng.pick(COZY_IDLE_ROOMS)
+    const idleActivity = idleRoom === 'bathroom' ? 'use_bathroom' as ActivityType : 'idle' as ActivityType
+    return { room: idleRoom, activity: idleActivity, durationHours: 0.25 }
   }
 
   const weights = viableCandidates.map((c) => {
@@ -358,6 +380,7 @@ export function describeActivity(activity: ActivityType): string {
     play_instrument: 'playing music',
     tinker: 'tinkering',
     rummage: 'rummaging around',
+    use_bathroom: 'using the bathroom',
     idle: 'standing around',
   }
   return descriptions[activity] ?? activity

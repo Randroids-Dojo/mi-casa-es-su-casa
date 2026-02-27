@@ -23,6 +23,7 @@ export type PhraseCategory =
   | 'bathing'
   | 'sleeping'
   | 'hobby'
+  | 'bathroom_break'
 
 // ---------------------------------------------------------------------------
 // Phrase lists
@@ -117,6 +118,18 @@ export const PHRASES: Readonly<Record<PhraseCategory, readonly string[]>> = {
     "In the zone.",
     "This is my happy place.",
   ],
+  bathroom_break: [
+    "💩",
+    "🚽 Occupied!",
+    "Do NOT come in.",
+    "...nature calls.",
+    "💩💩💩",
+    "Ahh, much better.",
+    "🧻",
+    "This might take a while...",
+    "La la la... 🎵",
+    "Nobody look.",
+  ],
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +171,7 @@ export function selectPhraseCategory(
   if (activity === 'cook') return 'cooking'
   if (activity === 'eat') return 'eating'
   if (activity === 'bathe' || activity === 'groom') return 'bathing'
+  if (activity === 'use_bathroom') return 'bathroom_break'
   if (activity === 'sleep') return 'sleeping'
   if (activity === 'work' || activity === 'type') return 'working'
   if (
