@@ -26,7 +26,7 @@ const SUFFIXES: { label: string; display: string; slug: string }[] = [
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
-  'MI CASA ES SU CASA v0.3',
+  'MI CASA ES SU CASA v0.4',
   '',
   '',
   'LOADING HOUSE SUBSYSTEM.......... OK',
@@ -85,7 +85,7 @@ const CREDITS_CONTENT: string[] = [
   '',
   '',
   'MI CASA ES SU CASA',
-  'v0.3',
+  'v0.4',
   '',
   '',
   '═══════════════════════════════',
@@ -113,6 +113,12 @@ const CREDITS_CONTENT: string[] = [
   '',
   '▸ Enhanced feedback reports',
   '  Includes character state & screenshot',
+  '',
+  '▸ Interactive changelog scroll',
+  '  Click the cowboy hat to view',
+  '',
+  '▸ ASCII art cowboy hat',
+  '  Detailed dot-matrix style rendering',
   '',
   '',
   '═══════════════════════════════',
@@ -142,7 +148,7 @@ const CREDITS_CONTENT: string[] = [
   '',
   'MADE WITH ♥ AND AI',
   '',
-  'MI CASA ES SU CASA v0.3',
+  'MI CASA ES SU CASA v0.4',
   '',
   '',
   '',
@@ -345,11 +351,11 @@ export function BootScreen() {
       }}
       role="button"
       tabIndex={0}
-      aria-label="View v0.3 changelog"
+      aria-label="View v0.4 changelog"
       style={styles.hatContainer}
     >
       <pre style={styles.hatArt}>{COWBOY_HAT.join('\n')}</pre>
-      <div style={styles.hatLabel}>{'[ v0.3 CHANGELOG ]'}</div>
+      <div style={styles.hatLabel}>{'[ v0.4 CHANGELOG ]'}</div>
     </div>
   )
 
