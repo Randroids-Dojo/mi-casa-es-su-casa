@@ -5,8 +5,8 @@
 // ---------------------------------------------------------------------------
 //
 // Rendered as an absolutely-positioned element overlaying the Three.js canvas.
-// When anchorX/anchorY are provided (canvas-percentage coordinates of the
-// character's head), the bubble is positioned above that point with the tail
+// When anchorX/anchorY are provided (pixel coordinates of the character's head
+// within the canvas), the bubble is positioned above that point with the tail
 // pointing downward toward the head. Falls back to a centered position if no
 // anchor is available.
 
@@ -15,9 +15,9 @@ import { useRef, useEffect } from 'react'
 interface ThoughtBubbleProps {
   text: string | null
   visible: boolean
-  /** Canvas-percentage [0–100] X coordinate of the character's head */
+  /** Pixel X coordinate of the character's head within the canvas */
   anchorX?: number
-  /** Canvas-percentage [0–100] Y coordinate of the character's head */
+  /** Pixel Y coordinate of the character's head within the canvas */
   anchorY?: number
 }
 
@@ -31,14 +31,19 @@ export function ThoughtBubble({ text, visible, anchorX, anchorY }: ThoughtBubble
     el.style.opacity = visible && text !== null ? '1' : '0'
   }, [visible, text])
 
-  // Build inline position style: anchor above the character's head when possible
+  // Build inline position style: anchor above the character's head when possible.
+  // We position at left:0/top:0 and move entirely via transform so the bubble's
+  // layout width is always the full container width (up to max-width).  Using
+  // left/top percentages would let CSS shrink-to-fit reduce the available width
+  // when the anchor is near an edge, making the bubble skinny.
   const hasAnchor = anchorX !== undefined && anchorY !== undefined
   const positionStyle: React.CSSProperties = hasAnchor
     ? {
-        left: `${anchorX}%`,
-        top: `${anchorY}%`,
-        // Shift left by 50% to center horizontally, shift up by full bubble height + tail
-        transform: 'translate(-50%, calc(-100% - 14px))',
+        left: 0,
+        top: 0,
+        // anchorX/Y are pixels; -50% centers horizontally on the anchor,
+        // -100% shifts the bubble above the anchor, -14px clears the tail.
+        transform: `translate(calc(${anchorX}px - 50%), calc(${anchorY}px - 100% - 14px))`,
       }
     : {
         // Fallback: horizontally centered, roughly above mid-house

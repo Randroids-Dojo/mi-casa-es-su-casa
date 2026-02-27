@@ -276,10 +276,10 @@ export function initGame(
       // the camera position since the last renderer.render() call).
       camera.updateMatrixWorld()
       const ndc = worldPos.project(camera)
-      // Return raw percentages — no clamping so the bubble keeps its natural
-      // size/shape and simply gets clipped by the container when off-screen.
-      const x = (ndc.x + 1) / 2 * 100
-      const y = (1 - (ndc.y + 1) / 2) * 100
+      // Return pixel coordinates within the canvas so the bubble can be
+      // positioned entirely via CSS transform (which doesn't affect layout).
+      const x = (ndc.x + 1) / 2 * canvas.clientWidth
+      const y = (1 - (ndc.y + 1) / 2) * canvas.clientHeight
       return { x, y }
     },
     applyPanDeltaPixels(dx: number, dy: number) {
