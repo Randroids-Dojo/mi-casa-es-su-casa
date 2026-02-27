@@ -588,6 +588,57 @@ export function getRooms(): Room[] {
 // Main house builder
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Bathroom door — swings closed when character is inside
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a bathroom door panel on a pivot group so it can swing open/closed.
+ * Hinge is on the left edge (bedroom side). When closed (rotation.y = 0)
+ * the panel covers the bathroom's front opening. When open (rotation.y = -PI/2)
+ * the panel tucks alongside the bedroom-side wall, out of view.
+ */
+function buildBathroomDoor(): THREE.Group {
+  const baseY = floorY(2)
+  const wallH = FLOOR_HEIGHT - 1 // same as interior wall height
+  const doorWidth = 5.5           // from hinge (x=15) to study wall (x=20.5)
+  const doorThickness = 0.3
+
+  // Pivot group — positioned at the hinge point
+  const pivot = new THREE.Group()
+  pivot.position.set(15, baseY + wallH / 2 + 1, 0.15)
+
+  // Door panel — offset so its left edge sits at the pivot (hinge)
+  const geo = new THREE.BoxGeometry(doorWidth, wallH, doorThickness)
+  const mat = new THREE.MeshLambertMaterial({ color: PALETTE.DOOR })
+  const panel = new THREE.Mesh(geo, mat)
+  panel.position.set(doorWidth / 2, 0, 0) // left edge at pivot
+  panel.castShadow = true
+  panel.receiveShadow = true
+  pivot.add(panel)
+
+  // Door knob
+  const knobGeo = new THREE.BoxGeometry(0.25, 0.25, 0.2)
+  const knobMat = new THREE.MeshLambertMaterial({ color: PALETTE.CHROME })
+  const knob = new THREE.Mesh(knobGeo, knobMat)
+  knob.position.set(doorWidth - 0.6, -0.5, -doorThickness / 2 - 0.1)
+  pivot.add(knob)
+
+  // Start with door open
+  pivot.rotation.y = -Math.PI / 2
+
+  return pivot
+}
+
+// ---------------------------------------------------------------------------
+// House result type
+// ---------------------------------------------------------------------------
+
+export interface HouseResult {
+  group: THREE.Group
+  bathroomDoor: THREE.Group
+}
+
 /**
  * Builds the complete house geometry as a THREE.Group.
  * The house origin is at (0,0,0) — bottom-left-front corner.
@@ -597,7 +648,7 @@ export function getRooms(): Room[] {
  *   Floor 2: Bedroom (x 1–14) | Bathroom (x 14–20) | Study (x 20–27) | Staircase
  *   Floor 3: Music Room (x 1–16) | Library (x 16–27) | Staircase
  */
-export function buildHouse(): THREE.Group {
+export function buildHouse(): HouseResult {
   const house = new THREE.Group()
 
   for (const floor of [1, 2, 3] as const) {
@@ -615,5 +666,9 @@ export function buildHouse(): THREE.Group {
   buildLibrary(house)
   buildStaircase(house)
 
-  return house
+  // Bathroom door is a separate group so we can animate it
+  const bathroomDoor = buildBathroomDoor()
+  house.add(bathroomDoor)
+
+  return { group: house, bathroomDoor }
 }
