@@ -28,6 +28,34 @@ body {
   75% { opacity: 0.98; }
 }
 
+/* Credits scroll animation */
+@keyframes credits-scroll {
+  0% { transform: translateY(100vh); }
+  100% { transform: translateY(-100%); }
+}
+
+/* Credits fade to black */
+@keyframes credits-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Cowboy hat gentle bob */
+@keyframes hat-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Cowboy hat hover glow */
+.hat-icon {
+  transition: filter 0.3s ease;
+}
+
+.hat-icon:hover,
+.hat-icon:focus-visible {
+  filter: brightness(1.5);
+}
+
 /* Hide scrollbars in WebKit (used by CRT terminal area) */
 .crt-scrollarea::-webkit-scrollbar {
   display: none;

@@ -12,6 +12,7 @@ type Phase =
   | 'VALIDATING'
   | 'ERROR'
   | 'SUCCESS'
+  | 'CREDITS'
 
 // ─── Suffix options ────────────────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ const SUFFIXES: { label: string; display: string; slug: string }[] = [
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
-  'MI CASA ES SU CASA v0.2',
+  'MI CASA ES SU CASA v0.3',
   '',
   '',
   'LOADING HOUSE SUBSYSTEM.......... OK',
@@ -33,6 +34,125 @@ const BOOT_LINES: string[] = [
   'LOADING THOUGHT PROCESSOR........ OK',
   '',
   'READY.',
+  '',
+]
+
+// ─── Cowboy hat (dot-matrix art) ──────────────────────────────────────────────
+
+const COWBOY_HAT: string[] = [
+  '.......................................:::--===+++===---:::.........................................',
+  '...................................:::-=++****#***#**++=-::::::::::::...............................',
+  '.................................::-++*########**+=-:::-==+++++++++++=--:...........................',
+  '..............................::-=++**###***+=-.:--+**#%%%%%%#########**+:..........................',
+  '............................:.::-=++***++=:.::-=+#%%%%%%%%%%%%%%%#%###*+*=:.........................',
+  '...........................:::::::::-:..:::-=+*#%%%%%%%%%%%%%%%####**++++*=.........................',
+  '..........................:----:::::::----=+*#%%#%%%%%%%%%#####**++====-=*=.........................',
+  '.........................:---==-===========+**####*##*****+++++==-=-=---=*+:........................',
+  '.........................:--====+++++++++++*+=+============----:---:---=+**-........................',
+  '.........................:--===+++=++++++++**+==-::--::--::::::-::::--=+##*-........................',
+  '...................:-==+-:---==+===+=++****##**+=-:::::::::::::::-=-=+**##*-........................',
+  '.............:-+###%###*-::---=+=====+++***####**+==--::::::------=+**###**=........................',
+  '..........:=*%%#*#*####+.:----===-++=+++***########*+=+========++***#*#*##*=:.......................',
+  '.......:=*####*#*#####*=.::---======++++****#####**#####******#*#*#*#*###**+:.......................',
+  '.....:=*%#######***#***-.::---=======+=+++****#*###########***#***#***#*##*+:.......................',
+  '....:+#######**#**++===::::---=-=====+++++++*******#**#*##**#***#*#######**++-:::--:................',
+  '...-*#######***++==--::..::------======+++++++**#######*#####################=::.:::-----:..........',
+  '..-*######*+++=---:::-=:::::----==========++*******##***########%###%#%%%%%##*=-----------===-:.....',
+  '.-+###****++==--:::::===::------===+===+++++++***#*****#######%###%%%#*@%==*%%%*=====--------===--:.',
+  '.=####**++=---::::..:+*++==--==-====+*++++++*******#########%#%%%@+:=*#+##*#%#*++++++==-------------',
+  '-*%#**++=---:::::...:=****+++=+++++++++******#**#######%%###%%#*#%+=%%@%%%##%@%*+==----=+*##%%%%%#+:',
+  '-##***+=---:::.......-#*****++**+=+*###***####%%%%#*+*#*=+*#%%%%%@+-%@%##%@%*+-:-=*#%%%%####%#*-....',
+  '=##*+==--:::..........:+*##**#*+*==#****#**####%%##**#*%@*-+%%%%##*+=+###=--+*#%#%%%%%%###*+:.......',
+  '+%*+==--:::..........::::-+#*+*#%%++#%%#*#%##%##%%%@@%%%%@@@@%%%*++*+-:=*#%%%%%%%%#####*=...........',
+  '=#*+=--:::::....:.:.::::::::::-=+*#%#####*###%%%@%%%%%%##**+==---::-*%%%%@%%%%######=...............',
+  '-*+=--:::::::::.:::::::.:::::::::::::::::--------------------::-*%%#%%@%%%%####*-...................',
+  '-**---::::::::::::-::::::::::-::::::::-::--:--------------::+#%#%@@%@%%%###=:.......................',
+  '=-+--:::::::::::::::-::::::--::--:-:-:--:-------------::=*%#%%%%%%%%%%*=:...........................',
+  '.=-=:::-:::-:-:::::::::::::::--:-------------------::+##%%%%%%#%%#=:................................',
+  '.:=-=-:---:::---:::::::::::--------------------::-*##%%%%%%%#+-:....................................',
+  '..:=--------------:-::::::-----------------:::+###%%%%%#+-:.........................................',
+  '....:==--=--:---:-----:::::------------::::+##%%%%*=-:..............................................',
+  '......:=+----=------::-------------::::=*###*+-::...................................................',
+  '.........:-++=---------::::::::::::-+##+-::.........................................................',
+  '.............:-==++==----::----+**+=-...............................................................',
+  '...................:--====+++==-:...................................................................',
+]
+
+// ─── Credits content ──────────────────────────────────────────────────────────
+
+const CREDITS_CONTENT: string[] = [
+  '',
+  '',
+  '',
+  'MI CASA ES SU CASA',
+  'v0.3',
+  '',
+  '',
+  '═══════════════════════════════',
+  '',
+  'NEW FEATURES',
+  '',
+  '▸ Visitor messages panel',
+  '  First shared-state feature',
+  '',
+  '▸ Floating feedback button',
+  '  Posts directly to GitHub issues',
+  '',
+  '▸ Idle locations & bathroom',
+  '  breaks with thought bubbles',
+  '',
+  '▸ Animated bathroom door',
+  '  Closes when character is inside',
+  '',
+  '▸ Cowboy hat Easter egg',
+  '  Say "giddy up" in visitor messages',
+  '',
+  '▸ Chat-triggered behaviors',
+  '  Keywords in visitor messages make',
+  '  the character react and visit rooms',
+  '',
+  '▸ Enhanced feedback reports',
+  '  Includes character state & screenshot',
+  '',
+  '▸ Interactive changelog scroll',
+  '  Click the cowboy hat to view',
+  '',
+  '▸ ASCII art cowboy hat',
+  '  Detailed dot-matrix style rendering',
+  '',
+  '',
+  '═══════════════════════════════',
+  '',
+  'IMPROVEMENTS',
+  '',
+  '▸ Optimized camera & mobile zoom',
+  '▸ Slower floor movement speed',
+  '▸ Responsive name input',
+  '▸ Collapsible visitor panel',
+  '▸ Pathfinder refactored with unit tests',
+  '',
+  '',
+  '═══════════════════════════════',
+  '',
+  'BUG FIXES',
+  '',
+  '▸ Stair clipping & z-fighting',
+  '▸ Thought bubble positioning',
+  '▸ Character float on stairs',
+  '▸ UI element overlaps',
+  '▸ Game canvas height',
+  '',
+  '',
+  '═══════════════════════════════',
+  '',
+  '',
+  'MADE WITH ♥ AND AI',
+  '',
+  'MI CASA ES SU CASA v0.3',
+  '',
+  '',
+  '',
+  '',
   '',
 ]
 
@@ -65,9 +185,14 @@ export function BootScreen() {
   const [submittedName, setSubmittedName] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string>('')
 
+  // Credits
+  const [creditsFading, setCreditsFading] = useState(false)
+  const [bootCount, setBootCount] = useState(0)
+
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const cancelledRef = useRef(false)
+  const creditsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Boot animation ──────────────────────────────────────────────────────────
 
@@ -105,11 +230,14 @@ export function BootScreen() {
   }, [])
 
   useEffect(() => {
+    cancelledRef.current = false
     void runBootSequence()
     return () => {
       cancelledRef.current = true
+      if (creditsTimeoutRef.current) clearTimeout(creditsTimeoutRef.current)
     }
-  }, [runBootSequence])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runBootSequence, bootCount])
 
   // ── Focus input when NAME_PROMPT appears ───────────────────────────────────
 
@@ -189,6 +317,48 @@ export function BootScreen() {
     [handleSubmit]
   )
 
+  // ── Credits ──────────────────────────────────────────────────────────────
+
+  const startCredits = useCallback(() => {
+    setCreditsFading(false)
+    setPhase('CREDITS')
+  }, [])
+
+  const endCredits = useCallback(() => {
+    if (creditsFading) return
+    setCreditsFading(true)
+    creditsTimeoutRef.current = setTimeout(() => {
+      setCreditsFading(false)
+      setPhase('BOOTING')
+      setCompletedLines([])
+      setCurrentLine('')
+      setInputValue('')
+      setSuffixValue('')
+      setSubmittedName('')
+      setErrorMessage('')
+      setBootCount((c) => c + 1)
+    }, 1200)
+  }, [creditsFading])
+
+  // ── Cowboy hat element (shared between NAME_PROMPT and ERROR) ─────────────
+
+  const cowboyHatElement = (
+    <div
+      className="hat-icon"
+      onClick={startCredits}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') startCredits()
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="View v0.3 changelog"
+      style={styles.hatContainer}
+    >
+      <pre style={styles.hatArt}>{COWBOY_HAT.join('\n')}</pre>
+      <div style={styles.hatLabel}>{'[ v0.3 CHANGELOG ]'}</div>
+    </div>
+  )
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -262,8 +432,6 @@ export function BootScreen() {
                 ))}
               </select>
             </div>
-            <div style={styles.fineprint}>(For Marvin and Miggy)</div>
-
             <div style={styles.visitBtnRow}>
               <button
                 onClick={() => void handleSubmit()}
@@ -273,6 +441,8 @@ export function BootScreen() {
                 [ VISIT ]
               </button>
             </div>
+
+            {cowboyHatElement}
           </div>
         )}
 
@@ -346,8 +516,6 @@ export function BootScreen() {
                   ))}
                 </select>
               </div>
-              <div style={styles.fineprint}>(For Marvin and Miggy)</div>
-
               <div style={styles.visitBtnRow}>
                 <button
                   onClick={() => void handleSubmit()}
@@ -357,6 +525,8 @@ export function BootScreen() {
                   [ VISIT ]
                 </button>
               </div>
+
+              {cowboyHatElement}
             </div>
           </>
         )}
@@ -372,7 +542,36 @@ export function BootScreen() {
         )}
       </div>
 
-      {/* Keyframes are defined in globals.css (crt-blink) */}
+      {/* Credits overlay */}
+      {phase === 'CREDITS' && (
+        <div
+          style={styles.creditsOverlay}
+          onClick={endCredits}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')
+              endCredits()
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Skip credits"
+        >
+          <div
+            style={{
+              ...styles.creditsScroller,
+              animationPlayState: creditsFading ? 'paused' : 'running',
+            }}
+            onAnimationEnd={endCredits}
+          >
+            {CREDITS_CONTENT.map((line, i) => (
+              <div key={i} style={styles.creditsLine}>
+                {line || '\u00A0'}
+              </div>
+            ))}
+          </div>
+          <div style={styles.creditsSkipHint}>CLICK / TAP TO SKIP</div>
+          {creditsFading && <div style={styles.creditsFade} />}
+        </div>
+      )}
     </div>
   )
 }
@@ -529,13 +728,90 @@ const styles: Record<string, React.CSSProperties> = {
     textShadow: `0 0 8px ${CRT_ERROR}`,
   },
 
-  fineprint: {
-    display: 'block',
+  // ── Cowboy hat ───────────────────────────────────────────────────────────
+
+  hatContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: '40px',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+
+  hatArt: {
+    fontFamily: FONT_STACK,
+    fontSize: 'clamp(4px, 0.8vw, 9px)',
+    lineHeight: '1.0',
+    color: CRT_GREEN,
+    textShadow: `0 0 10px ${CRT_GREEN}`,
+    margin: 0,
+    padding: 0,
+    textAlign: 'center',
+    userSelect: 'none',
+    animation: 'hat-bob 3s ease-in-out infinite',
+  },
+
+  hatLabel: {
     fontFamily: FONT_STACK,
     fontSize: '12px',
-    lineHeight: '1.6',
-    color: `rgba(51, 255, 51, 0.5)`,
-    marginTop: '2px',
-    marginBottom: '4px',
+    color: 'rgba(51, 255, 51, 0.45)',
+    textShadow: `0 0 4px rgba(51, 255, 51, 0.3)`,
+    marginTop: '12px',
+    letterSpacing: '0.15em',
+    userSelect: 'none',
+  },
+
+  // ── Credits overlay ──────────────────────────────────────────────────────
+
+  creditsOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: '#000',
+    zIndex: 5,
+    overflow: 'hidden',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+
+  creditsScroller: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: FONT_STACK,
+    fontSize: 'clamp(14px, 2.5vw, 20px)',
+    lineHeight: '2.2',
+    color: CRT_GREEN,
+    textShadow: `0 0 8px ${CRT_GREEN}`,
+    whiteSpace: 'pre',
+    animation: 'credits-scroll 25s linear forwards',
+  },
+
+  creditsLine: {
+    minHeight: '2.2em',
+  },
+
+  creditsSkipHint: {
+    position: 'absolute',
+    bottom: '24px',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: FONT_STACK,
+    fontSize: '12px',
+    color: 'rgba(51, 255, 51, 0.35)',
+    textShadow: `0 0 4px rgba(51, 255, 51, 0.2)`,
+    letterSpacing: '0.15em',
+    animation: 'crt-blink 1500ms step-start infinite',
+    userSelect: 'none',
+  },
+
+  creditsFade: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: '#000',
+    animation: 'credits-fade-in 1.2s ease-in forwards',
+    zIndex: 1,
   },
 }
