@@ -76,11 +76,12 @@ The Playwright config (`playwright.config.ts`) uses `--use-angle=swiftshader` fo
 
 ## Version String
 
-The app version is displayed on the boot screen (main menu). It lives in a single place:
+The app version must be kept in sync in two places:
 
+- `package.json` — the `"version"` field (e.g. `"0.3.0"`)
 - `src/components/BootScreen.tsx` — the `BOOT_LINES` array, first element (e.g. `'MI CASA ES SU CASA v0.3'`)
 
-When bumping the version, update only that string. No other files reference the version number.
+When bumping the version, update both. The boot screen uses a short `vX.Y` format; `package.json` uses semver `X.Y.Z`.
 
 ## TypeScript
 
