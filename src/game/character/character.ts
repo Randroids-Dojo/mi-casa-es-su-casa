@@ -45,6 +45,12 @@ import type { AnimationState } from './animations'
 import type { RoomId, ActivityType } from '../rooms'
 import { getRoom } from '../rooms'
 import { pickPhrase, selectPhraseCategory } from './phrases'
+import type { SfxEngine } from '../sfx/engine'
+import {
+  createFootstepDetectorState,
+  detectFootsteps,
+} from '../sfx/footstepDetector'
+import type { FootstepDetectorState } from '../sfx/footstepDetector'
 
 // ---------------------------------------------------------------------------
 // Configurable constants
@@ -121,8 +127,12 @@ export class Character {
   private _accessories: ClothingItem[] = []
   /** Clothing item queued to be applied after the next 'dress' activity completes */
   private _clothingQueue: ClothingItem | null = null
+  /** SFX engine for procedural sound synthesis (null if audio unavailable) */
+  private sfx: SfxEngine | null = null
+  /** Tracks animation progress to detect foot-down moments */
+  private footstepDetector: FootstepDetectorState = createFootstepDetectorState()
 
-  constructor(name: string, scene: THREE.Scene, initialState?: CharacterState) {
+  constructor(name: string, scene: THREE.Scene, initialState?: CharacterState, sfx?: SfxEngine) {
     this.name = name
     this.scene = scene
 
@@ -177,6 +187,8 @@ export class Character {
     if (this.currentActivity === 'sleep') {
       this.fsm.transitionToSleeping()
     }
+
+    this.sfx = sfx ?? null
   }
 
   // -------------------------------------------------------------------------
@@ -231,6 +243,17 @@ export class Character {
     // --- 4. Apply animation ---
     this.animationState = advanceAnimation(this.animationState, deltaTime)
     applyAnimation(this.mesh.parts, this.animationState)
+
+    // --- 4b. Detect and play footstep sounds ---
+    if (this.sfx) {
+      const footstepEvents = detectFootsteps(
+        this.footstepDetector,
+        this.animationState,
+      )
+      for (const event of footstepEvents) {
+        this.sfx.playFootstep(event.surface)
+      }
+    }
 
     // Rotate character to face movement direction if moving
     if (state.kind === 'active/moving' || state.kind === 'transitioning') {

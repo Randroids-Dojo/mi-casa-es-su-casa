@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
+import { SfxEngine } from './sfx/engine'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
 import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
@@ -73,6 +74,7 @@ export function initGame(
       putOnClothes() {},
       goToRoom() {},
       getCharacterState() { return null },
+      unlockAudio() {},
     }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -205,7 +207,12 @@ export function initGame(
       }
     : undefined
 
-  const character = new Character(characterName, scene, gameCharacterState)
+  // ------------------------------------------------------------------
+  // SFX
+  // ------------------------------------------------------------------
+  const sfxEngine = new SfxEngine()
+
+  const character = new Character(characterName, scene, gameCharacterState, sfxEngine)
 
   // ------------------------------------------------------------------
   // Animation loop
@@ -264,6 +271,7 @@ export function initGame(
       cancelAnimationFrame(animFrameId)
       resizeObserver.disconnect()
       character.dispose()
+      sfxEngine.dispose()
       renderer.dispose()
     },
     getCurrentThought() {
@@ -329,6 +337,9 @@ export function initGame(
         position: s.position,
         accessories: s.accessories,
       }
+    },
+    unlockAudio() {
+      sfxEngine.unlock()
     },
   }
 }

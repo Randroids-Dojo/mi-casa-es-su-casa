@@ -72,4 +72,10 @@ export interface GameInstance {
    * Returns the current character state snapshot for persistence.
    */
   getCharacterState(): SchemaCharacterState | null
+  /**
+   * Unlock audio playback. Must be called from a user gesture handler
+   * (touchstart, mousedown, click) to satisfy browser AudioContext policy.
+   * Idempotent — safe to call repeatedly.
+   */
+  unlockAudio(): void
 }
