@@ -153,10 +153,11 @@ export function getPositionAlongLeg(
 export const STAIR_X = ROOM_MAP['staircase'].center.x  // 29.5
 
 /**
- * Z coordinate of the bottom step (front of house, closest to camera).
- * The camera looks in the +Z direction so low-Z = close to viewer.
+ * Z coordinate where the character enters/exits the staircase at the bottom.
+ * Positioned in front of the first step (step 0 front face is at Z = 0.5)
+ * so the character never clips inside step geometry.
  */
-export const STAIR_Z_BOTTOM = 1
+export const STAIR_Z_BOTTOM = 0
 
 /**
  * Z coordinate near the top step (toward back wall).
