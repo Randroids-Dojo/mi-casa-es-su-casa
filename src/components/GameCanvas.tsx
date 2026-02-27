@@ -86,6 +86,7 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
 
     function onTouchStart(e: TouchEvent): void {
       e.preventDefault()
+      gameRef.current?.unlockAudio()
       if (e.touches.length === 1) {
         touchStateRef.current = {
           type: 'pan',
@@ -168,6 +169,7 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     if (!container) return
 
     function onMouseDown(e: MouseEvent): void {
+      gameRef.current?.unlockAudio()
       mouseStateRef.current = { isDown: true, lastX: e.clientX, lastY: e.clientY }
       container!.style.cursor = 'grabbing'
     }
