@@ -128,7 +128,7 @@ describe('matchChatTrigger', () => {
   })
 
   test('multi-word keyword wins when it appears earlier', () => {
-    // "come in" at position 0, "food" at position 12
+    // "come in" at position 0, "food" at position 22
     const result = matchChatTrigger('come in and grab some food')
     assert.ok(result)
     assert.equal(result.trigger.room, 'entrance')
@@ -136,7 +136,7 @@ describe('matchChatTrigger', () => {
   })
 
   test('single-word keyword wins when it appears earlier than multi-word', () => {
-    // "eat" at position 0, "fresh air" at position 13
+    // "eat" at position 0, "fresh air" at position 15
     const result = matchChatTrigger('eat before the fresh air')
     assert.ok(result)
     assert.equal(result.trigger.room, 'kitchen')
