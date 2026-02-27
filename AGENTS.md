@@ -74,6 +74,14 @@ The Playwright config (`playwright.config.ts`) uses `--use-angle=swiftshader` fo
 | `invalid name shows error alert` | Validation broken |
 | Boot screen tests | CRT animation, name prompt, input focus |
 
+## Version String
+
+The app version is displayed on the boot screen (main menu). It lives in a single place:
+
+- `src/components/BootScreen.tsx` — the `BOOT_LINES` array, first element (e.g. `'MI CASA ES SU CASA v0.3'`)
+
+When bumping the version, update only that string. No other files reference the version number.
+
 ## TypeScript
 
 Always run `npx tsc --noEmit` after code changes. All code must compile with zero errors — strict mode is on.
