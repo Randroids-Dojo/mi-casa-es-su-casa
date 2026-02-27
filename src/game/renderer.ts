@@ -59,7 +59,7 @@ export function initGame(
   // ------------------------------------------------------------------
   let renderer: THREE.WebGLRenderer
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
   } catch (err) {
     console.warn('WebGL unavailable, returning no-op game instance', err)
     return {

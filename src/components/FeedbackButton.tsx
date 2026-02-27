@@ -1,8 +1,33 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { initConsoleCapture, getCapturedLogs } from '@/lib/consoleCapture'
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error'
+
+function captureScreenshot(): string | null {
+  try {
+    const canvas = document.querySelector('canvas')
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return null
+
+    const maxWidth = 480
+    const scale = Math.min(1, maxWidth / canvas.width)
+    const w = Math.round(canvas.width * scale)
+    const h = Math.round(canvas.height * scale)
+
+    const tmp = document.createElement('canvas')
+    tmp.width = w
+    tmp.height = h
+    const ctx = tmp.getContext('2d')
+    if (!ctx) return null
+
+    ctx.drawImage(canvas, 0, 0, w, h)
+    return tmp.toDataURL('image/jpeg', 0.6)
+  } catch {
+    return null
+  }
+}
 
 export default function FeedbackButton() {
   const [open, setOpen] = useState(false)
@@ -12,6 +37,11 @@ export default function FeedbackButton() {
   const panelRef = useRef<HTMLDivElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    initConsoleCapture()
+  }, [])
 
   function toggle() {
     setOpen((prev) => {
@@ -48,14 +78,28 @@ export default function FeedbackButton() {
     if (!message.trim()) return
 
     const title = 'Player Feedback' + (name.trim() ? ' from ' + name.trim() : '')
-    const body = message.trim() + (name.trim() ? '\n\n— ' + name.trim() : '')
+    const userMessage = message.trim() + (name.trim() ? '\n\n— ' + name.trim() : '')
+
+    const screenshot = captureScreenshot()
+    const consoleLogs = getCapturedLogs()
 
     setSubmitState('sending')
     try {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({
+          title,
+          body: userMessage,
+          context: {
+            urlPath: pathname,
+            userAgent: navigator.userAgent,
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            timestamp: new Date().toISOString(),
+            screenshot,
+            consoleLogs: consoleLogs.length > 0 ? consoleLogs : null,
+          },
+        }),
       })
       if (!res.ok) throw new Error('status ' + res.status)
       setSubmitState('success')
