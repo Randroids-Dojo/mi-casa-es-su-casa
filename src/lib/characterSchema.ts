@@ -45,6 +45,7 @@ export const CharacterStateSchema = z.object({
     'play_instrument',
     'tinker',
     'rummage',
+    'use_bathroom',
     'idle',
   ]),
   needs: NeedsSchema,

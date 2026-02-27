@@ -18,6 +18,11 @@ export const PALETTE = {
   STOVE: 0x888888, // grey
   FRIDGE: 0xf0f0e8, // warm white (was pure white 0xf0f0f0)
 
+  // Bathroom
+  PORCELAIN: 0xe8e8f0, // cool white with a hint of blue
+  TILE: 0xb8d4d4, // soft aqua tiles
+  CHROME: 0xc0c0c8, // metallic silver
+
   // Accents
   TV_SCREEN: 0x222244, // dark blue-black
   DOOR: 0x8b6914, // wood

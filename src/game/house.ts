@@ -338,22 +338,24 @@ function buildBathroom(group: THREE.Group): void {
   const ft = baseY + 1
 
   addVoxels(group, [
+    // Floor tiles
+    { position: { x: 17, y: ft - 0.4, z: 4 }, color: PALETTE.TILE, size: { x: 6, y: 0.1, z: 6 } },
     // Bathtub
-    { position: { x: 16.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.COUNTER, size: { x: 4, y: 1, z: 2 } },
-    { position: { x: 16.5, y: ft + 0.9, z: 6.5 }, color: PALETTE.WALL_INTERIOR, size: { x: 3, y: 0.5, z: 1.5 } },
+    { position: { x: 16.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.PORCELAIN, size: { x: 4, y: 1, z: 2 } },
+    { position: { x: 16.5, y: ft + 0.9, z: 6.5 }, color: PALETTE.TILE, size: { x: 3, y: 0.5, z: 1.5 } },
     // Bath tap
-    { position: { x: 15.3, y: ft + 1.5, z: 7 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 0.7, z: 0.3 } },
+    { position: { x: 15.3, y: ft + 1.5, z: 7 }, color: PALETTE.CHROME, size: { x: 0.3, y: 0.7, z: 0.3 } },
     // Sink
-    { position: { x: 15.5, y: ft + 1, z: 2.5 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.5, z: 1 } },
+    { position: { x: 15.5, y: ft + 1, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 1 } },
     // Sink pedestal
-    { position: { x: 15.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WALL_INTERIOR, size: { x: 0.8, y: 1, z: 0.8 } },
+    { position: { x: 15.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 0.8, y: 1, z: 0.8 } },
     // Toilet
-    { position: { x: 18.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 18.5, y: ft + 1, z: 3.2 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    { position: { x: 18.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: 18.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
     // Mirror above sink
     { position: { x: 15.5, y: ft + 3, z: 7.6 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
     // Towel rail
-    { position: { x: 18, y: ft + 2.5, z: 7.6 }, color: PALETTE.STAIRCASE, size: { x: 2, y: 0.3, z: 0.3 } },
+    { position: { x: 18, y: ft + 2.5, z: 7.6 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
     // Towel (on rail)
     { position: { x: 18, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
   ])
@@ -586,6 +588,57 @@ export function getRooms(): Room[] {
 // Main house builder
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Bathroom door — swings closed when character is inside
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a bathroom door panel on a pivot group so it can swing open/closed.
+ * Hinge is on the left edge (bedroom side). When closed (rotation.y = 0)
+ * the panel covers the bathroom's front opening. When open (rotation.y = -PI/2)
+ * the panel tucks alongside the bedroom-side wall, out of view.
+ */
+function buildBathroomDoor(): THREE.Group {
+  const baseY = floorY(2)
+  const wallH = FLOOR_HEIGHT - 1 // same as interior wall height
+  const doorWidth = 5.5           // from hinge (x=15) to study wall (x=20.5)
+  const doorThickness = 0.3
+
+  // Pivot group — positioned at the hinge point
+  const pivot = new THREE.Group()
+  pivot.position.set(15, baseY + wallH / 2 + 1, 0.15)
+
+  // Door panel — offset so its left edge sits at the pivot (hinge)
+  const geo = new THREE.BoxGeometry(doorWidth, wallH, doorThickness)
+  const mat = new THREE.MeshLambertMaterial({ color: PALETTE.DOOR })
+  const panel = new THREE.Mesh(geo, mat)
+  panel.position.set(doorWidth / 2, 0, 0) // left edge at pivot
+  panel.castShadow = true
+  panel.receiveShadow = true
+  pivot.add(panel)
+
+  // Door knob
+  const knobGeo = new THREE.BoxGeometry(0.25, 0.25, 0.2)
+  const knobMat = new THREE.MeshLambertMaterial({ color: PALETTE.CHROME })
+  const knob = new THREE.Mesh(knobGeo, knobMat)
+  knob.position.set(doorWidth - 0.6, -0.5, -doorThickness / 2 - 0.1)
+  pivot.add(knob)
+
+  // Start with door open
+  pivot.rotation.y = -Math.PI / 2
+
+  return pivot
+}
+
+// ---------------------------------------------------------------------------
+// House result type
+// ---------------------------------------------------------------------------
+
+export interface HouseResult {
+  group: THREE.Group
+  bathroomDoor: THREE.Group
+}
+
 /**
  * Builds the complete house geometry as a THREE.Group.
  * The house origin is at (0,0,0) — bottom-left-front corner.
@@ -595,7 +648,7 @@ export function getRooms(): Room[] {
  *   Floor 2: Bedroom (x 1–14) | Bathroom (x 14–20) | Study (x 20–27) | Staircase
  *   Floor 3: Music Room (x 1–16) | Library (x 16–27) | Staircase
  */
-export function buildHouse(): THREE.Group {
+export function buildHouse(): HouseResult {
   const house = new THREE.Group()
 
   for (const floor of [1, 2, 3] as const) {
@@ -613,5 +666,9 @@ export function buildHouse(): THREE.Group {
   buildLibrary(house)
   buildStaircase(house)
 
-  return house
+  // Bathroom door is a separate group so we can animate it
+  const bathroomDoor = buildBathroomDoor()
+  house.add(bathroomDoor)
+
+  return { group: house, bathroomDoor }
 }

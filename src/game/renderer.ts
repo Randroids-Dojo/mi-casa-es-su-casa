@@ -185,7 +185,7 @@ export function initGame(
   // ------------------------------------------------------------------
   // House geometry
   // ------------------------------------------------------------------
-  const house = buildHouse()
+  const { group: house, bathroomDoor } = buildHouse()
   scene.add(house)
 
   // ------------------------------------------------------------------
@@ -211,6 +211,11 @@ export function initGame(
   let animFrameId = 0
   let lastTime = performance.now()
 
+  // Bathroom door animation state
+  const DOOR_OPEN_Y = -Math.PI / 2  // open: tucked along bedroom wall
+  const DOOR_CLOSED_Y = 0           // closed: covering bathroom front
+  const DOOR_SPEED = 4              // radians per second (smooth swing)
+
   function animate(): void {
     animFrameId = requestAnimationFrame(animate)
 
@@ -219,6 +224,20 @@ export function initGame(
     lastTime = now
 
     character.update(deltaTime)
+
+    // Animate bathroom door: close when character is using the bathroom
+    const charState = character.getState()
+    const doorShouldClose = charState.currentRoom === 'bathroom'
+      && charState.currentActivity === 'use_bathroom'
+    const targetY = doorShouldClose ? DOOR_CLOSED_Y : DOOR_OPEN_Y
+    const currentY = bathroomDoor.rotation.y
+    const diff = targetY - currentY
+    if (Math.abs(diff) > 0.01) {
+      bathroomDoor.rotation.y += Math.sign(diff) * Math.min(Math.abs(diff), DOOR_SPEED * deltaTime)
+    } else {
+      bathroomDoor.rotation.y = targetY
+    }
+
     renderer.render(scene, camera)
   }
 
