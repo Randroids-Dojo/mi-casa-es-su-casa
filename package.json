@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test:unit": "npx tsx --test tests/unit/*.test.ts",
     "test:smoke": "npx tsx tests/smoke/smoke.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
