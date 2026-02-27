@@ -8,6 +8,23 @@
 - **Vercel KV** (Upstash Redis) — character state persistence
 - **Playwright** — E2E and visual regression tests
 
+## Unit Tests
+
+Tests live in `tests/unit/`. No server needed — run directly:
+
+```bash
+npm run test:unit
+```
+
+### Rules for agents
+
+- **Always run `npm run test:unit` after any change to:**
+  - `src/game/character/pathfinder.ts` (movement, position interpolation)
+  - `src/game/rooms.ts` (room positions, floor heights, adjacency graph)
+- Unit tests verify **physical invariants** (character stays on the floor,
+  no teleporting between rooms, stairs climb monotonically). If a test fails,
+  fix the code — do not weaken the assertion.
+
 ## E2E Tests (Playwright)
 
 Tests live in `tests/e2e/`. Run them with a server already running:
