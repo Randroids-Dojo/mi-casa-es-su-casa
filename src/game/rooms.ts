@@ -8,15 +8,12 @@
 //   Floors: 3, each FLOOR_HEIGHT voxels tall
 //   Floor Y origins: floor1=0, floor2=FLOOR_HEIGHT, floor3=FLOOR_HEIGHT*2
 //
-// Layout (LCP-inspired):
-//   Floor 1: Entry(x 1–4) | Living(x 4–16) | Kitchen(x 16–27) | Stair(x 27–32)
-//   Floor 2: Bedroom(x 1–14) | Bathroom(x 14–20) | Study(x 20–27) | Stair
-//   Floor 3: Music Room(x 1–16) | Library(x 16–27) | Stair
-//
 // Staircase connects all floors on the right side (x ≈ 27–32).
+// Room positions vary per character — see src/lib/layout.ts.
 
 import * as THREE from 'three'
 import { FLOOR_HEIGHT } from './house'
+import type { HouseLayout, LayoutRoomId } from '@/lib/layout'
 
 // ---------------------------------------------------------------------------
 // Activity types
@@ -73,15 +70,26 @@ export interface Room {
 
 /** Returns the Y world coordinate of the floor surface (top of slab) for a floor. */
 function floorCenterY(floor: 1 | 2 | 3): number {
-  // Floor slab center is at (floor-1)*FLOOR_HEIGHT + 0.5, so the top surface
-  // (where characters stand) is at (floor-1)*FLOOR_HEIGHT + 1.
-  // The character mesh origin is at feet (y=0 in local space), so placing
-  // the group at this Y means the feet touch the floor exactly.
   return (floor - 1) * FLOOR_HEIGHT + 1
 }
 
 // ---------------------------------------------------------------------------
-// Room definitions
+// Static activity map — activities are intrinsic to room type, not position
+// ---------------------------------------------------------------------------
+
+export const ACTIVITY_MAP: Readonly<Record<LayoutRoomId, readonly ActivityType[]>> = {
+  entrance: ['idle'],
+  living_room: ['relax', 'watch_tv', 'read', 'idle'],
+  kitchen: ['cook', 'eat', 'idle'],
+  bedroom: ['sleep', 'dress', 'idle'],
+  study: ['work', 'type', 'read', 'idle'],
+  bathroom: ['bathe', 'groom', 'use_bathroom', 'idle'],
+  hobby_room: ['paint', 'play_instrument', 'tinker', 'read', 'idle'],
+  storage: ['rummage', 'idle'],
+}
+
+// ---------------------------------------------------------------------------
+// Default room definitions (original fixed layout)
 // ---------------------------------------------------------------------------
 
 export const ROOMS: readonly Room[] = [
@@ -143,7 +151,7 @@ export const ROOMS: readonly Room[] = [
   },
   {
     id: 'staircase',
-    floor: 1, // spans all floors; floor 1 is just the base designation
+    floor: 1,
     center: new THREE.Vector3(29.5, floorCenterY(1), 4),
     activities: ['idle'],
     adjacentRooms: [
@@ -159,14 +167,77 @@ export const ROOMS: readonly Room[] = [
   },
 ]
 
-// ---------------------------------------------------------------------------
-// Lookup helpers
-// ---------------------------------------------------------------------------
-
 /** Map from RoomId to Room for O(1) lookup */
 export const ROOM_MAP: Readonly<Record<RoomId, Room>> = Object.fromEntries(
   ROOMS.map((r) => [r.id, r]),
 ) as Readonly<Record<RoomId, Room>>
+
+// ---------------------------------------------------------------------------
+// Build rooms from a layout
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds Room definitions from a HouseLayout. The rooms have layout-specific
+ * centers and adjacency, with the same activity lists as the default layout.
+ */
+export function buildRooms(layout: HouseLayout): {
+  rooms: Room[]
+  roomMap: Record<RoomId, Room>
+} {
+  // Group slots by floor and sort by xMin for adjacency
+  const floorSlots: Record<number, typeof layout.slots> = { 1: [], 2: [], 3: [] }
+  for (const slot of layout.slots) {
+    floorSlots[slot.floor].push(slot)
+  }
+  for (const floor of [1, 2, 3]) {
+    floorSlots[floor].sort((a, b) => a.xMin - b.xMin)
+  }
+
+  const rooms: Room[] = []
+
+  for (const floor of [1, 2, 3] as const) {
+    const slots = floorSlots[floor]
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
+      const roomId = slot.roomId as RoomId
+      const neighbors: RoomId[] = []
+
+      // Left neighbor
+      if (i > 0) neighbors.push(slots[i - 1].roomId as RoomId)
+      // Right neighbor
+      if (i < slots.length - 1) neighbors.push(slots[i + 1].roomId as RoomId)
+      // Always connected to staircase
+      neighbors.push('staircase')
+
+      rooms.push({
+        id: roomId,
+        floor,
+        center: new THREE.Vector3(slot.centerX, floorCenterY(floor), 4),
+        activities: [...ACTIVITY_MAP[slot.roomId]],
+        adjacentRooms: neighbors,
+      })
+    }
+  }
+
+  // Add staircase (always fixed position)
+  rooms.push({
+    id: 'staircase',
+    floor: 1,
+    center: new THREE.Vector3(29.5, floorCenterY(1), 4),
+    activities: ['idle'],
+    adjacentRooms: layout.slots.map((s) => s.roomId as RoomId),
+  })
+
+  const roomMap = Object.fromEntries(
+    rooms.map((r) => [r.id, r]),
+  ) as Record<RoomId, Room>
+
+  return { rooms, roomMap }
+}
+
+// ---------------------------------------------------------------------------
+// Lookup helpers
+// ---------------------------------------------------------------------------
 
 /** Returns the Room definition for a given RoomId */
 export function getRoom(id: RoomId): Room {

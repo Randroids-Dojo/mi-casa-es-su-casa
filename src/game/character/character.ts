@@ -42,8 +42,8 @@ import {
   createAnimationState,
 } from './animations'
 import type { AnimationState } from './animations'
-import type { RoomId, ActivityType } from '../rooms'
-import { getRoom } from '../rooms'
+import type { RoomId, ActivityType, Room } from '../rooms'
+import { ROOM_MAP } from '../rooms'
 import { pickPhrase, selectPhraseCategory } from './phrases'
 import type { SfxEngine } from '../sfx/engine'
 import {
@@ -107,6 +107,7 @@ export class Character {
   private readonly scene: THREE.Scene
   private readonly mesh: CharacterMesh
   private readonly fsm: CharacterStateMachine
+  private readonly roomMap: Readonly<Record<RoomId, Room>>
   private needs: Needs
   private clock: GameClock
   private currentRoom: RoomId
@@ -132,9 +133,16 @@ export class Character {
   /** Tracks animation progress to detect foot-down moments */
   private footstepDetector: FootstepDetectorState = createFootstepDetectorState()
 
-  constructor(name: string, scene: THREE.Scene, initialState?: CharacterState, sfx?: SfxEngine) {
+  constructor(
+    name: string,
+    scene: THREE.Scene,
+    initialState?: CharacterState,
+    sfx?: SfxEngine,
+    roomMap?: Readonly<Record<RoomId, Room>>,
+  ) {
     this.name = name
     this.scene = scene
+    this.roomMap = roomMap ?? ROOM_MAP
 
     // Build appearance from name seed
     const appearance = seedFromName(name)
@@ -162,11 +170,11 @@ export class Character {
     } else {
       this.needs = { ...DEFAULT_NEEDS }
       this.clock = { hour: 8, day: 0 } // Start at 8am on day 0
-      const initial = getInitialActivity(name)
+      const initial = getInitialActivity(name, this.roomMap)
       this.currentRoom = initial.room
       this.currentActivity = initial.activity
       // Place character at room center
-      const room = getRoom(this.currentRoom)
+      const room = this.roomMap[this.currentRoom]
       this.mesh.group.position.copy(room.center)
     }
 
@@ -306,6 +314,7 @@ export class Character {
       movingState.path,
       movingState.pathIndex,
       movingState.legProgress,
+      this.roomMap,
     )
     this.mesh.group.position.copy(pos)
 
@@ -327,7 +336,7 @@ export class Character {
       // Arrived at destination room
       const destRoom = movingState.path[movingState.path.length - 1]
       this.currentRoom = destRoom
-      this.mesh.group.position.copy(getRoom(destRoom).center)
+      this.mesh.group.position.copy(this.roomMap[destRoom].center)
 
       // Start the queued activity
       const { activity, durationHours } = this._getQueuedActivity()
@@ -346,7 +355,7 @@ export class Character {
       const transState = this.fsm.transitioningState
       if (transState) {
         this.currentRoom = transState.destinationRoom
-        this.mesh.group.position.copy(getRoom(this.currentRoom).center)
+        this.mesh.group.position.copy(this.roomMap[this.currentRoom].center)
         const { activity, durationHours } = this._getQueuedActivity()
         this._startPerforming(activity, durationHours)
       }
@@ -377,6 +386,7 @@ export class Character {
       appearance.hobbyType,
       this.currentRoom,
       this.name,
+      this.roomMap,
     )
 
     this.currentActivity = selection.activity
@@ -390,6 +400,7 @@ export class Character {
         this.currentRoom,
         selection.room,
         `${this.name}:path:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        this.roomMap,
       )
 
       // Queue the activity to start upon arrival
@@ -433,7 +444,7 @@ export class Character {
 
   private _getFacingAngleToRoom(roomId: RoomId): number {
     // Simple: face along X axis based on room position relative to world center
-    const room = getRoom(roomId)
+    const room = this.roomMap[roomId]
     const dx = room.center.x - 8 // 8 is approx house center x
     return dx > 0 ? 0 : Math.PI
   }
@@ -579,6 +590,7 @@ export class Character {
         this.currentRoom,
         room,
         `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        this.roomMap,
       )
       this._queued = { activity, durationHours }
       this.fsm.transitionToMoving(path)
@@ -602,6 +614,7 @@ export class Character {
         this.currentRoom,
         'bedroom',
         `${this.name}:dress:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        this.roomMap,
       )
       this._queued = { activity: 'dress', durationHours: 0.15 }
       this.fsm.transitionToMoving(path)

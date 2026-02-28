@@ -6,6 +6,8 @@ import { SfxEngine } from './sfx/engine'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
 import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
+import { buildRooms } from './rooms'
+import { generateLayout } from '@/lib/layout'
 
 // ---------------------------------------------------------------------------
 // Camera / pan / zoom helpers
@@ -187,9 +189,15 @@ export function initGame(
   scene.add(hemiLight)
 
   // ------------------------------------------------------------------
+  // Layout — deterministic from character name
+  // ------------------------------------------------------------------
+  const layout = generateLayout(characterName)
+  const { roomMap } = buildRooms(layout)
+
+  // ------------------------------------------------------------------
   // House geometry
   // ------------------------------------------------------------------
-  const { group: house, bathroomDoor } = buildHouse()
+  const { group: house, bathroomDoor } = buildHouse(layout)
   scene.add(house)
 
   // ------------------------------------------------------------------
@@ -212,7 +220,7 @@ export function initGame(
   // ------------------------------------------------------------------
   const sfxEngine = new SfxEngine()
 
-  const character = new Character(characterName, scene, gameCharacterState, sfxEngine)
+  const character = new Character(characterName, scene, gameCharacterState, sfxEngine, roomMap)
 
   // ------------------------------------------------------------------
   // Animation loop
