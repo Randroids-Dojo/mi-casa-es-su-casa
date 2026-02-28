@@ -108,7 +108,6 @@ export function CharacterView({ name }: CharacterViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100dvh' }}>
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         {versionStale && <UpdateBanner />}
-        <PowerButton />
         <GameCanvas
           characterName={name}
           initialState={initialState}
@@ -117,6 +116,7 @@ export function CharacterView({ name }: CharacterViewProps) {
           onLayoutSwap={persistSwap}
           externalRoomOrder={conflictRoomOrder}
         />
+        <PowerButton />
       </div>
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
     </div>

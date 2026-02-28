@@ -1,11 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    setMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return mobile
+}
 
 export function PowerButton() {
   const [showConfirm, setShowConfirm] = useState(false)
   const router = useRouter()
+  const isMobile = useIsMobile()
+
+  const size = isMobile ? 44 : 36
+  const iconSize = isMobile ? 22 : 18
 
   function handlePowerClick() {
     setShowConfirm(true)
@@ -29,8 +45,8 @@ export function PowerButton() {
           top: 12,
           left: 12,
           zIndex: 50,
-          width: 36,
-          height: 36,
+          width: size,
+          height: size,
           borderRadius: '50%',
           border: '2px solid #33ff33',
           background: 'rgba(0,0,0,0.7)',
@@ -53,8 +69,8 @@ export function PowerButton() {
       >
         {/* IEC 5009 power symbol */}
         <svg
-          width="18"
-          height="18"
+          width={iconSize}
+          height={iconSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke="#33ff33"
