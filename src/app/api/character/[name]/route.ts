@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateNameFormat, normalizeName } from '@/lib/nameValidation'
-import { getCharacter, saveCharacter, createDefaultCharacter } from '@/lib/kv'
+import { getCharacter, saveCharacter, createDefaultCharacter, resolveLayout } from '@/lib/kv'
 import { CharacterStateSchema } from '@/lib/characterSchema'
 import { simulateOffline, SIMULATION_THRESHOLD_SECONDS } from '@/lib/simulateOffline'
 import { PERSISTENCE_VERSION } from '@/lib/persistenceVersion'
@@ -25,12 +25,15 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
       return NextResponse.json(character, { status: 201 })
     }
 
+    // Resolve the character's house layout (custom or deterministic default)
+    const { layout } = await resolveLayout(name)
+
     // Simulate offline activity if enough time has passed since last active client
     let simulated = existing
     if (existing.lastActiveAt) {
       const elapsedSeconds = (Date.now() - Date.parse(existing.lastActiveAt)) / 1000
       if (elapsedSeconds > SIMULATION_THRESHOLD_SECONDS) {
-        simulated = simulateOffline(existing, elapsedSeconds)
+        simulated = simulateOffline(existing, elapsedSeconds, layout)
       }
     }
 

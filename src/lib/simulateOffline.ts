@@ -15,6 +15,7 @@ import type { ActivityType } from '@/game/rooms'
 import { ROOM_CENTERS, ROOM_ACTIVITIES } from './roomData'
 import { seedFromName, seededRngFromKey } from '@/game/character/seeder'
 import { generateLayout } from './layout'
+import type { HouseLayout } from './layout'
 import { buildLayoutRoomData } from './roomDataBuilder'
 import type { LayoutRoomData } from './roomDataBuilder'
 import type { PersonalityBias, HobbyType } from '@/game/character/seeder'
@@ -275,6 +276,7 @@ export const SIMULATION_THRESHOLD_SECONDS = 60
 export function simulateOffline(
   state: CharacterState,
   elapsedRealSeconds: number,
+  customLayout?: HouseLayout,
 ): CharacterState {
   if (elapsedRealSeconds <= 0) return state
 
@@ -282,7 +284,7 @@ export function simulateOffline(
   const hoursToSimulate = Math.min(gameHoursElapsed, MAX_SIMULATION_HOURS)
 
   // Compute layout-aware room data for this character
-  const layout = generateLayout(state.name)
+  const layout = customLayout ?? generateLayout(state.name)
   const roomData = buildLayoutRoomData(layout)
 
   const appearance = seedFromName(state.name)

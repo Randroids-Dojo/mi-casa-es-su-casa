@@ -7,7 +7,9 @@ import type { CharacterState as SchemaCharacterState } from '@/lib/characterSche
 import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
 import { buildRooms } from './rooms'
-import { generateLayout } from '@/lib/layout'
+import { generateLayout, layoutFromOrder } from '@/lib/layout'
+import type { LayoutRoomId, HouseLayout } from '@/lib/layout'
+import { LayoutEditor } from './layoutEditor'
 
 // ---------------------------------------------------------------------------
 // Camera / pan / zoom helpers
@@ -57,6 +59,7 @@ export function initGame(
   canvas: HTMLCanvasElement,
   characterName = 'resident',
   initialState?: SchemaCharacterState,
+  initialRoomOrder?: LayoutRoomId[],
 ): GameInstance {
   // ------------------------------------------------------------------
   // Renderer
@@ -77,6 +80,12 @@ export function initGame(
       goToRoom() {},
       getCharacterState() { return null },
       unlockAudio() {},
+      onLayoutPointerDown() {},
+      onLayoutPointerMove() {},
+      onLayoutPointerUp() {},
+      isLayoutEditActive() { return false },
+      onLayoutSwap: null,
+      applyExternalLayout() {},
     }
   }
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -189,16 +198,19 @@ export function initGame(
   scene.add(hemiLight)
 
   // ------------------------------------------------------------------
-  // Layout — deterministic from character name
+  // Layout — custom from room order, or deterministic from character name
   // ------------------------------------------------------------------
-  const layout = generateLayout(characterName)
-  const { roomMap } = buildRooms(layout)
+  let currentLayout: HouseLayout = initialRoomOrder
+    ? layoutFromOrder(initialRoomOrder)
+    : generateLayout(characterName)
+  let currentRoomMap = buildRooms(currentLayout).roomMap
 
   // ------------------------------------------------------------------
   // House geometry
   // ------------------------------------------------------------------
-  const { group: house, bathroomDoor } = buildHouse(layout)
-  scene.add(house)
+  let houseResult = buildHouse(currentLayout)
+  scene.add(houseResult.group)
+  let bathroomDoor = houseResult.bathroomDoor
 
   // ------------------------------------------------------------------
   // Character
@@ -220,7 +232,56 @@ export function initGame(
   // ------------------------------------------------------------------
   const sfxEngine = new SfxEngine()
 
-  const character = new Character(characterName, scene, gameCharacterState, sfxEngine, roomMap)
+  const character = new Character(characterName, scene, gameCharacterState, sfxEngine, currentRoomMap)
+
+  // ------------------------------------------------------------------
+  // Layout editor
+  // ------------------------------------------------------------------
+
+  /** External callback set by GameCanvas for persisting layout swaps */
+  let externalSwapCallback: ((roomOrder: LayoutRoomId[]) => void) | null = null
+
+  function rebuildHouse(newLayout: HouseLayout): void {
+    // Remove old house
+    scene.remove(houseResult.group)
+    houseResult.group.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose()
+        if (Array.isArray(obj.material)) {
+          obj.material.forEach((m) => m.dispose())
+        } else {
+          obj.material.dispose()
+        }
+      }
+    })
+
+    // Build new house
+    currentLayout = newLayout
+    currentRoomMap = buildRooms(newLayout).roomMap
+    houseResult = buildHouse(newLayout)
+    scene.add(houseResult.group)
+    bathroomDoor = houseResult.bathroomDoor
+
+    // Update character to use new room positions
+    character.updateRoomMap(currentRoomMap)
+  }
+
+  const layoutEditor = new LayoutEditor({
+    scene,
+    camera,
+    canvas,
+    layout: currentLayout,
+    onSwap(newRoomOrder: LayoutRoomId[]) {
+      const newLayout = layoutFromOrder(newRoomOrder)
+      rebuildHouse(newLayout)
+      layoutEditor.setLayout(newLayout)
+
+      // Notify external persistence
+      if (externalSwapCallback) {
+        externalSwapCallback(newRoomOrder)
+      }
+    },
+  })
 
   // ------------------------------------------------------------------
   // Animation loop
@@ -241,6 +302,7 @@ export function initGame(
     lastTime = now
 
     character.update(deltaTime)
+    layoutEditor.update(deltaTime)
 
     // Animate bathroom door: close when character is using the bathroom
     const charState = character.getState()
@@ -274,10 +336,11 @@ export function initGame(
   // ------------------------------------------------------------------
   // GameInstance
   // ------------------------------------------------------------------
-  return {
+  const gameInstance: GameInstance = {
     dispose() {
       cancelAnimationFrame(animFrameId)
       resizeObserver.disconnect()
+      layoutEditor.dispose()
       character.dispose()
       sfxEngine.dispose()
       renderer.dispose()
@@ -353,5 +416,36 @@ export function initGame(
     unlockAudio() {
       sfxEngine.unlock()
     },
+
+    // --- Layout editor ---
+    onLayoutPointerDown(screenX: number, screenY: number) {
+      layoutEditor.onPointerDown(screenX, screenY)
+    },
+    onLayoutPointerMove(screenX: number, screenY: number) {
+      layoutEditor.onPointerMove(screenX, screenY)
+    },
+    onLayoutPointerUp() {
+      layoutEditor.onPointerUp()
+    },
+    isLayoutEditActive() {
+      return layoutEditor.isActive
+    },
+    onLayoutSwap: null,
+    applyExternalLayout(roomOrder: LayoutRoomId[]) {
+      const newLayout = layoutFromOrder(roomOrder)
+      rebuildHouse(newLayout)
+      layoutEditor.setLayout(newLayout)
+    },
   }
+
+  // Wire up the external swap callback through the GameInstance property
+  Object.defineProperty(gameInstance, 'onLayoutSwap', {
+    get: () => externalSwapCallback,
+    set: (cb: ((roomOrder: LayoutRoomId[]) => void) | null) => {
+      externalSwapCallback = cb
+    },
+    enumerable: true,
+  })
+
+  return gameInstance
 }

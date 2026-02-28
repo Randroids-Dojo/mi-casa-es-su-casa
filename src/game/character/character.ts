@@ -107,7 +107,7 @@ export class Character {
   private readonly scene: THREE.Scene
   private readonly mesh: CharacterMesh
   private readonly fsm: CharacterStateMachine
-  private readonly roomMap: Readonly<Record<RoomId, Room>>
+  private roomMap: Readonly<Record<RoomId, Room>>
   private needs: Needs
   private clock: GameClock
   private currentRoom: RoomId
@@ -647,6 +647,30 @@ export class Character {
    */
   getMeshGroup(): THREE.Group {
     return this.mesh.group
+  }
+
+  /**
+   * Replaces the room map after a layout swap. If the character's current room
+   * moved, instantly repositions the mesh to the new room center.
+   */
+  updateRoomMap(newRoomMap: Readonly<Record<RoomId, Room>>): void {
+    this.roomMap = newRoomMap
+
+    // If mid-movement, cancel and snap to current room center
+    const state = this.fsm.state
+    if (state.kind === 'active/moving' || state.kind === 'transitioning') {
+      const room = this.roomMap[this.currentRoom]
+      if (room) {
+        this.mesh.group.position.copy(room.center)
+        this._startPerforming('idle', 0.25)
+      }
+    } else {
+      // Snap to new center if the room moved
+      const room = this.roomMap[this.currentRoom]
+      if (room) {
+        this.mesh.group.position.copy(room.center)
+      }
+    }
   }
 
   /**

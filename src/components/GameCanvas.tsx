@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { initGame } from '@/game'
 import type { GameInstance } from '@/game/types'
 import type { CharacterState } from '@/lib/characterSchema'
+import type { LayoutRoomId } from '@/lib/layout'
 import { ThoughtBubble } from './ThoughtBubble'
 
 export interface GameActions {
@@ -19,6 +20,12 @@ interface GameCanvasProps {
   initialState?: CharacterState
   /** Called once the game is initialised with the available game actions */
   onGameReady?: (actions: GameActions) => void
+  /** Initial room ordering for custom layout */
+  initialRoomOrder?: LayoutRoomId[]
+  /** Called when the layout editor swaps two rooms (for persistence) */
+  onLayoutSwap?: (roomOrder: LayoutRoomId[]) => void
+  /** Apply an externally-resolved layout (e.g. after conflict resolution) */
+  externalRoomOrder?: LayoutRoomId[] | null
 }
 
 function getTouchDistance(touches: TouchList): number {
@@ -27,7 +34,19 @@ function getTouchDistance(touches: TouchList): number {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-export function GameCanvas({ characterName = 'resident', initialState, onGameReady }: GameCanvasProps) {
+/** Pixel movement threshold before long press is canceled */
+const LONG_PRESS_MOVE_THRESHOLD = 8
+/** Duration in ms for long press to trigger */
+const LONG_PRESS_DURATION = 500
+
+export function GameCanvas({
+  characterName = 'resident',
+  initialState,
+  onGameReady,
+  initialRoomOrder,
+  onLayoutSwap,
+  externalRoomOrder,
+}: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<GameInstance | null>(null)
@@ -47,11 +66,57 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     { isDown: false, lastX: 0, lastY: 0 },
   )
 
+  // Long press state (shared by touch and mouse)
+  const longPressRef = useRef<{
+    timer: ReturnType<typeof setTimeout> | null
+    startX: number
+    startY: number
+    /** True once the long press triggered and the layout editor is active */
+    triggered: boolean
+  }>({ timer: null, startX: 0, startY: 0, triggered: false })
+
+  // Keep onLayoutSwap callback ref current
+  const onLayoutSwapRef = useRef(onLayoutSwap)
+  onLayoutSwapRef.current = onLayoutSwap
+
+  // ----- Long press helpers (stable functions, no React state dependency) -----
+
+  function startLongPressTimer(screenX: number, screenY: number): void {
+    cancelLongPressTimer()
+    longPressRef.current = {
+      timer: setTimeout(() => {
+        longPressRef.current.triggered = true
+        gameRef.current?.onLayoutPointerDown(screenX, screenY)
+      }, LONG_PRESS_DURATION),
+      startX: screenX,
+      startY: screenY,
+      triggered: false,
+    }
+  }
+
+  function cancelLongPressTimer(): void {
+    if (longPressRef.current.timer) {
+      clearTimeout(longPressRef.current.timer)
+      longPressRef.current.timer = null
+    }
+  }
+
+  function hasMovedBeyondThreshold(screenX: number, screenY: number): boolean {
+    const dx = screenX - longPressRef.current.startX
+    const dy = screenY - longPressRef.current.startY
+    return Math.sqrt(dx * dx + dy * dy) > LONG_PRESS_MOVE_THRESHOLD
+  }
+
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const game = initGame(canvasRef.current, characterName, initialState)
+    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder)
     gameRef.current = game
+
+    // Wire layout swap callback
+    game.onLayoutSwap = (roomOrder: LayoutRoomId[]) => {
+      onLayoutSwapRef.current?.(roomOrder)
+    }
 
     if (onGameReady) {
       onGameReady({
@@ -77,7 +142,14 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName, initialState, onGameReady])
+  }, [characterName, initialState, onGameReady, initialRoomOrder])
+
+  // Apply externally-resolved layout (e.g. after conflict)
+  useEffect(() => {
+    if (externalRoomOrder && gameRef.current) {
+      gameRef.current.applyExternalLayout(externalRoomOrder)
+    }
+  }, [externalRoomOrder])
 
   // Native touch event listeners (non-passive so we can preventDefault)
   useEffect(() => {
@@ -87,14 +159,27 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     function onTouchStart(e: TouchEvent): void {
       e.preventDefault()
       gameRef.current?.unlockAudio()
+
       if (e.touches.length === 1) {
+        const x = e.touches[0].clientX
+        const y = e.touches[0].clientY
+
+        // Start long press timer — don't enter pan mode yet
+        startLongPressTimer(x, y)
+
         touchStateRef.current = {
-          type: 'pan',
-          lastX: e.touches[0].clientX,
-          lastY: e.touches[0].clientY,
+          type: 'none', // wait to determine gesture type
+          lastX: x,
+          lastY: y,
           lastDist: 0,
         }
       } else if (e.touches.length === 2) {
+        // Two fingers → pinch zoom (cancel any long press)
+        cancelLongPressTimer()
+        if (longPressRef.current.triggered) {
+          gameRef.current?.onLayoutPointerUp()
+          longPressRef.current.triggered = false
+        }
         touchStateRef.current = {
           type: 'pinch',
           lastX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
@@ -109,13 +194,34 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
       const game = gameRef.current
       if (!game) return
       const state = touchStateRef.current
+      const lp = longPressRef.current
 
-      if (state.type === 'pan' && e.touches.length === 1) {
-        const dx = e.touches[0].clientX - state.lastX
-        const dy = e.touches[0].clientY - state.lastY
-        game.applyPanDeltaPixels(dx, dy)
-        state.lastX = e.touches[0].clientX
-        state.lastY = e.touches[0].clientY
+      if (e.touches.length === 1) {
+        const x = e.touches[0].clientX
+        const y = e.touches[0].clientY
+
+        if (lp.triggered) {
+          // Layout edit mode — route to layout editor
+          game.onLayoutPointerMove(x, y)
+          return
+        }
+
+        // Check if moved beyond threshold before long press fired
+        if (lp.timer && hasMovedBeyondThreshold(x, y)) {
+          cancelLongPressTimer()
+          // Enter pan mode
+          touchStateRef.current.type = 'pan'
+          touchStateRef.current.lastX = x
+          touchStateRef.current.lastY = y
+        }
+
+        if (state.type === 'pan') {
+          const dx = x - state.lastX
+          const dy = y - state.lastY
+          game.applyPanDeltaPixels(dx, dy)
+          state.lastX = x
+          state.lastY = y
+        }
       } else if (state.type === 'pinch' && e.touches.length === 2) {
         const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
         const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2
@@ -139,6 +245,14 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
 
     function onTouchEnd(e: TouchEvent): void {
       e.preventDefault()
+
+      // End layout edit if active
+      if (longPressRef.current.triggered) {
+        gameRef.current?.onLayoutPointerUp()
+        longPressRef.current.triggered = false
+      }
+      cancelLongPressTimer()
+
       if (e.touches.length === 1) {
         // Transition from pinch back to single-finger pan
         touchStateRef.current = {
@@ -157,6 +271,7 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     container.addEventListener('touchend', onTouchEnd, { passive: false })
 
     return () => {
+      cancelLongPressTimer()
       container.removeEventListener('touchstart', onTouchStart)
       container.removeEventListener('touchmove', onTouchMove)
       container.removeEventListener('touchend', onTouchEnd)
@@ -171,7 +286,9 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     function onMouseDown(e: MouseEvent): void {
       gameRef.current?.unlockAudio()
       mouseStateRef.current = { isDown: true, lastX: e.clientX, lastY: e.clientY }
-      container!.style.cursor = 'grabbing'
+
+      // Start long press timer
+      startLongPressTimer(e.clientX, e.clientY)
     }
 
     function onMouseMove(e: MouseEvent): void {
@@ -179,15 +296,44 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
       if (!state.isDown) return
       const game = gameRef.current
       if (!game) return
-      const dx = e.clientX - state.lastX
-      const dy = e.clientY - state.lastY
-      game.applyPanDeltaPixels(dx, dy)
-      state.lastX = e.clientX
-      state.lastY = e.clientY
+      const lp = longPressRef.current
+
+      if (lp.triggered) {
+        // Layout edit mode — route to layout editor
+        game.onLayoutPointerMove(e.clientX, e.clientY)
+        return
+      }
+
+      // Check if moved beyond threshold before long press fired
+      if (lp.timer && hasMovedBeyondThreshold(e.clientX, e.clientY)) {
+        cancelLongPressTimer()
+        container!.style.cursor = 'grabbing'
+        // Snap lastX/Y to current position so the first pan frame doesn't
+        // include the accumulated delta from mousedown → threshold crossing.
+        state.lastX = e.clientX
+        state.lastY = e.clientY
+      }
+
+      if (!lp.timer && !lp.triggered) {
+        // Normal pan mode
+        const dx = e.clientX - state.lastX
+        const dy = e.clientY - state.lastY
+        game.applyPanDeltaPixels(dx, dy)
+        state.lastX = e.clientX
+        state.lastY = e.clientY
+      }
     }
 
     function onMouseUp(): void {
       mouseStateRef.current.isDown = false
+
+      // End layout edit if active
+      if (longPressRef.current.triggered) {
+        gameRef.current?.onLayoutPointerUp()
+        longPressRef.current.triggered = false
+      }
+      cancelLongPressTimer()
+
       container!.style.cursor = 'grab'
     }
 
@@ -206,6 +352,7 @@ export function GameCanvas({ characterName = 'resident', initialState, onGameRea
     container.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
+      cancelLongPressTimer()
       container.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
