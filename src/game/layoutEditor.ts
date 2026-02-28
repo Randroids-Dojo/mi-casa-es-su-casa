@@ -8,14 +8,15 @@
 //                           (hover 2s) → SWAP → rebuild → FLASH → IDLE
 //
 // Visual overlays:
-//   - Selected room: blue tint
-//   - Hover target: yellow tint with rising opacity during dwell
+//   - Selected room: blue tint on source slot (shows it's "picked up" / empty)
+//   - Drag ghost: source room furniture following the cursor (semi-transparent)
+//   - Hover ghost: source room furniture previewed at target slot (animates opacity)
 //   - Swap flash: white flash on both rooms (150ms)
 
 import * as THREE from 'three'
 import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
 import { roomOrderFromLayout } from '@/lib/layout'
-import { FLOOR_HEIGHT } from './house'
+import { FLOOR_HEIGHT, buildRoomFurnitureGroup } from './house'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -25,13 +26,19 @@ import { FLOOR_HEIGHT } from './house'
 const DWELL_DURATION = 2.0
 /** Seconds the white flash stays after a swap */
 const FLASH_DURATION = 0.15
-/** Z position for overlay meshes (slightly in front of house) */
+/** Z position for flat overlay meshes (slightly in front of house) */
 const OVERLAY_Z = -0.05
+/** Z offset for ghost furniture groups (clearly in front of house geometry) */
+const GHOST_Z = -0.3
 
 // Colors
 const COLOR_SELECTED = 0x4488ff
-const COLOR_HOVER = 0xffcc44
 const COLOR_FLASH = 0xffffff
+
+// Ghost opacities
+const DRAG_GHOST_OPACITY = 0.65
+const HOVER_GHOST_OPACITY_MIN = 0.15
+const HOVER_GHOST_OPACITY_MAX = 0.45
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,6 +70,48 @@ function makeOverlay(slot: RoomSlot, color: number, opacity: number): THREE.Mesh
   return mesh
 }
 
+/** Traverse a group and set transparent + depthWrite=false on all mesh materials */
+function applyGroupOpacity(group: THREE.Group, opacity: number): void {
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const mat = obj.material as THREE.MeshLambertMaterial
+      mat.transparent = true
+      mat.opacity = opacity
+      mat.depthWrite = false
+    }
+  })
+}
+
+/** Traverse a group, collect all mesh materials, and configure them for ghost rendering */
+function initGhostMaterials(group: THREE.Group, opacity: number, renderOrder: number): THREE.MeshLambertMaterial[] {
+  const mats: THREE.MeshLambertMaterial[] = []
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const mat = obj.material as THREE.MeshLambertMaterial
+      mat.transparent = true
+      mat.opacity = opacity
+      mat.depthWrite = false
+      obj.renderOrder = renderOrder
+      mats.push(mat)
+    }
+  })
+  return mats
+}
+
+/** Dispose geometry and materials for all meshes in a group */
+function disposeGroup(group: THREE.Group): void {
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose()
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((m) => m.dispose())
+      } else {
+        obj.material.dispose()
+      }
+    }
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Hit-testing
 // ---------------------------------------------------------------------------
@@ -92,7 +141,14 @@ function slotAtWorld(
 
 type EditorState =
   | { kind: 'idle' }
-  | { kind: 'dragging'; sourceSlot: RoomSlot; hoverSlot: RoomSlot | null; dwellTime: number }
+  | {
+      kind: 'dragging'
+      sourceSlot: RoomSlot
+      hoverSlot: RoomSlot | null
+      dwellTime: number
+      cursorWorldX: number
+      cursorWorldY: number
+    }
   | { kind: 'flash'; elapsed: number }
 
 export class LayoutEditor {
@@ -104,7 +160,10 @@ export class LayoutEditor {
 
   private overlayGroup: THREE.Group
   private selectedOverlay: THREE.Mesh | null = null
-  private hoverOverlay: THREE.Mesh | null = null
+  private dragGhost: THREE.Group | null = null
+  private hoverGhost: THREE.Group | null = null
+  /** Cached hover ghost materials for efficient per-frame opacity updates */
+  private hoverGhostMaterials: THREE.MeshLambertMaterial[] = []
   private flashOverlayA: THREE.Mesh | null = null
   private flashOverlayB: THREE.Mesh | null = null
 
@@ -144,30 +203,43 @@ export class LayoutEditor {
     const slot = slotAtWorld(world.x, world.y, this.layout)
     if (!slot) return
 
-    this.state = { kind: 'dragging', sourceSlot: slot, hoverSlot: null, dwellTime: 0 }
+    this.state = {
+      kind: 'dragging',
+      sourceSlot: slot,
+      hoverSlot: null,
+      dwellTime: 0,
+      cursorWorldX: world.x,
+      cursorWorldY: world.y,
+    }
     this.showSelectedOverlay(slot)
+    this.showDragGhost(slot, world.x, world.y)
   }
 
   onPointerMove(screenX: number, screenY: number): void {
     if (this.state.kind !== 'dragging') return
 
     const world = this.screenToWorld(screenX, screenY)
+    this.state.cursorWorldX = world.x
+    this.state.cursorWorldY = world.y
+
+    // Move drag ghost to follow cursor
+    this.updateDragGhostPosition(this.state.sourceSlot, world.x, world.y)
+
     const hovered = slotAtWorld(world.x, world.y, this.layout)
 
-    // If hovering over a different room (not the source), track it
     if (hovered && hovered.roomId !== this.state.sourceSlot.roomId) {
       if (!this.state.hoverSlot || this.state.hoverSlot.roomId !== hovered.roomId) {
-        // New hover target — reset dwell timer
+        // New hover target — reset dwell and show ghost preview at target
         this.state.hoverSlot = hovered
         this.state.dwellTime = 0
-        this.showHoverOverlay(hovered)
+        this.showHoverGhost(this.state.sourceSlot, hovered)
       }
     } else {
-      // Hovering over source or empty space — clear hover
+      // Hovering over source slot or empty space — clear hover
       if (this.state.hoverSlot) {
         this.state.hoverSlot = null
         this.state.dwellTime = 0
-        this.clearHoverOverlay()
+        this.clearHoverGhost()
       }
     }
   }
@@ -184,11 +256,13 @@ export class LayoutEditor {
     if (this.state.kind === 'dragging' && this.state.hoverSlot) {
       this.state.dwellTime += deltaTime
 
-      // Update hover overlay opacity to show progress
-      if (this.hoverOverlay) {
+      // Animate hover ghost opacity to show dwell progress
+      if (this.hoverGhostMaterials.length > 0) {
         const progress = Math.min(this.state.dwellTime / DWELL_DURATION, 1)
-        const mat = this.hoverOverlay.material as THREE.MeshBasicMaterial
-        mat.opacity = 0.1 + progress * 0.4
+        const opacity = HOVER_GHOST_OPACITY_MIN + progress * (HOVER_GHOST_OPACITY_MAX - HOVER_GHOST_OPACITY_MIN)
+        for (const mat of this.hoverGhostMaterials) {
+          mat.opacity = opacity
+        }
       }
 
       // Dwell complete — execute swap
@@ -249,6 +323,63 @@ export class LayoutEditor {
   }
 
   // -----------------------------------------------------------------------
+  // Private: ghost management
+  // -----------------------------------------------------------------------
+
+  private showDragGhost(slot: RoomSlot, worldX: number, worldY: number): void {
+    this.clearDragGhost()
+    this.dragGhost = buildRoomFurnitureGroup(slot.roomId, slot.xMin, slot.xMax, slot.floor)
+    this.dragGhost.position.z = GHOST_Z
+    applyGroupOpacity(this.dragGhost, DRAG_GHOST_OPACITY)
+    // Set renderOrder on all meshes so they render in front
+    this.dragGhost.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) obj.renderOrder = 998
+    })
+    this.updateDragGhostPosition(slot, worldX, worldY)
+    this.overlayGroup.add(this.dragGhost)
+  }
+
+  private updateDragGhostPosition(slot: RoomSlot, worldX: number, worldY: number): void {
+    if (!this.dragGhost) return
+    // Offset the group so the room's center tracks the cursor
+    const slotCenterY = floorY(slot.floor) + FLOOR_HEIGHT / 2
+    this.dragGhost.position.x = worldX - slot.centerX
+    this.dragGhost.position.y = worldY - slotCenterY
+  }
+
+  private showHoverGhost(sourceSlot: RoomSlot, targetSlot: RoomSlot): void {
+    this.clearHoverGhost()
+    // Build source room furniture at target slot dimensions — previews the swap result
+    this.hoverGhost = buildRoomFurnitureGroup(
+      sourceSlot.roomId,
+      targetSlot.xMin,
+      targetSlot.xMax,
+      targetSlot.floor,
+    )
+    this.hoverGhost.position.z = GHOST_Z
+    // Collect materials for efficient per-frame opacity updates
+    this.hoverGhostMaterials = initGhostMaterials(this.hoverGhost, HOVER_GHOST_OPACITY_MIN, 997)
+    this.overlayGroup.add(this.hoverGhost)
+  }
+
+  private clearDragGhost(): void {
+    if (this.dragGhost) {
+      this.overlayGroup.remove(this.dragGhost)
+      disposeGroup(this.dragGhost)
+      this.dragGhost = null
+    }
+  }
+
+  private clearHoverGhost(): void {
+    if (this.hoverGhost) {
+      this.overlayGroup.remove(this.hoverGhost)
+      disposeGroup(this.hoverGhost)
+      this.hoverGhost = null
+      this.hoverGhostMaterials = []
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Private: screen-to-world coordinate mapping
   // -----------------------------------------------------------------------
 
@@ -270,14 +401,8 @@ export class LayoutEditor {
 
   private showSelectedOverlay(slot: RoomSlot): void {
     this.clearSelectedOverlay()
-    this.selectedOverlay = makeOverlay(slot, COLOR_SELECTED, 0.3)
+    this.selectedOverlay = makeOverlay(slot, COLOR_SELECTED, 0.25)
     this.overlayGroup.add(this.selectedOverlay)
-  }
-
-  private showHoverOverlay(slot: RoomSlot): void {
-    this.clearHoverOverlay()
-    this.hoverOverlay = makeOverlay(slot, COLOR_HOVER, 0.1)
-    this.overlayGroup.add(this.hoverOverlay)
   }
 
   private clearSelectedOverlay(): void {
@@ -289,18 +414,10 @@ export class LayoutEditor {
     }
   }
 
-  private clearHoverOverlay(): void {
-    if (this.hoverOverlay) {
-      this.overlayGroup.remove(this.hoverOverlay)
-      this.hoverOverlay.geometry.dispose()
-      ;(this.hoverOverlay.material as THREE.Material).dispose()
-      this.hoverOverlay = null
-    }
-  }
-
   private clearAllOverlays(): void {
     this.clearSelectedOverlay()
-    this.clearHoverOverlay()
+    this.clearDragGhost()
+    this.clearHoverGhost()
 
     if (this.flashOverlayA) {
       this.overlayGroup.remove(this.flashOverlayA)

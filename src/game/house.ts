@@ -749,6 +749,26 @@ const ROOM_BUILDERS: Readonly<
 }
 
 // ---------------------------------------------------------------------------
+// Room furniture preview — used by layout editor for drag ghosts
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds furniture for a single room slot into a new THREE.Group.
+ * Furniture is positioned at absolute world coordinates matching the given slot.
+ * Used by the layout editor to render draggable ghost previews.
+ */
+export function buildRoomFurnitureGroup(
+  roomId: LayoutRoomId,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): THREE.Group {
+  const group = new THREE.Group()
+  ROOM_BUILDERS[roomId](group, xMin, xMax, floor)
+  return group
+}
+
+// ---------------------------------------------------------------------------
 // Main house builder
 // ---------------------------------------------------------------------------
 
