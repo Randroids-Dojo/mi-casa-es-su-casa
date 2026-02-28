@@ -271,6 +271,7 @@ export function GameCanvas({
     container.addEventListener('touchend', onTouchEnd, { passive: false })
 
     return () => {
+      cancelLongPressTimer()
       container.removeEventListener('touchstart', onTouchStart)
       container.removeEventListener('touchmove', onTouchMove)
       container.removeEventListener('touchend', onTouchEnd)
@@ -307,6 +308,10 @@ export function GameCanvas({
       if (lp.timer && hasMovedBeyondThreshold(e.clientX, e.clientY)) {
         cancelLongPressTimer()
         container!.style.cursor = 'grabbing'
+        // Snap lastX/Y to current position so the first pan frame doesn't
+        // include the accumulated delta from mousedown → threshold crossing.
+        state.lastX = e.clientX
+        state.lastY = e.clientY
       }
 
       if (!lp.timer && !lp.triggered) {
@@ -314,10 +319,9 @@ export function GameCanvas({
         const dx = e.clientX - state.lastX
         const dy = e.clientY - state.lastY
         game.applyPanDeltaPixels(dx, dy)
+        state.lastX = e.clientX
+        state.lastY = e.clientY
       }
-
-      state.lastX = e.clientX
-      state.lastY = e.clientY
     }
 
     function onMouseUp(): void {
@@ -348,6 +352,7 @@ export function GameCanvas({
     container.addEventListener('wheel', onWheel, { passive: false })
 
     return () => {
+      cancelLongPressTimer()
       container.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)

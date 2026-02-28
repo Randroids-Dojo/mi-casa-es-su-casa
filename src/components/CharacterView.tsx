@@ -45,7 +45,7 @@ export function CharacterView({ name }: CharacterViewProps) {
       })
       .catch(() => null)
 
-    const layoutFetch = fetch(`/api/layout/${name}`, { signal: controller.signal })
+    const layoutFetch = fetch(`/api/layout/${encodeURIComponent(name)}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) return null
         return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number }>

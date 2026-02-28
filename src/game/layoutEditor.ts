@@ -209,8 +209,8 @@ export class LayoutEditor {
   /** Replace layout after external update (e.g. conflict resolution) */
   setLayout(layout: HouseLayout): void {
     this.layout = layout
-    // If mid-drag, cancel it since the layout changed under us
-    if (this.state.kind === 'dragging') {
+    // If mid-interaction, cancel it since the layout changed under us
+    if (this.state.kind !== 'idle') {
       this.state = { kind: 'idle' }
       this.clearAllOverlays()
     }
