@@ -56,6 +56,12 @@ body {
   filter: brightness(1.5);
 }
 
+/* Horizontal credits scroll (v0.4 changelog) */
+@keyframes h-credits-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(calc(-100% + 100vw)); }
+}
+
 /* Hide scrollbars in WebKit (used by CRT terminal area) */
 .crt-scrollarea::-webkit-scrollbar {
   display: none;

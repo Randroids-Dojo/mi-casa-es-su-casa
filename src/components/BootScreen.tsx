@@ -13,6 +13,7 @@ type Phase =
   | 'ERROR'
   | 'SUCCESS'
   | 'CREDITS'
+  | 'CREDITS_V4'
 
 // ─── Suffix options ────────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ const SUFFIXES: { label: string; display: string; slug: string }[] = [
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
-  'MI CASA ES SU CASA v0.3',
+  'MI CASA ES SU CASA v0.4',
   '',
   '',
   'LOADING HOUSE SUBSYSTEM.......... OK',
@@ -78,7 +79,49 @@ const COWBOY_HAT: string[] = [
   '...................:--====+++==-:...................................................................',
 ]
 
-// ─── Credits content ──────────────────────────────────────────────────────────
+// ─── House arrows art (v0.4) ──────────────────────────────────────────────────
+
+const HOUSE_ARROWS: string[] = [
+  '...............................................................................................',
+  '...............................................................................................',
+  '...........┌──────────────────────────────┬───────────────────────────────────┐..............',
+  '...........│          KITCHEN             │          HOBBY  ROOM              │..............',
+  '...........│                              │                                   │..............',
+  '...........│    ↑           ↑            │    ↑              ↑              │..............',
+  '...........│   ←[TABLE ]→  ←[STOVE ]→   │   ←[EASEL ]→    ←[SHELF ]→     │..............',
+  '...........│    ↓           ↓            │    ↓              ↓              │..............',
+  '...........│                              │                                   │..............',
+  '...........├──────┬───────────────────────┴───────────────────────────────────┤..............',
+  '...........│ ↑↑↑  │                   LIVING  ROOM                            │..............',
+  '...........│ ///  │                                                            │..............',
+  '...........│ ///  │    ↑               ↑                ↑                   │..............',
+  '...........│ ///  │   ←[SOFA  ]→      ←[TV    ]→       ←[LAMP  ]→          │..............',
+  '...........│ ///  │    ↓               ↓                ↓                   │..............',
+  '...........│      │                                                            │..............',
+  '...........├──────┼────────────────────────────────────────────────────────────┤..............',
+  '...........│ ↓↓↓  │                    BEDROOM                                 │..............',
+  '...........│ \\\  │                                                            │..............',
+  '...........│  \\  │    ↑               ↑                                      │..............',
+  '...........│ \\\  │   ←[BED   ]→      ←[DESK  ]→                             │..............',
+  '...........│      │    ↓               ↓                                      │..............',
+  '...........│      ├────────────────────────────────┬───────────────────────────┤..............',
+  '...........│      │         STUDY                  │        BATHROOM           │..............',
+  '...........│      │                                │                           │..............',
+  '...........│      │    ↑           ↑              │    ↑           ↑          │..............',
+  '...........│      │   ←[BOOKS ]→  ←[LAMP  ]→     │   ←[BATH  ]→  ←[SINK ]→ │..............',
+  '...........│      │    ↓           ↓              │    ↓           ↓          │..............',
+  '...........│      │                                │                           │..............',
+  '...........└──────┴────────────────────────────────┴───────────────────────────┘..............',
+  '...............................................................................................',
+  '...............................................................................................',
+  '...............................................................................................',
+  '...............................................................................................',
+  '...............................................................................................',
+  '...............................................................................................',
+  '...............................................................................................',
+]
+
+// ─── Credits content (v0.3) ───────────────────────────────────────────────────
 
 const CREDITS_CONTENT: string[] = [
   '',
@@ -156,6 +199,17 @@ const CREDITS_CONTENT: string[] = [
   '',
 ]
 
+// ─── Credits content (v0.4) ───────────────────────────────────────────────────
+
+const V4_CREDITS_CONTENT: { title: string; desc?: string }[] = [
+  { title: 'MI CASA ES SU CASA', desc: 'v0.4' },
+  { title: 'REARRANGE YOUR ROOMS', desc: 'drag furniture around\nin the layout editor' },
+  { title: 'CHARACTER SEARCH', desc: 'find visitors by\nsearching character names' },
+  { title: 'VISITOR IDENTITY', desc: 'messages now show\nwho sent them' },
+  { title: 'SMOOTHER RENDERING', desc: 'z-fighting fixes for\nroom furniture' },
+  { title: 'THANKS FOR PLAYING ♥' },
+]
+
 // Timing constants (ms)
 const CHAR_DELAY = 25
 const LINE_PAUSE = 80
@@ -189,8 +243,16 @@ export function BootScreen() {
   const [creditsFading, setCreditsFading] = useState(false)
   const [bootCount, setBootCount] = useState(0)
 
+  // Flip-card art interaction
+  const [artRotation, setArtRotation] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStartX, setDragStartX] = useState(0)
+  const [dragDeltaX, setDragDeltaX] = useState(0)
+  const [isSnapping, setIsSnapping] = useState(false)
+
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const flipCardSceneRef = useRef<HTMLDivElement>(null)
   const cancelledRef = useRef(false)
   const creditsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -317,7 +379,7 @@ export function BootScreen() {
     [handleSubmit]
   )
 
-  // ── Credits ──────────────────────────────────────────────────────────────
+  // ── Credits (v0.3 vertical) ────────────────────────────────────────────────
 
   const startCredits = useCallback(() => {
     setCreditsFading(false)
@@ -340,22 +402,152 @@ export function BootScreen() {
     }, 1200)
   }, [creditsFading])
 
-  // ── Cowboy hat element (shared between NAME_PROMPT and ERROR) ─────────────
+  // ── Credits (v0.4 horizontal) ──────────────────────────────────────────────
 
-  const cowboyHatElement = (
+  const startCreditsV4 = useCallback(() => {
+    setCreditsFading(false)
+    setPhase('CREDITS_V4')
+  }, [])
+
+  const endCreditsV4 = useCallback(() => {
+    if (creditsFading) return
+    setCreditsFading(true)
+    creditsTimeoutRef.current = setTimeout(() => {
+      setCreditsFading(false)
+      setPhase('NAME_PROMPT')
+    }, 1200)
+  }, [creditsFading])
+
+  // ── Flip-card drag handlers ────────────────────────────────────────────────
+
+  const finishDrag = useCallback(
+    (finalDelta: number) => {
+      const containerWidth = flipCardSceneRef.current?.offsetWidth ?? 400
+      if (Math.abs(finalDelta) < 8) {
+        // Treat as click — show credits for current face
+        const normalizedRot = ((artRotation % 360) + 360) % 360
+        const isFront = normalizedRot < 90 || normalizedRot >= 270
+        if (isFront) {
+          startCreditsV4()
+        } else {
+          startCredits()
+        }
+      } else {
+        // Snap to nearest face (0° or 180°)
+        const computedRot = artRotation + (finalDelta / containerWidth) * 180
+        const nearestFace = Math.round(computedRot / 180) * 180
+        setIsSnapping(true)
+        setArtRotation(nearestFace)
+      }
+      setIsDragging(false)
+      setDragDeltaX(0)
+    },
+    [artRotation, startCredits, startCreditsV4]
+  )
+
+  const handleArtMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true)
+    setDragStartX(e.clientX)
+    setDragDeltaX(0)
+    setIsSnapping(false)
+  }, [])
+
+  const handleArtMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging) return
+      setDragDeltaX(e.clientX - dragStartX)
+    },
+    [isDragging, dragStartX]
+  )
+
+  const handleArtMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging) return
+      finishDrag(e.clientX - dragStartX)
+    },
+    [isDragging, dragStartX, finishDrag]
+  )
+
+  const handleArtTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    setIsDragging(true)
+    setDragStartX(touch.clientX)
+    setDragDeltaX(0)
+    setIsSnapping(false)
+  }, [])
+
+  const handleArtTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging) return
+      const touch = e.touches[0]
+      setDragDeltaX(touch.clientX - dragStartX)
+    },
+    [isDragging, dragStartX]
+  )
+
+  const handleArtTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging) return
+      const touch = e.changedTouches[0]
+      finishDrag(touch.clientX - dragStartX)
+    },
+    [isDragging, dragStartX, finishDrag]
+  )
+
+  // ── Flip-card computed rotation ────────────────────────────────────────────
+
+  const containerWidth = flipCardSceneRef.current?.offsetWidth ?? 400
+  const computedRotation = isDragging
+    ? artRotation + (dragDeltaX / containerWidth) * 180
+    : artRotation
+
+  // ── Flip-card element ──────────────────────────────────────────────────────
+
+  const flipCardElement = (
     <div
-      className="hat-icon"
-      onClick={startCredits}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') startCredits()
-      }}
+      ref={flipCardSceneRef}
+      style={styles.flipCardScene}
+      onMouseDown={handleArtMouseDown}
+      onMouseMove={handleArtMouseMove}
+      onMouseUp={handleArtMouseUp}
+      onMouseLeave={handleArtMouseUp}
+      onTouchStart={handleArtTouchStart}
+      onTouchMove={handleArtTouchMove}
+      onTouchEnd={handleArtTouchEnd}
+      aria-label="Drag to flip art, click to view changelog"
       role="button"
       tabIndex={0}
-      aria-label="View v0.3 changelog"
-      style={styles.hatContainer}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const normalizedRot = ((artRotation % 360) + 360) % 360
+          const isFront = normalizedRot < 90 || normalizedRot >= 270
+          if (isFront) startCreditsV4()
+          else startCredits()
+        }
+      }}
     >
-      <pre style={styles.hatArt}>{COWBOY_HAT.join('\n')}</pre>
-      <div style={styles.hatLabel}>{'[ v0.3 CHANGELOG ]'}</div>
+      <div
+        style={{
+          ...styles.flipCard,
+          transform: `rotateY(${computedRotation}deg)`,
+          transition: isSnapping ? 'transform 0.4s ease' : 'none',
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}
+        onTransitionEnd={() => setIsSnapping(false)}
+      >
+        {/* Front face: house arrows art */}
+        <div style={styles.flipFaceFront}>
+          <pre style={styles.hatArt}>{HOUSE_ARROWS.join('\n')}</pre>
+          <div style={styles.artDragHint}>{'⟵ drag ⟶'}</div>
+          <div style={styles.hatLabel}>{'[ v0.4 CHANGELOG ]'}</div>
+        </div>
+
+        {/* Back face: cowboy hat */}
+        <div style={styles.flipFaceBack}>
+          <pre style={styles.hatArt}>{COWBOY_HAT.join('\n')}</pre>
+          <div style={styles.hatLabel}>{'[ v0.3 CHANGELOG ]'}</div>
+        </div>
+      </div>
     </div>
   )
 
@@ -442,7 +634,7 @@ export function BootScreen() {
               </button>
             </div>
 
-            {cowboyHatElement}
+            {flipCardElement}
           </div>
         )}
 
@@ -526,7 +718,7 @@ export function BootScreen() {
                 </button>
               </div>
 
-              {cowboyHatElement}
+              {flipCardElement}
             </div>
           </>
         )}
@@ -542,7 +734,7 @@ export function BootScreen() {
         )}
       </div>
 
-      {/* Credits overlay */}
+      {/* v0.3 Credits overlay (vertical scroll) */}
       {phase === 'CREDITS' && (
         <div
           style={styles.creditsOverlay}
@@ -567,6 +759,42 @@ export function BootScreen() {
                 {line || '\u00A0'}
               </div>
             ))}
+          </div>
+          <div style={styles.creditsSkipHint}>CLICK / TAP TO SKIP</div>
+          {creditsFading && <div style={styles.creditsFade} />}
+        </div>
+      )}
+
+      {/* v0.4 Credits overlay (horizontal cards) */}
+      {phase === 'CREDITS_V4' && (
+        <div
+          style={styles.creditsOverlay}
+          onClick={endCreditsV4}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')
+              endCreditsV4()
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Skip credits"
+        >
+          <div style={styles.v4CreditsViewport}>
+            <div
+              style={{
+                ...styles.v4CreditsRow,
+                animationPlayState: creditsFading ? 'paused' : 'running',
+              }}
+              onAnimationEnd={endCreditsV4}
+            >
+              {V4_CREDITS_CONTENT.map((card, i) => (
+                <div key={i} style={styles.v4CreditsCard}>
+                  <div style={styles.v4CreditsCardTitle}>{card.title}</div>
+                  {card.desc && (
+                    <div style={styles.v4CreditsCardDesc}>{card.desc}</div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
           <div style={styles.creditsSkipHint}>CLICK / TAP TO SKIP</div>
           {creditsFading && <div style={styles.creditsFade} />}
@@ -728,15 +956,42 @@ const styles: Record<string, React.CSSProperties> = {
     textShadow: `0 0 8px ${CRT_ERROR}`,
   },
 
-  // ── Cowboy hat ───────────────────────────────────────────────────────────
+  // ── Flip-card art ────────────────────────────────────────────────────────
 
-  hatContainer: {
+  flipCardScene: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     marginTop: '40px',
-    cursor: 'pointer',
+    perspective: '800px',
     outline: 'none',
+    userSelect: 'none',
+    touchAction: 'none',
+  },
+
+  flipCard: {
+    position: 'relative',
+    transformStyle: 'preserve-3d',
+    width: '100%',
+  },
+
+  flipFaceFront: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    backfaceVisibility: 'hidden',
+  },
+
+  flipFaceBack: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    backfaceVisibility: 'hidden',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    transform: 'rotateY(180deg)',
   },
 
   hatArt: {
@@ -750,6 +1005,15 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     userSelect: 'none',
     animation: 'hat-bob 3s ease-in-out infinite',
+  },
+
+  artDragHint: {
+    fontFamily: FONT_STACK,
+    fontSize: '11px',
+    color: 'rgba(51, 255, 51, 0.3)',
+    marginTop: '6px',
+    letterSpacing: '0.2em',
+    userSelect: 'none',
   },
 
   hatLabel: {
@@ -813,5 +1077,51 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#000',
     animation: 'credits-fade-in 1.2s ease-in forwards',
     zIndex: 1,
+  },
+
+  // ── v0.4 horizontal credits ──────────────────────────────────────────────
+
+  v4CreditsViewport: {
+    position: 'absolute',
+    inset: 0,
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+  },
+
+  v4CreditsRow: {
+    display: 'flex',
+    flexDirection: 'row',
+    width: `${V4_CREDITS_CONTENT.length * 100}vw`,
+    animation: `h-credits-scroll ${V4_CREDITS_CONTENT.length * 3.5}s steps(${V4_CREDITS_CONTENT.length - 1}, end) forwards`,
+  },
+
+  v4CreditsCard: {
+    width: '100vw',
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 10vw',
+    textAlign: 'center',
+    fontFamily: FONT_STACK,
+  },
+
+  v4CreditsCardTitle: {
+    fontSize: 'clamp(20px, 4vw, 36px)',
+    color: CRT_GREEN,
+    textShadow: `0 0 12px ${CRT_GREEN}`,
+    letterSpacing: '0.12em',
+    marginBottom: '16px',
+  },
+
+  v4CreditsCardDesc: {
+    fontSize: 'clamp(14px, 2.5vw, 20px)',
+    color: 'rgba(51, 255, 51, 0.65)',
+    textShadow: `0 0 6px rgba(51, 255, 51, 0.4)`,
+    lineHeight: '1.8',
+    whiteSpace: 'pre-line',
+    letterSpacing: '0.05em',
   },
 }
