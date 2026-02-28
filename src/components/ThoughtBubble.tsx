@@ -43,7 +43,9 @@ export function ThoughtBubble({ text, visible, anchorX, anchorY }: ThoughtBubble
         top: 0,
         // anchorX/Y are pixels; -50% centers horizontally on the anchor,
         // -100% shifts the bubble above the anchor, -14px clears the tail.
-        transform: `translate(calc(${anchorX}px - 50%), calc(${anchorY}px - 100% - 14px))`,
+        // max(0px, ...) prevents the bubble from overflowing the top of the
+        // container when the character is on a high floor.
+        transform: `translate(calc(${anchorX}px - 50%), max(0px, calc(${anchorY}px - 100% - 14px)))`,
       }
     : {
         // Fallback: horizontally centered, roughly above mid-house

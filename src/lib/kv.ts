@@ -64,6 +64,7 @@ export function createDefaultCharacter(name: string): CharacterState {
     name,
     createdAt: new Date().toISOString(),
     lastSeenAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
     currentRoom: 'living_room',
     currentActivity: 'idle',
     needs: { hunger: 0.2, sleep: 0.1, hygiene: 0.1, entertainment: 0.2 },

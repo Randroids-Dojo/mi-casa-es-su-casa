@@ -229,7 +229,7 @@ export function initGame(
     animFrameId = requestAnimationFrame(animate)
 
     const now = performance.now()
-    const deltaTime = Math.min((now - lastTime) / 1000, 0.1)
+    const deltaTime = Math.min((now - lastTime) / 1000, 0.5)
     lastTime = now
 
     character.update(deltaTime)

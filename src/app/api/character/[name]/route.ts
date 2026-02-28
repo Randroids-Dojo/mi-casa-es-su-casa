@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { validateNameFormat, normalizeName } from '@/lib/nameValidation'
 import { getCharacter, saveCharacter, createDefaultCharacter } from '@/lib/kv'
 import { CharacterStateSchema } from '@/lib/characterSchema'
+import { simulateOffline, SIMULATION_THRESHOLD_SECONDS } from '@/lib/simulateOffline'
 
 type RouteParams = { params: Promise<{ name: string }> }
 
@@ -23,7 +24,19 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
       return NextResponse.json(character, { status: 201 })
     }
 
-    const updated = { ...existing, lastSeenAt: new Date().toISOString() }
+    // Simulate offline activity if enough time has passed since last active client
+    let simulated = existing
+    if (existing.lastActiveAt) {
+      const elapsedSeconds = (Date.now() - Date.parse(existing.lastActiveAt)) / 1000
+      if (elapsedSeconds > SIMULATION_THRESHOLD_SECONDS) {
+        simulated = simulateOffline(existing, elapsedSeconds)
+      }
+    }
+
+    const now = new Date().toISOString()
+    // Update lastActiveAt after simulation so subsequent GETs don't
+    // re-simulate from the same old base (compounding simulation time).
+    const updated = { ...simulated, lastSeenAt: now, lastActiveAt: now }
     await saveCharacter(updated)
     return NextResponse.json(updated, { status: 200 })
   } catch {
@@ -64,8 +77,9 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
   }
 
   try {
-    await saveCharacter(state)
-    return NextResponse.json(state, { status: 200 })
+    const withTimestamp = { ...state, lastActiveAt: new Date().toISOString() }
+    await saveCharacter(withTimestamp)
+    return NextResponse.json(withTimestamp, { status: 200 })
   } catch {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
   }
