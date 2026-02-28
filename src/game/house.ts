@@ -224,13 +224,13 @@ function buildLivingRoomFurniture(
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
     // Bookshelf — left side, back wall
     { position: { x: xMin + 1.5, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
-    // Books on shelf
-    { position: { x: xMin + 1, y: ft + 1, z: 7.4 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1.5, y: ft + 2, z: 7.4 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 3, z: 7.4 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Lamp — left side
+    // Books on shelf (z=7.2 keeps front face at 7.05, clear of shelf front at 7.25)
+    { position: { x: xMin + 1, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 2, y: ft + 3, z: 7.2 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Lamp — left side (shade at ft+2.3 clears pole top face at ft+2)
     { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 2.2, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
+    { position: { x: xMin + 2, y: ft + 2.3, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
   ]
 
   // Fireplace + armchair — right side (only if room is wide enough)
@@ -320,29 +320,29 @@ function buildBedroomFurniture(
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: Math.min(7, w - 2), y: 0.1, z: 3 } },
   ]
 
-  // Nightstand + lamp (left of bed)
+  // Nightstand + lamp (left of bed; x offset keeps it clear of bed's left edge to avoid coplanar top faces)
   if (w >= 8) {
     specs.push(
-      { position: { x: xMin + 1.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
-      { position: { x: xMin + 1.5, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
-      { position: { x: xMin + 1.5, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+      { position: { x: xMin + 0.75, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.0, y: 1, z: 1.5 } },
+      { position: { x: xMin + 0.75, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
+      { position: { x: xMin + 0.75, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
     )
   }
 
-  // Wardrobe (left side, back wall)
+  // Wardrobe (left side, back wall; door panels at z=7.0 for clear separation from wardrobe front at 7.1)
   if (w >= 8) {
     specs.push(
       { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMin + 1, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-      { position: { x: xMin + 2, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      { position: { x: xMin + 1, y: ft + 2.5, z: 7.0 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      { position: { x: xMin + 2, y: ft + 2.5, z: 7.0 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
     )
   }
 
-  // Dresser (right side, back wall)
+  // Dresser (right side, back wall; rows sized to 0.9 to leave 0.1 gap and avoid shared coplanar y-face)
   if (w >= 10) {
     specs.push(
-      { position: { x: xMax - 3, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
-      { position: { x: xMax - 3, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
+      { position: { x: xMax - 3, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
+      { position: { x: xMax - 3, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
       { position: { x: xMax - 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
       { position: { x: xMax - 2, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
     )
@@ -409,21 +409,21 @@ function buildStudyFurniture(
     { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
     // Left bookshelf
     { position: { x: xMin + 1, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-    // Book spines (left)
-    { position: { x: xMin + 0.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1.5, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Desk lamp
+    // Book spines (left; z=7.0 keeps front face at 6.85, clear of shelf front at 7.1)
+    { position: { x: xMin + 0.5, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Desk lamp (shade at ft+2.3 clears pole top face at ft+2)
     { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    { position: { x: cx + 1.5, y: ft + 2.2, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    { position: { x: cx + 1.5, y: ft + 2.3, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
   ]
 
   // Right bookshelf (only if wide enough)
   if (w >= 7) {
     specs.push(
       { position: { x: xMax - 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-      { position: { x: xMax - 2, y: ft + 1, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMax - 1, y: ft + 2.5, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMax - 2, y: ft + 1, z: 7.0 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMax - 1, y: ft + 2.5, z: 7.0 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
     )
   }
 
@@ -492,9 +492,9 @@ function buildStorageFurniture(
   const specs: VoxelSpec[] = [
     // Center bookshelf — back wall
     { position: { x: cx, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-    // Book accents (center)
-    { position: { x: cx - 0.5, y: ft + 1.5, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: cx + 0.5, y: ft + 3, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Book accents (center; z=7.0 keeps front face at 6.85, clear of shelf front at 7.1)
+    { position: { x: cx - 0.5, y: ft + 1.5, z: 7.0 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: cx + 0.5, y: ft + 3, z: 7.0 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
     // Reading armchair — left-center
     { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
     { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
@@ -510,9 +510,9 @@ function buildStorageFurniture(
   if (w >= 8) {
     specs.push(
       { position: { x: xMin + 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMin + 1.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMin + 2.5, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMin + 3, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMin + 1.5, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMin + 2.5, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMin + 3, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     )
   }
 
@@ -520,7 +520,7 @@ function buildStorageFurniture(
   if (w >= 10) {
     specs.push(
       { position: { x: xMax - 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMax - 2.5, y: ft + 2, z: 7.2 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMax - 2.5, y: ft + 2, z: 7.0 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     )
   }
 
