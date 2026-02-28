@@ -5,11 +5,11 @@
 // Rooms on the same floor connect directly to each other if they are adjacent.
 // Moving between floors requires passing through the staircase.
 //
-// The adjacency graph is derived from the ROOMS definitions in rooms.ts.
-// We use a simple BFS since the graph is very small (≤ 9 nodes).
+// The adjacency graph is derived from Room definitions (default or layout-
+// specific). We use a simple BFS since the graph is very small (≤ 9 nodes).
 
 import * as THREE from 'three'
-import type { RoomId } from '../rooms'
+import type { RoomId, Room } from '../rooms'
 import { ROOM_MAP, ROOMS, getFloorCenterY } from '../rooms'
 import { seededRngFromKey } from './seeder'
 
@@ -26,41 +26,52 @@ import { seededRngFromKey } from './seeder'
  *     then BFS from there (adds one extra room hop for variety)
  *
  * Without a seed, returns the deterministic shortest path (original BFS).
+ *
+ * An optional `roomMap` can be provided for layout-specific room data.
  */
-export function findPath(from: RoomId, to: RoomId, seed?: string): RoomId[] {
+export function findPath(
+  from: RoomId,
+  to: RoomId,
+  seed?: string,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+): RoomId[] {
   if (from === to) return [from]
 
   if (!seed) {
-    return _bfsPath(from, to)
+    return _bfsPath(from, to, roomMap)
   }
 
   const rng = seededRngFromKey(seed)
 
   // Scenic detour (30% chance): visit a random neighbor first
-  const fromRoom = ROOM_MAP[from]
+  const fromRoom = roomMap[from]
   const eligibleDetours = fromRoom.adjacentRooms.filter(
     (r) => r !== to && r !== from,
   )
 
   if (rng.next() < 0.3 && eligibleDetours.length > 0) {
     const detourRoom = rng.pick(eligibleDetours)
-    const restPath = _bfsShuffled(detourRoom, to, rng)
+    const restPath = _bfsShuffled(detourRoom, to, rng, roomMap)
     return [from, ...restPath]
   }
 
   // Shuffled BFS (70% chance)
-  return _bfsShuffled(from, to, rng)
+  return _bfsShuffled(from, to, rng, roomMap)
 }
 
 /** Standard deterministic BFS (original implementation). */
-function _bfsPath(from: RoomId, to: RoomId): RoomId[] {
+function _bfsPath(
+  from: RoomId,
+  to: RoomId,
+  roomMap: Readonly<Record<RoomId, Room>>,
+): RoomId[] {
   const queue: RoomId[][] = [[from]]
   const visited = new Set<RoomId>([from])
 
   while (queue.length > 0) {
     const path = queue.shift()!
     const current = path[path.length - 1]
-    const room = ROOM_MAP[current]
+    const room = roomMap[current]
 
     for (const neighbor of room.adjacentRooms) {
       if (visited.has(neighbor)) continue
@@ -79,6 +90,7 @@ function _bfsShuffled(
   from: RoomId,
   to: RoomId,
   rng: { next(): number; pick<T>(arr: readonly T[]): T },
+  roomMap: Readonly<Record<RoomId, Room>>,
 ): RoomId[] {
   if (from === to) return [from]
 
@@ -88,7 +100,7 @@ function _bfsShuffled(
   while (queue.length > 0) {
     const path = queue.shift()!
     const current = path[path.length - 1]
-    const room = ROOM_MAP[current]
+    const room = roomMap[current]
 
     // Shuffle neighbors so BFS explores equally-short paths in random order
     const neighbors = [...room.adjacentRooms]
@@ -113,9 +125,13 @@ function _bfsShuffled(
  * Returns true if the path between two rooms requires traversing the staircase.
  * (i.e., the rooms are on different floors)
  */
-export function requiresStaircase(from: RoomId, to: RoomId): boolean {
+export function requiresStaircase(
+  from: RoomId,
+  to: RoomId,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+): boolean {
   if (from === to) return false
-  const path = findPath(from, to)
+  const path = findPath(from, to, undefined, roomMap)
   return path.includes('staircase')
 }
 
@@ -138,9 +154,10 @@ export function getPositionAlongLeg(
   fromRoom: RoomId,
   toRoom: RoomId,
   progress: number,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
 ): THREE.Vector3 {
-  const from = ROOM_MAP[fromRoom].center
-  const to = ROOM_MAP[toRoom].center
+  const from = roomMap[fromRoom].center
+  const to = roomMap[toRoom].center
 
   return new THREE.Vector3().lerpVectors(from, to, progress)
 }
@@ -150,7 +167,7 @@ export function getPositionAlongLeg(
 // ---------------------------------------------------------------------------
 
 /** World-space X center of the staircase column */
-export const STAIR_X = ROOM_MAP['staircase'].center.x  // 29.5
+export const STAIR_X = 29.5
 
 /**
  * Z coordinate where the character enters/exits the staircase at the bottom.
@@ -257,6 +274,7 @@ export function getPositionAlongPath(
   path: RoomId[],
   legIndex: number,
   legProgress: number,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
 ): THREE.Vector3 {
   if (path.length === 0) {
     return new THREE.Vector3(0, 0, 0)
@@ -267,7 +285,7 @@ export function getPositionAlongPath(
   const toIdx = Math.max(0, Math.min(legIndex, path.length - 1))
 
   if (fromIdx === toIdx) {
-    return ROOM_MAP[path[fromIdx]].center.clone()
+    return roomMap[path[fromIdx]].center.clone()
   }
 
   const fromRoomId = path[fromIdx]
@@ -276,18 +294,18 @@ export function getPositionAlongPath(
   // ---- Leg toward the staircase ----
   if (toRoomId === 'staircase') {
     const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
-    const fromFloor = ROOM_MAP[fromRoomId].floor
-    const nextFloor = nextRoomId ? ROOM_MAP[nextRoomId].floor : fromFloor
+    const fromFloor = roomMap[fromRoomId].floor
+    const nextFloor = nextRoomId ? roomMap[nextRoomId].floor : fromFloor
     const ascending = nextFloor > fromFloor
-    return approachStaircasePosition(ROOM_MAP[fromRoomId].center, ascending, legProgress)
+    return approachStaircasePosition(roomMap[fromRoomId].center, ascending, legProgress)
   }
 
   // ---- Leg away from the staircase ----
   if (fromRoomId === 'staircase') {
     const prevRoomId = fromIdx > 0 ? path[fromIdx - 1] : null
-    const prevFloor = prevRoomId ? ROOM_MAP[prevRoomId].floor : ROOM_MAP[toRoomId].floor
-    const toFloor = ROOM_MAP[toRoomId].floor
-    const destCenter = ROOM_MAP[toRoomId].center
+    const prevFloor = prevRoomId ? roomMap[prevRoomId].floor : roomMap[toRoomId].floor
+    const toFloor = roomMap[toRoomId].floor
+    const destCenter = roomMap[toRoomId].center
 
     // Phase 2 (progress > 0.5): horizontal walk from stair exit to room center
     if (legProgress > 0.5) {
@@ -300,7 +318,7 @@ export function getPositionAlongPath(
   }
 
   // ---- Normal leg between two non-staircase rooms ----
-  return getPositionAlongLeg(fromRoomId, toRoomId, legProgress)
+  return getPositionAlongLeg(fromRoomId, toRoomId, legProgress, roomMap)
 }
 
 /**
@@ -316,9 +334,13 @@ export function getStaircasePosition(floor: 1 | 2 | 3): THREE.Vector3 {
  * Returns the direction the character should face (as a Y-axis rotation angle)
  * when moving from one room to another.
  */
-export function getFacingAngle(fromRoom: RoomId, toRoom: RoomId): number {
-  const from = ROOM_MAP[fromRoom].center
-  const to = ROOM_MAP[toRoom].center
+export function getFacingAngle(
+  fromRoom: RoomId,
+  toRoom: RoomId,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+): number {
+  const from = roomMap[fromRoom].center
+  const to = roomMap[toRoom].center
 
   const dx = to.x - from.x
   const dz = to.z - from.z
@@ -339,12 +361,15 @@ export function getFacingAngle(fromRoom: RoomId, toRoom: RoomId): number {
  * as adjacent, then B should also list A.
  * Returns an array of asymmetry descriptions (empty = valid graph).
  */
-export function validateAdjacencyGraph(): string[] {
+export function validateAdjacencyGraph(
+  rooms: readonly Room[] = ROOMS,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+): string[] {
   const errors: string[] = []
 
-  for (const room of ROOMS) {
+  for (const room of rooms) {
     for (const neighbor of room.adjacentRooms) {
-      const neighborRoom = ROOM_MAP[neighbor]
+      const neighborRoom = roomMap[neighbor]
       if (!neighborRoom) {
         errors.push(`Room ${room.id} lists unknown neighbor: ${neighbor}`)
         continue

@@ -14,6 +14,9 @@ import type { CharacterState, Needs } from './characterSchema'
 import type { ActivityType } from '@/game/rooms'
 import { ROOM_CENTERS, ROOM_ACTIVITIES } from './roomData'
 import { seedFromName, seededRngFromKey } from '@/game/character/seeder'
+import { generateLayout } from './layout'
+import { buildLayoutRoomData } from './roomDataBuilder'
+import type { LayoutRoomData } from './roomDataBuilder'
 import type { PersonalityBias, HobbyType } from '@/game/character/seeder'
 import {
   advanceNeeds,
@@ -169,7 +172,9 @@ function selectActivity(
   hobbyType: HobbyType,
   currentRoom: string,
   characterName: string,
+  roomData?: LayoutRoomData,
 ): { room: string; activity: string; durationHours: number } {
+  const activities = roomData?.activities ?? ROOM_ACTIVITIES
   // 1. Critical needs override
   const criticals = getCriticalNeeds(needs)
   if (criticals.length > 0) {
@@ -191,8 +196,8 @@ function selectActivity(
 
   // 3. Filter to viable candidates (activity exists in room)
   const viable = slot.candidates.filter((c) => {
-    const activities = ROOM_ACTIVITIES[c.room]
-    return activities && activities.includes(c.activity)
+    const roomActivities = activities[c.room]
+    return roomActivities && roomActivities.includes(c.activity)
   })
 
   const rng = seededRngFromKey(
@@ -276,6 +281,10 @@ export function simulateOffline(
   const gameHoursElapsed = realSecondsToGameHours(elapsedRealSeconds)
   const hoursToSimulate = Math.min(gameHoursElapsed, MAX_SIMULATION_HOURS)
 
+  // Compute layout-aware room data for this character
+  const layout = generateLayout(state.name)
+  const roomData = buildLayoutRoomData(layout)
+
   const appearance = seedFromName(state.name)
   let clock = { ...state.clock }
   let needs: Needs = { ...state.needs }
@@ -302,6 +311,7 @@ export function simulateOffline(
       appearance.hobbyType,
       currentRoom,
       state.name,
+      roomData,
     )
     currentRoom = next.room
     currentActivity = next.activity as ActivityType
@@ -309,8 +319,9 @@ export function simulateOffline(
     remaining -= step
   }
 
-  // Resolve final position from room center
-  const center = ROOM_CENTERS[currentRoom] ?? ROOM_CENTERS.living_room
+  // Resolve final position from layout-aware room center
+  const centers = roomData.centers
+  const center = centers[currentRoom] ?? centers.living_room
   const position = { x: center.x, y: center.y, z: center.z }
 
   return {
