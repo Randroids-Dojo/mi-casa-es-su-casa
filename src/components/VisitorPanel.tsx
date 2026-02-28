@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { VisitorLog } from '@/lib/visitorSchema'
+import type { VisitorLog, VisitorMessage } from '@/lib/visitorSchema'
 
 interface VisitorPanelProps {
   characterName: string
@@ -11,6 +11,8 @@ interface VisitorPanelProps {
 
 const CRT_GREEN = '#33ff33'
 const CRT_DIM = 'rgba(51,255,51,0.55)'
+const CRT_AMBER = '#ffbb33'
+const CRT_AMBER_DIM = 'rgba(255,187,51,0.55)'
 const FONT = '"Share Tech Mono", "Courier New", Courier, monospace'
 const MESSAGE_LIMIT = 69
 
@@ -22,6 +24,23 @@ function formatAge(iso: string): string {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+function creatorLabel(characterName: string): string {
+  const display = characterName.replace(/-/g, ' ')
+  return `${display}'s Creator`
+}
+
+function isCreatorSender(sender: string | undefined, characterName: string): boolean {
+  return !sender || sender === creatorLabel(characterName)
+}
+
+function senderColor(msg: VisitorMessage, characterName: string): string {
+  return isCreatorSender(msg.sender, characterName) ? CRT_GREEN : CRT_AMBER
+}
+
+function senderDimColor(msg: VisitorMessage, characterName: string): string {
+  return isCreatorSender(msg.sender, characterName) ? CRT_DIM : CRT_AMBER_DIM
+}
+
 export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelProps) {
   const [log, setLog] = useState<VisitorLog | null>(null)
   const [inputValue, setInputValue] = useState('')
@@ -31,7 +50,67 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
+  // Sender selection state
+  const defaultSender = creatorLabel(characterName)
+  const [sender, setSender] = useState(defaultSender)
+  const [senderOpen, setSenderOpen] = useState(false)
+  const [senderSearch, setSenderSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<string[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const senderRef = useRef<HTMLDivElement>(null)
+  const senderInputRef = useRef<HTMLInputElement>(null)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const displayName = characterName.replace(/-/g, ' ').toUpperCase()
+
+  // Close sender dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (senderRef.current && !senderRef.current.contains(e.target as Node)) {
+        setSenderOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (senderOpen) {
+      senderInputRef.current?.focus()
+    }
+  }, [senderOpen])
+
+  // Debounced search for character names
+  useEffect(() => {
+    if (!senderOpen) return
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+
+    if (senderSearch.length < 2) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/characters/search?q=${encodeURIComponent(senderSearch)}`)
+        if (res.ok) {
+          const data = (await res.json()) as { names: string[] }
+          setSearchResults(data.names)
+        }
+      } catch {
+        // silent
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [senderSearch, senderOpen])
 
   const fetchLog = useCallback(async () => {
     try {
@@ -59,7 +138,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
       const res = await fetch(`/api/character/${characterName}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, sender }),
       })
       if (!res.ok) {
         const err = (await res.json()) as { error?: string }
@@ -76,7 +155,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
       setErrorMsg('CONNECTION ERROR')
       setStatus('error')
     }
-  }, [characterName, inputValue, onMessagePosted])
+  }, [characterName, inputValue, sender, onMessagePosted])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -84,6 +163,13 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
     },
     [handleSubmit],
   )
+
+  const selectSender = useCallback((name: string) => {
+    setSender(name)
+    setSenderOpen(false)
+    setSenderSearch('')
+    setSearchResults([])
+  }, [])
 
   const recentMessages = log ? [...log.messages].reverse() : []
   const atCapacity = recentMessages.length >= MESSAGE_LIMIT
@@ -118,6 +204,9 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
             <div style={styles.empty}>NO MESSAGES YET. BE THE FIRST!</div>
           ) : (
             recentMessages.map((msg, i) => {
+              const color = senderColor(msg, characterName)
+              const dimColor = senderDimColor(msg, characterName)
+              const senderLabel = msg.sender ?? creatorLabel(characterName)
               const isOldest = atCapacity && i === recentMessages.length - 1
               return (
                 <div
@@ -127,9 +216,25 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
                     ...(isOldest ? styles.fallingOff : undefined),
                   }}
                 >
-                  <span style={styles.bullet}>&gt;</span>
-                  <span style={styles.msgText}>{msg.text}</span>
-                  <span style={styles.timestamp}>
+                  <span style={{ ...styles.bullet, color: dimColor }}>&gt;</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{
+                      fontSize: '10px',
+                      color: dimColor,
+                      textShadow: 'none',
+                      textTransform: 'uppercase' as const,
+                    }}>
+                      {senderLabel}
+                    </span>
+                    <div style={{
+                      color,
+                      textShadow: `0 0 6px ${color}`,
+                      wordBreak: 'break-word',
+                    }}>
+                      {msg.text}
+                    </div>
+                  </div>
+                  <span style={{ ...styles.timestamp, color: dimColor }}>
                     {isOldest ? 'NEXT \u2192 ' : ''}
                     {formatAge(msg.postedAt)}
                   </span>
@@ -140,6 +245,81 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
         </div>
 
         <div style={styles.divider} aria-hidden="true">{'─'.repeat(44)}</div>
+
+        {/* Sender selector */}
+        <div style={styles.senderRow} ref={senderRef}>
+          <span style={styles.senderLabel}>FROM:</span>
+          <button
+            onClick={() => setSenderOpen((o) => !o)}
+            style={styles.senderButton}
+            aria-label="Select message sender"
+          >
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap' as const,
+            }}>
+              {sender.toUpperCase()}
+            </span>
+            <span style={{ opacity: 0.6, marginLeft: '4px', flexShrink: 0 }}>
+              {senderOpen ? '▲' : '▼'}
+            </span>
+          </button>
+
+          {senderOpen && (
+            <div style={styles.senderDropdown}>
+              <input
+                ref={senderInputRef}
+                type="text"
+                value={senderSearch}
+                onChange={(e) => setSenderSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setSenderOpen(false)
+                }}
+                placeholder="SEARCH CHARACTERS..."
+                autoComplete="off"
+                spellCheck={false}
+                style={styles.senderSearchInput}
+              />
+              <button
+                onClick={() => selectSender(defaultSender)}
+                style={{
+                  ...styles.senderOption,
+                  color: sender === defaultSender ? CRT_GREEN : CRT_DIM,
+                  textShadow: sender === defaultSender ? `0 0 6px ${CRT_GREEN}` : 'none',
+                }}
+              >
+                {defaultSender.toUpperCase()} (DEFAULT)
+              </button>
+              {searchLoading && (
+                <div style={{ ...styles.senderOption, opacity: 0.5, cursor: 'default' }}>
+                  SEARCHING...
+                </div>
+              )}
+              {searchResults.map((name) => {
+                const label = creatorLabel(name)
+                return (
+                  <button
+                    key={name}
+                    onClick={() => selectSender(label)}
+                    style={{
+                      ...styles.senderOption,
+                      color: CRT_AMBER,
+                      textShadow: `0 0 6px ${CRT_AMBER}`,
+                    }}
+                  >
+                    {label.toUpperCase()}
+                  </button>
+                )
+              })}
+              {!searchLoading && senderSearch.length >= 2 && searchResults.length === 0 && (
+                <div style={{ ...styles.senderOption, opacity: 0.4, cursor: 'default' }}>
+                  NO CHARACTERS FOUND
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Input */}
         <div style={styles.inputRow}>
@@ -270,7 +450,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '8px',
     alignItems: 'baseline',
-    marginBottom: '4px',
+    marginBottom: '6px',
     wordBreak: 'break-word',
   },
   bullet: {
@@ -286,6 +466,72 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
     flexShrink: 0,
     textShadow: 'none',
+  },
+  senderRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '6px',
+    position: 'relative',
+    paddingRight: '56px',
+  },
+  senderLabel: {
+    color: CRT_DIM,
+    fontSize: '11px',
+    flexShrink: 0,
+    textShadow: 'none',
+  },
+  senderButton: {
+    display: 'flex',
+    alignItems: 'center',
+    background: 'transparent',
+    border: '1px solid rgba(51,255,51,0.3)',
+    color: CRT_GREEN,
+    fontFamily: FONT,
+    fontSize: '11px',
+    textShadow: `0 0 4px ${CRT_GREEN}`,
+    padding: '1px 8px',
+    cursor: 'pointer',
+    maxWidth: '280px',
+    overflow: 'hidden',
+  },
+  senderDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: '40px',
+    right: '56px',
+    backgroundColor: '#111',
+    border: '1px solid rgba(51,255,51,0.4)',
+    zIndex: 10,
+    maxHeight: '120px',
+    overflowY: 'auto',
+  },
+  senderSearchInput: {
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '1px solid rgba(51,255,51,0.3)',
+    outline: 'none',
+    color: CRT_GREEN,
+    fontFamily: FONT,
+    fontSize: '11px',
+    textShadow: `0 0 4px ${CRT_GREEN}`,
+    caretColor: CRT_GREEN,
+    padding: '4px 8px',
+    boxSizing: 'border-box',
+  },
+  senderOption: {
+    display: 'block',
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    color: CRT_DIM,
+    fontFamily: FONT,
+    fontSize: '11px',
+    textShadow: 'none',
+    padding: '3px 8px',
+    cursor: 'pointer',
+    textAlign: 'left',
   },
   inputRow: {
     display: 'flex',

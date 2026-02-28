@@ -42,10 +42,11 @@ export function createEmptyVisitorLog(name: string): VisitorLog {
   return { name: name.toLowerCase(), messages: [], totalCount: 0 }
 }
 
-export async function appendVisitorMessage(name: string, text: string): Promise<VisitorLog> {
+export async function appendVisitorMessage(name: string, text: string, sender?: string): Promise<VisitorLog> {
   const existing = (await getVisitorLog(name)) ?? createEmptyVisitorLog(name)
   const newMessage: VisitorMessage = {
     text,
+    ...(sender ? { sender } : {}),
     postedAt: new Date().toISOString(),
   }
   const updated: VisitorLog = {
@@ -55,6 +56,31 @@ export async function appendVisitorMessage(name: string, text: string): Promise<
   }
   await kv.set(visitorsKey(name), updated)
   return updated
+}
+
+// ---------------------------------------------------------------------------
+// Character search helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan KV for character keys matching a query string.
+ * Returns up to `limit` matching character names (lowercased).
+ */
+export async function searchCharacterNames(query: string, limit = 10): Promise<string[]> {
+  const pattern = `${KEY_PREFIX}*${query.toLowerCase()}*`
+  const names: string[] = []
+  let cursor = '0'
+  do {
+    const result: [string, string[]] = await kv.scan(cursor, { match: pattern, count: 50 })
+    cursor = result[0]
+    const keys = result[1]
+    for (const key of keys) {
+      const name = key.slice(KEY_PREFIX.length)
+      names.push(name)
+      if (names.length >= limit) return names
+    }
+  } while (cursor !== '0')
+  return names
 }
 
 // ---------------------------------------------------------------------------

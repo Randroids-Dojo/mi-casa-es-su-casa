@@ -7,6 +7,7 @@ type RouteParams = { params: Promise<{ name: string }> }
 
 const PostBodySchema = z.object({
   text: z.string().min(1).max(100),
+  sender: z.string().min(1).max(50).optional(),
 })
 
 export async function GET(
@@ -57,7 +58,7 @@ export async function POST(
   }
 
   try {
-    const log = await appendVisitorMessage(name, parsed.data.text)
+    const log = await appendVisitorMessage(name, parsed.data.text, parsed.data.sender)
     return NextResponse.json(log, { status: 201 })
   } catch {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })

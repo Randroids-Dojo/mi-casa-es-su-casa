@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const VisitorMessageSchema = z.object({
   text: z.string().min(1).max(100),
+  sender: z.string().min(1).max(50).optional(),
   postedAt: z.string().datetime(),
 })
 
