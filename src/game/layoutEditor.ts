@@ -3,14 +3,14 @@
 // ---------------------------------------------------------------------------
 //
 // Lifecycle:
-//   IDLE → (long press 500ms) → DRAGGING → (release) → IDLE
-//                                  ↓
-//                           (hover 2s) → SWAP → rebuild → FLASH → IDLE
+//   IDLE → (long press 500ms) → DRAGGING → (release over target) → SWAP → FLASH → IDLE
+//                                               ↓ (release over empty/source)
+//                                             IDLE
 //
 // Visual overlays:
 //   - Selected room: blue tint on source slot (shows it's "picked up" / empty)
 //   - Drag ghost: source room furniture following the cursor (semi-transparent)
-//   - Hover ghost: source room furniture previewed at target slot (animates opacity)
+//   - Hover ghost: source room furniture previewed at target slot
 //   - Swap flash: white flash on both rooms (150ms)
 
 import * as THREE from 'three'
@@ -22,8 +22,6 @@ import { FLOOR_HEIGHT, buildRoomFurnitureGroup } from './house'
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Seconds of hover before a swap triggers */
-const DWELL_DURATION = 2.0
 /** Seconds the white flash stays after a swap */
 const FLASH_DURATION = 0.15
 /** Z position for flat overlay meshes (slightly in front of house) */
@@ -37,8 +35,7 @@ const COLOR_FLASH = 0xffffff
 
 // Ghost opacities
 const DRAG_GHOST_OPACITY = 0.65
-const HOVER_GHOST_OPACITY_MIN = 0.15
-const HOVER_GHOST_OPACITY_MAX = 0.45
+const HOVER_GHOST_OPACITY = 0.4
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -145,7 +142,6 @@ type EditorState =
       kind: 'dragging'
       sourceSlot: RoomSlot
       hoverSlot: RoomSlot | null
-      dwellTime: number
       cursorWorldX: number
       cursorWorldY: number
     }
@@ -207,7 +203,6 @@ export class LayoutEditor {
       kind: 'dragging',
       sourceSlot: slot,
       hoverSlot: null,
-      dwellTime: 0,
       cursorWorldX: world.x,
       cursorWorldY: world.y,
     }
@@ -229,16 +224,14 @@ export class LayoutEditor {
 
     if (hovered && hovered.roomId !== this.state.sourceSlot.roomId) {
       if (!this.state.hoverSlot || this.state.hoverSlot.roomId !== hovered.roomId) {
-        // New hover target — reset dwell and show ghost preview at target
+        // New hover target — show ghost preview at target
         this.state.hoverSlot = hovered
-        this.state.dwellTime = 0
         this.showHoverGhost(this.state.sourceSlot, hovered)
       }
     } else {
       // Hovering over source slot or empty space — clear hover
       if (this.state.hoverSlot) {
         this.state.hoverSlot = null
-        this.state.dwellTime = 0
         this.clearHoverGhost()
       }
     }
@@ -246,31 +239,17 @@ export class LayoutEditor {
 
   onPointerUp(): void {
     if (this.state.kind === 'dragging') {
-      this.state = { kind: 'idle' }
-      this.clearAllOverlays()
+      if (this.state.hoverSlot) {
+        this.executeSwap(this.state.sourceSlot, this.state.hoverSlot)
+      } else {
+        this.state = { kind: 'idle' }
+        this.clearAllOverlays()
+      }
     }
   }
 
   /** Called each frame from the animation loop */
   update(deltaTime: number): void {
-    if (this.state.kind === 'dragging' && this.state.hoverSlot) {
-      this.state.dwellTime += deltaTime
-
-      // Animate hover ghost opacity to show dwell progress
-      if (this.hoverGhostMaterials.length > 0) {
-        const progress = Math.min(this.state.dwellTime / DWELL_DURATION, 1)
-        const opacity = HOVER_GHOST_OPACITY_MIN + progress * (HOVER_GHOST_OPACITY_MAX - HOVER_GHOST_OPACITY_MIN)
-        for (const mat of this.hoverGhostMaterials) {
-          mat.opacity = opacity
-        }
-      }
-
-      // Dwell complete — execute swap
-      if (this.state.dwellTime >= DWELL_DURATION) {
-        this.executeSwap(this.state.sourceSlot, this.state.hoverSlot)
-      }
-    }
-
     if (this.state.kind === 'flash') {
       this.state.elapsed += deltaTime
       if (this.state.elapsed >= FLASH_DURATION) {
@@ -357,8 +336,7 @@ export class LayoutEditor {
       targetSlot.floor,
     )
     this.hoverGhost.position.z = GHOST_Z
-    // Collect materials for efficient per-frame opacity updates
-    this.hoverGhostMaterials = initGhostMaterials(this.hoverGhost, HOVER_GHOST_OPACITY_MIN, 997)
+    this.hoverGhostMaterials = initGhostMaterials(this.hoverGhost, HOVER_GHOST_OPACITY, 997)
     this.overlayGroup.add(this.hoverGhost)
   }
 
