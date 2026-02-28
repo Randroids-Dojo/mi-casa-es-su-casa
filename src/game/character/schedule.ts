@@ -8,7 +8,7 @@
 //   3. Personality bias (weights preferred activities)
 //   4. Semi-deterministic randomness (seeded from name + day + hour)
 
-import type { RoomId, ActivityType } from '../rooms'
+import type { RoomId, ActivityType, Room } from '../rooms'
 import { ROOM_MAP } from '../rooms'
 import type { Needs } from './needs'
 import { getMostUrgentNeed, getCriticalNeeds, CRITICAL_NEED_THRESHOLD } from './needs'
@@ -254,6 +254,7 @@ export function selectNextActivity(
   hobbyType: HobbyType,
   currentRoom: RoomId,
   characterName: string,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
 ): ActivitySelection {
   // 1. Check for critical needs override
   const criticalNeeds = getCriticalNeeds(needs)
@@ -286,7 +287,7 @@ export function selectNextActivity(
 
   // Filter candidates to only rooms where their activities are actually available
   const viableCandidates = slot.candidates.filter((c) => {
-    const room = ROOM_MAP[c.room]
+    const room = roomMap[c.room]
     return room.activities.includes(c.activity)
   })
 
@@ -338,7 +339,10 @@ export function selectNextActivity(
  * When a character name is provided, picks a random room and valid activity
  * so each page load feels different.
  */
-export function getInitialActivity(characterName?: string): ActivitySelection {
+export function getInitialActivity(
+  characterName?: string,
+  roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+): ActivitySelection {
   if (!characterName) {
     return { room: 'living_room', activity: 'idle', durationHours: 0.25 }
   }
@@ -353,7 +357,7 @@ export function getInitialActivity(characterName?: string): ActivitySelection {
   // different room on each visit
   const rng = seededRngFromKey(`${characterName}:start:${Math.random()}`)
   const room = rng.pick(startableRooms)
-  const roomDef = ROOM_MAP[room]
+  const roomDef = roomMap[room]
   const activity = rng.pick(roomDef.activities)
 
   return { room, activity, durationHours: 0.25 }

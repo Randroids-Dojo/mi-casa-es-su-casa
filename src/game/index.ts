@@ -11,6 +11,7 @@ export * from './character'
 export {
   ROOMS,
   ROOM_MAP,
+  buildRooms,
   getRoom,
   getRoomFloor,
   getRoomActivities,

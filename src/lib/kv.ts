@@ -1,6 +1,8 @@
 import { kv } from '@vercel/kv'
 import { CharacterState, CharacterStateSchema } from './characterSchema'
 import { VisitorLog, VisitorLogSchema, VisitorMessage } from './visitorSchema'
+import { generateLayout } from './layout'
+import { buildLayoutRoomData } from './roomDataBuilder'
 
 const KEY_PREFIX = 'character:'
 
@@ -49,7 +51,7 @@ export async function appendVisitorMessage(name: string, text: string, sender?: 
   }
   const updated: VisitorLog = {
     name: existing.name,
-    messages: [...existing.messages, newMessage].slice(-20),
+    messages: [...existing.messages, newMessage].slice(-69),
     totalCount: existing.totalCount + 1,
   }
   await kv.set(visitorsKey(name), updated)
@@ -86,6 +88,11 @@ export async function searchCharacterNames(query: string, limit = 10): Promise<s
 // ---------------------------------------------------------------------------
 
 export function createDefaultCharacter(name: string): CharacterState {
+  // Use the character's layout to place them at their living room center
+  const layout = generateLayout(name)
+  const roomData = buildLayoutRoomData(layout)
+  const livingRoomCenter = roomData.centers.living_room
+
   return {
     name,
     createdAt: new Date().toISOString(),
@@ -95,6 +102,6 @@ export function createDefaultCharacter(name: string): CharacterState {
     currentActivity: 'idle',
     needs: { hunger: 0.2, sleep: 0.1, hygiene: 0.1, entertainment: 0.2 },
     clock: { hour: 9, day: 0 },
-    position: { x: 4, y: 1, z: 4 },
+    position: { x: livingRoomCenter.x, y: livingRoomCenter.y, z: livingRoomCenter.z },
   }
 }

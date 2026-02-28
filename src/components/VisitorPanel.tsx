@@ -14,6 +14,7 @@ const CRT_DIM = 'rgba(51,255,51,0.55)'
 const CRT_AMBER = '#ffbb33'
 const CRT_AMBER_DIM = 'rgba(255,187,51,0.55)'
 const FONT = '"Share Tech Mono", "Courier New", Courier, monospace'
+const MESSAGE_LIMIT = 69
 
 function formatAge(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -47,6 +48,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
   const [errorMsg, setErrorMsg] = useState('')
   const [collapsed, setCollapsed] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Sender selection state
   const defaultSender = creatorLabel(characterName)
@@ -169,11 +171,12 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
     setSearchResults([])
   }, [])
 
-  const recentMessages = log ? [...log.messages].reverse().slice(0, 5) : []
+  const recentMessages = log ? [...log.messages].reverse() : []
+  const atCapacity = recentMessages.length >= MESSAGE_LIMIT
   const count = log?.totalCount ?? 0
 
   return (
-    <div style={{ ...styles.panel, height: collapsed ? '40px' : '320px', transition: 'height 0.2s ease' }}>
+    <div style={{ ...styles.panel, height: collapsed ? '40px' : '420px', transition: 'height 0.2s ease' }}>
       {/* Scanline overlay */}
       <div style={styles.scanlines} aria-hidden="true" />
 
@@ -196,7 +199,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
         <div style={styles.divider} aria-hidden="true">{'─'.repeat(44)}</div>
 
         {/* Message list */}
-        <div style={styles.messageList}>
+        <div ref={listRef} style={styles.messageList}>
           {recentMessages.length === 0 ? (
             <div style={styles.empty}>NO MESSAGES YET. BE THE FIRST!</div>
           ) : (
@@ -204,8 +207,15 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
               const color = senderColor(msg, characterName)
               const dimColor = senderDimColor(msg, characterName)
               const senderLabel = msg.sender ?? creatorLabel(characterName)
+              const isOldest = atCapacity && i === recentMessages.length - 1
               return (
-                <div key={i} style={styles.messageRow}>
+                <div
+                  key={i}
+                  style={{
+                    ...styles.messageRow,
+                    ...(isOldest ? styles.fallingOff : undefined),
+                  }}
+                >
                   <span style={{ ...styles.bullet, color: dimColor }}>&gt;</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span style={{
@@ -225,6 +235,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
                     </div>
                   </div>
                   <span style={{ ...styles.timestamp, color: dimColor }}>
+                    {isOldest ? 'NEXT \u2192 ' : ''}
                     {formatAge(msg.postedAt)}
                   </span>
                 </div>
@@ -422,7 +433,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   messageList: {
     minHeight: '72px',
+    maxHeight: '240px',
+    overflowY: 'auto',
     marginBottom: '8px',
+  },
+  fallingOff: {
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    borderLeft: '2px solid rgba(255, 68, 68, 0.6)',
+    paddingLeft: '6px',
+    marginLeft: '-8px',
   },
   empty: {
     opacity: 0.45,

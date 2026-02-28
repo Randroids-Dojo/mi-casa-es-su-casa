@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PALETTE } from './palette'
 import type { Vec3, Room, VoxelSpec } from './types'
+import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
 
 // ---------------------------------------------------------------------------
 // House constants
@@ -128,10 +129,14 @@ function buildFloorShell(
 }
 
 // ---------------------------------------------------------------------------
-// Interior room divider walls
+// Interior room divider walls — layout-driven
 // ---------------------------------------------------------------------------
 
-function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
+function buildInteriorWalls(
+  group: THREE.Group,
+  floor: 1 | 2 | 3,
+  wallXPositions: number[],
+): void {
   const baseY = floorY(floor)
   const hd = HOUSE_DEPTH
   const wallH = FLOOR_HEIGHT - 1
@@ -140,7 +145,7 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
   const wallZCenter = (hd - 1) / 2  // 3.5
   const wallZSize = hd - 1           // 7
 
-  // Staircase divider wall (shared by all floors)
+  // Staircase divider wall (shared by all floors, always at x=27)
   group.add(
     makeVoxel(
       { x: STAIR_X_START + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
@@ -150,49 +155,11 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
     ),
   )
 
-  if (floor === 1) {
-    // Entry / living room divider at x=4
+  // Dynamic interior walls from layout
+  for (const wallX of wallXPositions) {
     group.add(
       makeVoxel(
-        { x: 4.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-        PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: wallZSize },
-        true,
-      ),
-    )
-    // Living room / kitchen divider at x=16
-    group.add(
-      makeVoxel(
-        { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-        PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: wallZSize },
-        true,
-      ),
-    )
-  } else if (floor === 2) {
-    // Bedroom / bathroom divider at x=14
-    group.add(
-      makeVoxel(
-        { x: 14.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-        PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: wallZSize },
-        true,
-      ),
-    )
-    // Bathroom / study divider at x=20
-    group.add(
-      makeVoxel(
-        { x: 20.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-        PALETTE.WALL_INTERIOR,
-        { x: wt, y: wallH, z: wallZSize },
-        true,
-      ),
-    )
-  } else if (floor === 3) {
-    // Music room / library divider at x=16
-    group.add(
-      makeVoxel(
-        { x: 16.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+        { x: wallX + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
         true,
@@ -202,265 +169,374 @@ function buildInteriorWalls(group: THREE.Group, floor: 1 | 2 | 3): void {
 }
 
 // ---------------------------------------------------------------------------
-// Furniture builders per room
+// Furniture builders — parameterized by (group, xMin, xMax, floor)
+//
+// Each room builder places furniture using anchor-based positioning:
+//   cx = center of room, xMin/xMax = edges, ft = floor top surface Y
+// Furniture sizes are unchanged; only positions adapt to room bounds.
+// Non-essential furniture is conditionally omitted when room is too narrow.
 // ---------------------------------------------------------------------------
 
-// Floor 1: Entry Hall (x=1..4)
-function buildEntranceHall(group: THREE.Group): void {
-  const baseY = floorY(1)
-  const ft = baseY + 1
+function buildEntranceRoom(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
 
   addVoxels(group, [
-    // Front door frame on back wall
-    { position: { x: 2.5, y: ft + 2, z: 7.5 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
-    // Coat rack
-    { position: { x: 1.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
-    // Coat rack hooks (small horizontal protrusions)
-    { position: { x: 1.75, y: ft + 3, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
-    { position: { x: 1.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
-    // Entry rug (thin flat slab)
-    { position: { x: 2.5, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
+    // Front door frame on back wall — centered
+    { position: { x: cx, y: ft + 2, z: 7.5 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
+    // Coat rack — left side
+    { position: { x: xMin + 0.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
+    // Coat rack hooks
+    { position: { x: xMin + 0.75, y: ft + 3, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+    { position: { x: xMin + 0.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+    // Entry rug — centered
+    { position: { x: cx, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
   ])
 }
 
-// Floor 1: Living Room (x=4..16)
-function buildLivingRoom(group: THREE.Group): void {
-  const baseY = floorY(1)
-  const ft = baseY + 1
+function buildLivingRoomFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
-  addVoxels(group, [
-    // Sofa — wide 3-seater
-    { position: { x: 8, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
-    { position: { x: 8, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
-    // Sofa cushions (accent)
-    { position: { x: 7, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
-    { position: { x: 9, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
-    // TV stand
-    { position: { x: 8, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
+  const specs: VoxelSpec[] = [
+    // Sofa — centered, back area
+    { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
+    { position: { x: cx, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
+    // Sofa cushions
+    { position: { x: cx - 1, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    { position: { x: cx + 1, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    // TV stand — centered, front
+    { position: { x: cx, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
     // TV screen
-    { position: { x: 8, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
-    // Fireplace (right side of living room, near divider)
-    { position: { x: 14.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
-    // Fireplace mantel
-    { position: { x: 14.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Fire glow (orange block inside fireplace)
-    { position: { x: 14.5, y: ft + 0.5, z: 7.3 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
-    // Armchair
-    { position: { x: 12, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 12, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1.5, z: 0.5 } },
-    // Coffee table
-    { position: { x: 8, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Bookshelf (left side)
-    { position: { x: 5.5, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
-    // Books on shelf (color accents)
-    { position: { x: 5, y: ft + 1, z: 7.4 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 5.5, y: ft + 2, z: 7.4 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 6, y: ft + 3, z: 7.4 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Lamp
-    { position: { x: 6, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
-    { position: { x: 6, y: ft + 2.2, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
-  ])
+    { position: { x: cx, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
+    // Coffee table — centered
+    { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
+    // Bookshelf — left side, back wall
+    { position: { x: xMin + 1.5, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
+    // Books on shelf
+    { position: { x: xMin + 1, y: ft + 1, z: 7.4 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 2, z: 7.4 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 2, y: ft + 3, z: 7.4 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Lamp — left side
+    { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
+    { position: { x: xMin + 2, y: ft + 2.2, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
+  ]
+
+  // Fireplace + armchair — right side (only if room is wide enough)
+  if (w >= 10) {
+    specs.push(
+      // Fireplace
+      { position: { x: xMax - 1.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
+      { position: { x: xMax - 1.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
+      { position: { x: xMax - 1.5, y: ft + 0.5, z: 7.3 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
+      // Armchair
+      { position: { x: cx + 2, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
+      { position: { x: cx + 2, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1.5, z: 0.5 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
-// Floor 1: Kitchen (x=16..27)
-function buildKitchen(group: THREE.Group): void {
-  const baseY = floorY(1)
-  const ft = baseY + 1
+function buildKitchenFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
+  const counterW = Math.min(w - 2, 9)
 
-  addVoxels(group, [
-    // Counter along back wall
-    { position: { x: 22.5, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: 9, y: 1, z: 1 } },
+  const specs: VoxelSpec[] = [
+    // Counter along back wall — centered
+    { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: counterW, y: 1, z: 1 } },
     // Counter backsplash
-    { position: { x: 22.5, y: ft + 2, z: 7.8 }, color: 0xd0e8e8, size: { x: 9, y: 2, z: 0.3 } },
-    // Stove (on counter, left side)
-    { position: { x: 18.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
+    { position: { x: cx, y: ft + 2, z: 7.8 }, color: 0xd0e8e8, size: { x: counterW, y: 2, z: 0.3 } },
+    // Stove — left side of counter
+    { position: { x: xMin + 2.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
     // Stove top burners
-    { position: { x: 18, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
-    { position: { x: 19, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
-    // Sink (on counter, center)
-    { position: { x: 22.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
-    // Fridge (tall, right of counter)
-    { position: { x: 25.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
+    { position: { x: xMin + 2, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    { position: { x: xMin + 3, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    // Sink — center of counter
+    { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
+    // Fridge — right side
+    { position: { x: xMax - 1.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
     // Fridge handle
-    { position: { x: 24.9, y: ft + 2, z: 7 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
-    // Dining table
-    { position: { x: 21, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
-    // Table leg detail
-    { position: { x: 19.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
-    { position: { x: 22.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
+    { position: { x: xMax - 2.1, y: ft + 2, z: 7 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
+    // Dining table — centered
+    { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
+    // Table legs
+    { position: { x: cx - 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
+    { position: { x: cx + 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
     // Chairs
-    { position: { x: 19.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
-    { position: { x: 22.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
-    // Upper cabinet
-    { position: { x: 20, y: ft + 4.5, z: 7.6 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
-  ])
+    { position: { x: cx - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: cx + 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
+  ]
+
+  // Upper cabinet (only if wide enough)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMin + 4, y: ft + 4.5, z: 7.6 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
-// Floor 2: Bedroom (x=1..14)
-function buildBedroom(group: THREE.Group): void {
-  const baseY = floorY(2)
-  const ft = baseY + 1
+function buildBedroomFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
-  addVoxels(group, [
-    // Bed (wide double bed)
-    { position: { x: 5.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
-    // Duvet / blanket
-    { position: { x: 5.5, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 2 } },
+  const specs: VoxelSpec[] = [
+    // Bed — centered, back area
+    { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
+    // Duvet
+    { position: { x: cx, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 2 } },
     // Pillows
-    { position: { x: 4, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    { position: { x: 6.5, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Bed headboard
-    { position: { x: 5.5, y: ft + 2, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
-    // Nightstand (left side)
-    { position: { x: 2.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
-    // Bedside lamp
-    { position: { x: 2.5, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
-    { position: { x: 2.5, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
-    // Wardrobe (double, against back wall left)
-    { position: { x: 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
-    // Wardrobe door detail
-    { position: { x: 1.5, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-    { position: { x: 2.5, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-    // Dresser (against back wall right)
-    { position: { x: 11, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
-    { position: { x: 11, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
-    // Dresser drawer handles
-    { position: { x: 10, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
-    { position: { x: 12, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
-    // Rug
-    { position: { x: 6, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: 7, y: 0.1, z: 3 } },
-  ])
+    { position: { x: cx - 1.5, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    { position: { x: cx + 1, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Headboard — centered, back wall
+    { position: { x: cx, y: ft + 2, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
+    // Rug — centered
+    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: Math.min(7, w - 2), y: 0.1, z: 3 } },
+  ]
+
+  // Nightstand + lamp (left of bed)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMin + 1.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1.5 } },
+      { position: { x: xMin + 1.5, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
+      { position: { x: xMin + 1.5, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    )
+  }
+
+  // Wardrobe (left side, back wall)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
+      { position: { x: xMin + 1, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      { position: { x: xMin + 2, y: ft + 2.5, z: 7.2 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+    )
+  }
+
+  // Dresser (right side, back wall)
+  if (w >= 10) {
+    specs.push(
+      { position: { x: xMax - 3, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
+      { position: { x: xMax - 3, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 1, z: 1 } },
+      { position: { x: xMax - 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
+      { position: { x: xMax - 2, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
-// Floor 2: Bathroom (x=14..20)
-function buildBathroom(group: THREE.Group): void {
-  const baseY = floorY(2)
-  const ft = baseY + 1
+function buildBathroomFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
   addVoxels(group, [
     // Floor tiles
-    { position: { x: 17, y: ft - 0.4, z: 4 }, color: PALETTE.TILE, size: { x: 6, y: 0.1, z: 6 } },
-    // Bathtub
-    { position: { x: 16.5, y: ft + 0.5, z: 6.5 }, color: PALETTE.PORCELAIN, size: { x: 4, y: 1, z: 2 } },
-    { position: { x: 16.5, y: ft + 0.9, z: 6.5 }, color: PALETTE.TILE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Bath tap
-    { position: { x: 15.3, y: ft + 1.5, z: 7 }, color: PALETTE.CHROME, size: { x: 0.3, y: 0.7, z: 0.3 } },
-    // Sink
-    { position: { x: 15.5, y: ft + 1, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 1 } },
+    { position: { x: cx, y: ft - 0.4, z: 4 }, color: PALETTE.TILE, size: { x: w, y: 0.1, z: 6 } },
+    // Bathtub — centered, back area
+    { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.PORCELAIN, size: { x: 4, y: 1, z: 2 } },
+    { position: { x: cx, y: ft + 0.9, z: 6.5 }, color: PALETTE.TILE, size: { x: 3, y: 0.5, z: 1.5 } },
+    // Bath tap — left end of tub
+    { position: { x: xMin + 1.3, y: ft + 1.5, z: 7 }, color: PALETTE.CHROME, size: { x: 0.3, y: 0.7, z: 0.3 } },
+    // Sink — left, front
+    { position: { x: xMin + 1.5, y: ft + 1, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 1 } },
     // Sink pedestal
-    { position: { x: 15.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 0.8, y: 1, z: 0.8 } },
-    // Toilet
-    { position: { x: 18.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 18.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Mirror above sink
-    { position: { x: 15.5, y: ft + 3, z: 7.6 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
-    // Towel rail
-    { position: { x: 18, y: ft + 2.5, z: 7.6 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
-    // Towel (on rail)
-    { position: { x: 18, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 0.8, y: 1, z: 0.8 } },
+    // Toilet — right, front
+    { position: { x: xMax - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: xMax - 1.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Mirror above sink — back wall
+    { position: { x: xMin + 1.5, y: ft + 3, z: 7.6 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
+    // Towel rail — right side, back wall
+    { position: { x: xMax - 2, y: ft + 2.5, z: 7.6 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
+    // Towel
+    { position: { x: xMax - 2, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
   ])
 }
 
-// Floor 2: Study (x=20..27)
-function buildStudy(group: THREE.Group): void {
-  const baseY = floorY(2)
-  const ft = baseY + 1
+function buildStudyFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
-  addVoxels(group, [
-    // Desk (L-shaped: main desk + side return)
-    { position: { x: 23, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
-    { position: { x: 21, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
+  const specs: VoxelSpec[] = [
+    // Desk — centered, back wall
+    { position: { x: cx, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
+    // Desk side return — left
+    { position: { x: xMin + 1, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
     // Computer monitor
-    { position: { x: 22.5, y: ft + 1.75, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
+    { position: { x: cx - 1, y: ft + 1.75, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
     // Keyboard
-    { position: { x: 22.5, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
+    { position: { x: cx - 1, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
     // Desk chair
-    { position: { x: 23, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: 23, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
-    // Tall bookshelf (left side)
-    { position: { x: 21, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-    // Book spines (color accents)
-    { position: { x: 20.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 21, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 21.5, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Tall bookshelf (right side)
-    { position: { x: 25.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-    // More book accents
-    { position: { x: 25, y: ft + 1, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 26, y: ft + 2.5, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: cx, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
+    { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
+    // Left bookshelf
+    { position: { x: xMin + 1, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
+    // Book spines (left)
+    { position: { x: xMin + 0.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     // Desk lamp
-    { position: { x: 24.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    { position: { x: 24.5, y: ft + 2.2, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
-  ])
+    { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    { position: { x: cx + 1.5, y: ft + 2.2, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+  ]
+
+  // Right bookshelf (only if wide enough)
+  if (w >= 7) {
+    specs.push(
+      { position: { x: xMax - 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
+      { position: { x: xMax - 2, y: ft + 1, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMax - 1, y: ft + 2.5, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
-// Floor 3: Music Room / Piano Room (x=1..16) — LCP-inspired
-function buildMusicRoom(group: THREE.Group): void {
-  const baseY = floorY(3)
-  const ft = baseY + 1
+function buildHobbyRoomFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
-  addVoxels(group, [
-    // Upright piano (against back-left wall)
-    { position: { x: 4, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
-    // Piano keys (lighter strip on front)
-    { position: { x: 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.CEILING, size: { x: 3.5, y: 0.5, z: 0.5 } },
-    // Piano black keys (dark accent)
-    { position: { x: 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
-    { position: { x: 4.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
+  const specs: VoxelSpec[] = [
+    // Upright piano — left side, back wall
+    { position: { x: xMin + 3, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
+    // Piano keys
+    { position: { x: xMin + 3, y: ft + 0.5, z: 7.1 }, color: PALETTE.CEILING, size: { x: 3.5, y: 0.5, z: 0.5 } },
+    // Piano black keys
+    { position: { x: xMin + 2.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
+    { position: { x: xMin + 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
     // Piano bench
-    { position: { x: 4, y: ft + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
-    // Record player / stereo on cabinet
-    { position: { x: 10, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
-    { position: { x: 10, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
-    // Speakers (either side)
-    { position: { x: 7.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
-    { position: { x: 12.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
-    // Couch (center)
-    { position: { x: 8, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 4, y: 1, z: 1.5 } },
-    { position: { x: 8, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
+    { position: { x: xMin + 3, y: ft + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
+    // Record player / stereo on cabinet — centered
+    { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
+    { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+    // Couch — centered
+    { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 4, y: 1, z: 1.5 } },
+    { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
     // Rug
-    { position: { x: 8, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: 6, y: 0.1, z: 4 } },
-    // Easel (right side, against back wall so character transit path doesn't clip it)
-    { position: { x: 14, y: ft + 2, z: 7 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
-    { position: { x: 14, y: ft + 3, z: 6.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
-  ])
+    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: Math.min(6, w - 2), y: 0.1, z: 4 } },
+  ]
+
+  // Speakers (only if wide enough)
+  if (w >= 10) {
+    specs.push(
+      { position: { x: cx - 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+      { position: { x: cx + 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+    )
+  }
+
+  // Easel — right side, back wall (only if wide enough)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMax - 2, y: ft + 2, z: 7 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
+      { position: { x: xMax - 2, y: ft + 3, z: 6.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
-// Floor 3: Library (x=16..27)
-function buildLibrary(group: THREE.Group): void {
-  const baseY = floorY(3)
-  const ft = baseY + 1
+function buildStorageFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
 
-  addVoxels(group, [
-    // Three tall bookshelves across the back wall
-    { position: { x: 18, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-    { position: { x: 21.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-    { position: { x: 25, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-    // Book color accents on shelves
-    { position: { x: 17.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 18.5, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 19, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 21, y: ft + 1.5, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 22.5, y: ft + 3, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: 24.5, y: ft + 2, z: 7.2 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Reading armchair
-    { position: { x: 19, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
-    { position: { x: 19, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
-    // Side table (with lamp)
-    { position: { x: 21, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
-    { position: { x: 21, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    { position: { x: 21, y: ft + 2.1, z: 4 }, color: 0xfff4c0, size: { x: 0.8, y: 0.3, z: 0.8 } },
-    // Writing desk (right side)
-    { position: { x: 24.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 1.5 } },
-    // Quill / pen pot
-    { position: { x: 25, y: ft + 1.2, z: 3.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.4, y: 1, z: 0.4 } },
+  const specs: VoxelSpec[] = [
+    // Center bookshelf — back wall
+    { position: { x: cx, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+    // Book accents (center)
+    { position: { x: cx - 0.5, y: ft + 1.5, z: 7.2 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: cx + 0.5, y: ft + 3, z: 7.2 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Reading armchair — left-center
+    { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
+    { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
+    // Side table with lamp
+    { position: { x: cx - 0.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
+    { position: { x: cx - 0.5, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    { position: { x: cx - 0.5, y: ft + 2.1, z: 4 }, color: 0xfff4c0, size: { x: 0.8, y: 0.3, z: 0.8 } },
     // Rug
-    { position: { x: 21.5, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: 8, y: 0.1, z: 5 } },
-  ])
+    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: Math.min(8, w - 2), y: 0.1, z: 5 } },
+  ]
+
+  // Left bookshelf (if wide enough for 2+)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMin + 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+      { position: { x: xMin + 1.5, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMin + 2.5, y: ft + 2, z: 7.2 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+      { position: { x: xMin + 3, y: ft + 3.5, z: 7.2 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    )
+  }
+
+  // Right bookshelf (if wide enough for 3)
+  if (w >= 10) {
+    specs.push(
+      { position: { x: xMax - 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
+      { position: { x: xMax - 2.5, y: ft + 2, z: 7.2 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    )
+  }
+
+  // Writing desk (right side, if wide enough)
+  if (w >= 8) {
+    specs.push(
+      { position: { x: xMax - 2.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 1.5 } },
+      { position: { x: xMax - 2, y: ft + 1.2, z: 3.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.4, y: 1, z: 0.4 } },
+    )
+  }
+
+  addVoxels(group, specs)
 }
 
 // ---------------------------------------------------------------------------
-// Staircase builder
+// Staircase builder (always fixed position)
 // ---------------------------------------------------------------------------
 
 function buildStaircase(group: THREE.Group): void {
@@ -507,7 +583,27 @@ function buildStaircase(group: THREE.Group): void {
 // Room bounds registry
 // ---------------------------------------------------------------------------
 
-export function getRooms(): Room[] {
+export function getRooms(layout?: HouseLayout): Room[] {
+  if (layout) {
+    const rooms: Room[] = layout.slots.map((slot) => ({
+      id: (slot.roomId === 'entrance' ? 'entrance_hall' : slot.roomId) as Room['id'],
+      floor: slot.floor,
+      bounds: {
+        min: { x: slot.xMin, y: floorY(slot.floor), z: 1 },
+        max: { x: slot.xMax, y: floorY(slot.floor) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+      },
+    }))
+    rooms.push({
+      id: 'staircase',
+      floor: 1,
+      bounds: {
+        min: { x: STAIR_X_START, y: 0, z: 1 },
+        max: { x: HOUSE_WIDTH - 1, y: FLOOR_HEIGHT * FLOOR_COUNT, z: HOUSE_DEPTH - 1 },
+      },
+    })
+    return rooms
+  }
+
   return [
     {
       id: 'entrance_hall',
@@ -585,34 +681,30 @@ export function getRooms(): Room[] {
 }
 
 // ---------------------------------------------------------------------------
-// Main house builder
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Bathroom door — swings closed when character is inside
 // ---------------------------------------------------------------------------
 
 /**
  * Builds a bathroom door panel on a pivot group so it can swing open/closed.
- * Hinge is on the left edge (bedroom side). When closed (rotation.y = 0)
+ * The hinge is at the left edge of the bathroom slot. When closed (rotation.y = 0)
  * the panel covers the bathroom's front opening. When open (rotation.y = -PI/2)
- * the panel tucks alongside the bedroom-side wall, out of view.
+ * the panel tucks alongside the adjacent wall, out of view.
  */
-function buildBathroomDoor(): THREE.Group {
-  const baseY = floorY(2)
-  const wallH = FLOOR_HEIGHT - 1 // same as interior wall height
-  const doorWidth = 5.5           // from hinge (x=15) to study wall (x=20.5)
+function buildBathroomDoorForSlot(bathroomSlot: RoomSlot): THREE.Group {
+  const baseY = floorY(bathroomSlot.floor)
+  const wallH = FLOOR_HEIGHT - 1
+  const doorWidth = bathroomSlot.xMax - bathroomSlot.xMin - 0.5
   const doorThickness = 0.3
 
-  // Pivot group — positioned at the hinge point
+  // Pivot group — positioned at the hinge point (left edge of bathroom + 1)
   const pivot = new THREE.Group()
-  pivot.position.set(15, baseY + wallH / 2 + 1, 0.15)
+  pivot.position.set(bathroomSlot.xMin + 1, baseY + wallH / 2 + 1, 0.15)
 
   // Door panel — offset so its left edge sits at the pivot (hinge)
   const geo = new THREE.BoxGeometry(doorWidth, wallH, doorThickness)
   const mat = new THREE.MeshLambertMaterial({ color: PALETTE.DOOR })
   const panel = new THREE.Mesh(geo, mat)
-  panel.position.set(doorWidth / 2, 0, 0) // left edge at pivot
+  panel.position.set(doorWidth / 2, 0, 0)
   panel.castShadow = true
   panel.receiveShadow = true
   pivot.add(panel)
@@ -639,35 +731,61 @@ export interface HouseResult {
   bathroomDoor: THREE.Group
 }
 
+// ---------------------------------------------------------------------------
+// Room builder dispatch table
+// ---------------------------------------------------------------------------
+
+const ROOM_BUILDERS: Readonly<
+  Record<LayoutRoomId, (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3) => void>
+> = {
+  entrance: buildEntranceRoom,
+  living_room: buildLivingRoomFurniture,
+  kitchen: buildKitchenFurniture,
+  bedroom: buildBedroomFurniture,
+  bathroom: buildBathroomFurniture,
+  study: buildStudyFurniture,
+  hobby_room: buildHobbyRoomFurniture,
+  storage: buildStorageFurniture,
+}
+
+// ---------------------------------------------------------------------------
+// Main house builder
+// ---------------------------------------------------------------------------
+
 /**
  * Builds the complete house geometry as a THREE.Group.
  * The house origin is at (0,0,0) — bottom-left-front corner.
  *
- * Layout (LCP-inspired, left→right):
- *   Floor 1: Entry Hall (x 1–4) | Living Room (x 4–16) | Kitchen (x 16–27) | Staircase (x 27–32)
- *   Floor 2: Bedroom (x 1–14) | Bathroom (x 14–20) | Study (x 20–27) | Staircase
- *   Floor 3: Music Room (x 1–16) | Library (x 16–27) | Staircase
+ * Rooms are placed according to the provided HouseLayout.
  */
-export function buildHouse(): HouseResult {
+export function buildHouse(layout: HouseLayout): HouseResult {
   const house = new THREE.Group()
 
+  // Structural shells for all three floors
   for (const floor of [1, 2, 3] as const) {
     buildFloorShell(house, floor)
-    buildInteriorWalls(house, floor)
   }
 
-  buildEntranceHall(house)
-  buildLivingRoom(house)
-  buildKitchen(house)
-  buildBedroom(house)
-  buildBathroom(house)
-  buildStudy(house)
-  buildMusicRoom(house)
-  buildLibrary(house)
+  // Interior walls from layout
+  for (const floor of [1, 2, 3] as const) {
+    const floorWalls = layout.walls
+      .filter((w) => w.floor === floor)
+      .map((w) => w.x)
+    buildInteriorWalls(house, floor, floorWalls)
+  }
+
+  // Build furniture for each room slot
+  for (const slot of layout.slots) {
+    const builder = ROOM_BUILDERS[slot.roomId]
+    builder(house, slot.xMin, slot.xMax, slot.floor)
+  }
+
+  // Staircase (always fixed)
   buildStaircase(house)
 
-  // Bathroom door is a separate group so we can animate it
-  const bathroomDoor = buildBathroomDoor()
+  // Bathroom door — positioned from layout
+  const bathroomSlot = layout.slotMap.bathroom
+  const bathroomDoor = buildBathroomDoorForSlot(bathroomSlot)
   house.add(bathroomDoor)
 
   return { group: house, bathroomDoor }
