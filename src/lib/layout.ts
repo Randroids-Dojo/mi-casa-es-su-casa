@@ -69,8 +69,8 @@ const ROOM_SIZES: Readonly<Record<LayoutRoomId, RoomSizePrefs>> = {
   storage: { min: 5, preferred: 11 },
 }
 
-/** All room IDs in canonical order (for shuffling) */
-const ALL_ROOMS: readonly LayoutRoomId[] = [
+/** All room IDs in canonical order (for shuffling / validation) */
+export const ALL_ROOMS: readonly LayoutRoomId[] = [
   'entrance',
   'living_room',
   'kitchen',
@@ -89,19 +89,11 @@ const FLOOR_ROOM_WIDTH = 26
 // ---------------------------------------------------------------------------
 
 /**
- * Generates a deterministic house layout from a character name.
- * The same name always produces the same layout.
+ * Builds a HouseLayout from a specific room ordering (8 rooms: 3+3+2 floor
+ * distribution). The first 3 go to floor 1, next 3 to floor 2, last 2 to
+ * floor 3. Room widths are computed proportionally from preferred sizes.
  */
-export function generateLayout(characterName: string): HouseLayout {
-  const rng = seededRngFromKey(`layout:${characterName.toLowerCase()}`)
-
-  // Fisher-Yates shuffle all 8 rooms
-  const rooms = [...ALL_ROOMS]
-  for (let i = rooms.length - 1; i > 0; i--) {
-    const j = Math.floor(rng.next() * (i + 1))
-    ;[rooms[i], rooms[j]] = [rooms[j], rooms[i]]
-  }
-
+export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
   // Assign to floors: first 3 → floor 1, next 3 → floor 2, last 2 → floor 3
   const floorAssignments: LayoutRoomId[][] = [
     rooms.slice(0, 3),
@@ -173,6 +165,42 @@ export function generateLayout(characterName: string): HouseLayout {
   ) as Record<LayoutRoomId, RoomSlot>
 
   return { slots, walls, slotMap }
+}
+
+/**
+ * Generates a deterministic house layout from a character name.
+ * The same name always produces the same layout.
+ */
+export function generateLayout(characterName: string): HouseLayout {
+  const rng = seededRngFromKey(`layout:${characterName.toLowerCase()}`)
+
+  // Fisher-Yates shuffle all 8 rooms
+  const rooms = [...ALL_ROOMS]
+  for (let i = rooms.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1))
+    ;[rooms[i], rooms[j]] = [rooms[j], rooms[i]]
+  }
+
+  return layoutFromOrder(rooms)
+}
+
+/**
+ * Extracts the room ordering from an existing layout as a flat array:
+ * [floor1_left, floor1_mid, floor1_right, floor2_left, ... floor3_right].
+ */
+export function roomOrderFromLayout(layout: HouseLayout): LayoutRoomId[] {
+  const byFloor: Record<number, RoomSlot[]> = { 1: [], 2: [], 3: [] }
+  for (const slot of layout.slots) {
+    byFloor[slot.floor].push(slot)
+  }
+  const order: LayoutRoomId[] = []
+  for (const floor of [1, 2, 3]) {
+    const sorted = byFloor[floor].sort((a, b) => a.xMin - b.xMin)
+    for (const slot of sorted) {
+      order.push(slot.roomId)
+    }
+  }
+  return order
 }
 
 /**

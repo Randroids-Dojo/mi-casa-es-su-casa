@@ -32,6 +32,7 @@ export interface Room {
 }
 
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
+import type { LayoutRoomId } from '@/lib/layout'
 
 export interface GameInstance {
   dispose(): void
@@ -78,4 +79,18 @@ export interface GameInstance {
    * Idempotent — safe to call repeatedly.
    */
   unlockAudio(): void
+
+  // --- Layout editor ---
+  /** Begin a layout edit gesture at screen coordinates. */
+  onLayoutPointerDown(screenX: number, screenY: number): void
+  /** Update the drag position during a layout edit gesture. */
+  onLayoutPointerMove(screenX: number, screenY: number): void
+  /** End the layout edit gesture. */
+  onLayoutPointerUp(): void
+  /** Returns true when the layout editor has captured input (suppress panning). */
+  isLayoutEditActive(): boolean
+  /** Called by the persistence hook when a swap completes. */
+  onLayoutSwap: ((roomOrder: LayoutRoomId[]) => void) | null
+  /** Replace the current layout externally (e.g. after conflict resolution). */
+  applyExternalLayout(roomOrder: LayoutRoomId[]): void
 }

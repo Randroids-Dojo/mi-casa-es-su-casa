@@ -7,7 +7,9 @@ import { VisitorPanel } from './VisitorPanel'
 import { UpdateBanner } from './UpdateBanner'
 import { PowerButton } from './PowerButton'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
+import { useLayoutPersistence } from '@/hooks/useLayoutPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
+import type { LayoutRoomId } from '@/lib/layout'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
 
 interface CharacterViewProps {
@@ -17,6 +19,7 @@ interface CharacterViewProps {
 export function CharacterView({ name }: CharacterViewProps) {
   const [gameActions, setGameActions] = useState<GameActions | null>(null)
   const [initialState, setInitialState] = useState<CharacterState | undefined>(undefined)
+  const [initialRoomOrder, setInitialRoomOrder] = useState<LayoutRoomId[] | undefined>(undefined)
   const [stateLoaded, setStateLoaded] = useState(false)
 
   // The ref stays current even as gameActions state updates, so the persistence
@@ -26,29 +29,42 @@ export function CharacterView({ name }: CharacterViewProps) {
 
   const triggerSeedRef = useRef(0)
 
-  // Fetch initial character state once on mount.
+  // Layout persistence hook
+  const { conflictRoomOrder, initFromServer, persistSwap } = useLayoutPersistence(name)
+
+  // Fetch initial character state and layout in parallel once on mount.
   // Abort after 4 s so a slow/unavailable KV store doesn't block rendering.
   useEffect(() => {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 4000)
 
-    fetch(`/api/character/${name}`, { signal: controller.signal })
+    const characterFetch = fetch(`/api/character/${name}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json() as Promise<CharacterState>
       })
-      .then((state) => {
-        setInitialState(state)
-        setStateLoaded(true)
+      .catch(() => null)
+
+    const layoutFetch = fetch(`/api/layout/${name}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) return null
+        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number }>
       })
-      .catch(() => {
-        // Start fresh — KV unavailable or fetch timed out
+      .catch(() => null)
+
+    Promise.all([characterFetch, layoutFetch])
+      .then(([charState, layoutData]) => {
+        if (charState) setInitialState(charState)
+        if (layoutData) {
+          setInitialRoomOrder(layoutData.roomOrder)
+          initFromServer(layoutData.roomOrder, layoutData.version)
+        }
         setStateLoaded(true)
       })
       .finally(() => clearTimeout(timer))
 
     return () => controller.abort()
-  }, [name])
+  }, [name, initFromServer])
 
   // Persist character state every 30 s and on page unload
   const versionStale = useCharacterPersistence(name, () => gameActionsRef.current?.getState() ?? null)
@@ -97,6 +113,9 @@ export function CharacterView({ name }: CharacterViewProps) {
           characterName={name}
           initialState={initialState}
           onGameReady={handleGameReady}
+          initialRoomOrder={initialRoomOrder}
+          onLayoutSwap={persistSwap}
+          externalRoomOrder={conflictRoomOrder}
         />
       </div>
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
