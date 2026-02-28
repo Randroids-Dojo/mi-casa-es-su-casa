@@ -49,7 +49,7 @@ export async function appendVisitorMessage(name: string, text: string, sender?: 
   }
   const updated: VisitorLog = {
     name: existing.name,
-    messages: [...existing.messages, newMessage].slice(-20),
+    messages: [...existing.messages, newMessage].slice(-69),
     totalCount: existing.totalCount + 1,
   }
   await kv.set(visitorsKey(name), updated)
