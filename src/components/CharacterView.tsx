@@ -5,6 +5,7 @@ import { GameCanvas } from './GameCanvas'
 import type { GameActions } from './GameCanvas'
 import { VisitorPanel } from './VisitorPanel'
 import { UpdateBanner } from './UpdateBanner'
+import { PowerButton } from './PowerButton'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
@@ -91,6 +92,7 @@ export function CharacterView({ name }: CharacterViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100dvh' }}>
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         {versionStale && <UpdateBanner />}
+        <PowerButton />
         <GameCanvas
           characterName={name}
           initialState={initialState}
