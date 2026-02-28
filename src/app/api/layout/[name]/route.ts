@@ -26,10 +26,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
     // No custom layout — return the deterministic default with version 0
     const defaultLayout = generateLayout(name)
     const roomOrder = roomOrderFromLayout(defaultLayout)
-    return NextResponse.json(
-      { roomOrder, version: 0, updatedAt: null },
-      { status: 200 },
-    )
+    return NextResponse.json({ roomOrder, version: 0 }, { status: 200 })
   } catch {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
   }

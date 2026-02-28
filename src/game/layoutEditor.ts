@@ -5,7 +5,7 @@
 // Lifecycle:
 //   IDLE → (long press 500ms) → DRAGGING → (release) → IDLE
 //                                  ↓
-//                           (hover 2s) → SWAP → rebuild → DRAGGING
+//                           (hover 2s) → SWAP → rebuild → FLASH → IDLE
 //
 // Visual overlays:
 //   - Selected room: blue tint
@@ -64,25 +64,8 @@ function makeOverlay(slot: RoomSlot, color: number, opacity: number): THREE.Mesh
 }
 
 // ---------------------------------------------------------------------------
-// Slot neighbor helpers
+// Hit-testing
 // ---------------------------------------------------------------------------
-
-interface SlotsByFloor {
-  1: RoomSlot[]
-  2: RoomSlot[]
-  3: RoomSlot[]
-}
-
-function groupSlotsByFloor(layout: HouseLayout): SlotsByFloor {
-  const result: SlotsByFloor = { 1: [], 2: [], 3: [] }
-  for (const slot of layout.slots) {
-    result[slot.floor].push(slot)
-  }
-  for (const f of [1, 2, 3] as const) {
-    result[f].sort((a, b) => a.xMin - b.xMin)
-  }
-  return result
-}
 
 /**
  * Given a world-space point, find which room slot it falls inside.
@@ -101,52 +84,6 @@ function slotAtWorld(
     }
   }
   return null
-}
-
-/**
- * Given drag direction from the source room, find the neighboring room.
- * Returns null if no neighbor exists in that direction.
- */
-function findNeighborInDirection(
-  source: RoomSlot,
-  dx: number,
-  dy: number,
-  slotsByFloor: SlotsByFloor,
-): RoomSlot | null {
-  // Determine primary direction
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
-
-  if (absDx < 5 && absDy < 5) return null // too little movement to determine direction
-
-  if (absDy > absDx) {
-    // Vertical: up or down (between floors)
-    const targetFloor = dy < 0
-      ? (source.floor + 1) as 1 | 2 | 3
-      : (source.floor - 1) as 1 | 2 | 3
-    if (targetFloor < 1 || targetFloor > 3) return null
-
-    // Find the closest room on the target floor by centerX overlap
-    const candidates = slotsByFloor[targetFloor]
-    let best: RoomSlot | null = null
-    let bestDist = Infinity
-    for (const c of candidates) {
-      const dist = Math.abs(c.centerX - source.centerX)
-      if (dist < bestDist) {
-        bestDist = dist
-        best = c
-      }
-    }
-    return best
-  } else {
-    // Horizontal: left or right (same floor)
-    const floorSlots = slotsByFloor[source.floor]
-    const idx = floorSlots.findIndex((s) => s.roomId === source.roomId)
-    if (idx === -1) return null
-    if (dx < 0 && idx > 0) return floorSlots[idx - 1]
-    if (dx > 0 && idx < floorSlots.length - 1) return floorSlots[idx + 1]
-    return null
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -172,11 +109,9 @@ export class LayoutEditor {
   private flashOverlayB: THREE.Mesh | null = null
 
   private state: EditorState = { kind: 'idle' }
-  private slotsByFloor: SlotsByFloor
 
-  // Screen coords of the pointer
-  private pointerScreenX = 0
-  private pointerScreenY = 0
+  /** Reusable vector for screenToWorld to avoid per-call allocation */
+  private readonly _tmpVec = new THREE.Vector3()
 
   constructor(params: {
     scene: THREE.Scene
@@ -190,7 +125,6 @@ export class LayoutEditor {
     this.canvas = params.canvas
     this.layout = params.layout
     this.onSwap = params.onSwap
-    this.slotsByFloor = groupSlotsByFloor(params.layout)
 
     this.overlayGroup = new THREE.Group()
     this.overlayGroup.renderOrder = 999
@@ -206,9 +140,6 @@ export class LayoutEditor {
   }
 
   onPointerDown(screenX: number, screenY: number): void {
-    this.pointerScreenX = screenX
-    this.pointerScreenY = screenY
-
     const world = this.screenToWorld(screenX, screenY)
     const slot = slotAtWorld(world.x, world.y, this.layout)
     if (!slot) return
@@ -218,9 +149,6 @@ export class LayoutEditor {
   }
 
   onPointerMove(screenX: number, screenY: number): void {
-    this.pointerScreenX = screenX
-    this.pointerScreenY = screenY
-
     if (this.state.kind !== 'dragging') return
 
     const world = this.screenToWorld(screenX, screenY)
@@ -281,7 +209,6 @@ export class LayoutEditor {
   /** Replace layout after external update (e.g. conflict resolution) */
   setLayout(layout: HouseLayout): void {
     this.layout = layout
-    this.slotsByFloor = groupSlotsByFloor(layout)
     // If mid-drag, cancel it since the layout changed under us
     if (this.state.kind === 'dragging') {
       this.state = { kind: 'idle' }
@@ -292,12 +219,6 @@ export class LayoutEditor {
   dispose(): void {
     this.clearAllOverlays()
     this.scene.remove(this.overlayGroup)
-    this.overlayGroup.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.geometry.dispose()
-        ;(obj.material as THREE.Material).dispose()
-      }
-    })
   }
 
   // -----------------------------------------------------------------------
@@ -338,10 +259,9 @@ export class LayoutEditor {
     const ndcY = -((screenY - rect.top) / rect.height) * 2 + 1
 
     // Unproject from NDC to world using the orthographic camera
-    const vec = new THREE.Vector3(ndcX, ndcY, 0)
-    vec.unproject(this.camera)
+    this._tmpVec.set(ndcX, ndcY, 0).unproject(this.camera)
 
-    return { x: vec.x, y: vec.y }
+    return { x: this._tmpVec.x, y: this._tmpVec.y }
   }
 
   // -----------------------------------------------------------------------
