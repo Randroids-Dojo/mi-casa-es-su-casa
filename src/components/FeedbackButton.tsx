@@ -1,10 +1,11 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { initConsoleCapture, getCapturedLogs } from '@/lib/consoleCapture'
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error'
+type View = 'closed' | 'menu' | 'feedback'
 
 function captureScreenshot(): string | null {
   try {
@@ -30,39 +31,73 @@ function captureScreenshot(): string | null {
 }
 
 export default function FeedbackButton() {
-  const [open, setOpen] = useState(false)
+  const [view, setView] = useState<View>('closed')
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const pathname = usePathname()
+  const router = useRouter()
+
+  const isCharacterPage = pathname !== '/' && pathname.length > 1
 
   useEffect(() => {
     initConsoleCapture()
   }, [])
 
   function toggle() {
-    setOpen((prev) => {
-      if (!prev) setTimeout(() => textareaRef.current?.focus(), 50)
-      return !prev
-    })
+    if (view === 'closed') {
+      setView('menu')
+    } else {
+      setView('closed')
+    }
+  }
+
+  function openFeedback() {
+    setView('feedback')
+    setTimeout(() => textareaRef.current?.focus(), 50)
+  }
+
+  function handleQuit() {
+    setView('closed')
+    setShowQuitConfirm(true)
+  }
+
+  function confirmQuit() {
+    setShowQuitConfirm(false)
+    router.push('/')
+  }
+
+  function cancelQuit() {
+    setShowQuitConfirm(false)
   }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && open) setOpen(false)
+      if (e.key === 'Escape') {
+        if (showQuitConfirm) {
+          setShowQuitConfirm(false)
+        } else if (view !== 'closed') {
+          setView('closed')
+        }
+      }
     }
     function onClickOutside(e: MouseEvent) {
+      const target = e.target as Node
       if (
-        open &&
+        view !== 'closed' &&
         panelRef.current &&
+        menuRef.current &&
         fabRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        !fabRef.current.contains(e.target as Node)
+        !panelRef.current.contains(target) &&
+        !menuRef.current.contains(target) &&
+        !fabRef.current.contains(target)
       ) {
-        setOpen(false)
+        setView('closed')
       }
     }
     document.addEventListener('keydown', onKeyDown)
@@ -71,7 +106,7 @@ export default function FeedbackButton() {
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('click', onClickOutside)
     }
-  }, [open])
+  }, [view, showQuitConfirm])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -106,7 +141,7 @@ export default function FeedbackButton() {
       setName('')
       setMessage('')
       setTimeout(() => {
-        setOpen(false)
+        setView('closed')
         setTimeout(() => setSubmitState('idle'), 350)
       }, 2000)
     } catch {
@@ -115,17 +150,21 @@ export default function FeedbackButton() {
     }
   }
 
+  const isOpen = view !== 'closed'
+
   return (
     <>
+      {/* FAB — power icon */}
       <button
         ref={fabRef}
-        className={'fab' + (open ? ' open' : '')}
+        className={'fab' + (isOpen ? ' open' : '')}
         onClick={toggle}
-        aria-label="Send feedback"
+        aria-label="Open menu"
       >
-        {/* Message icon */}
-        <svg className="fab-icon fab-icon-msg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        {/* Power icon (IEC 5009) */}
+        <svg className="fab-icon fab-icon-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M12 3v6" />
+          <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64" />
         </svg>
         {/* Close icon */}
         <svg className="fab-icon fab-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -134,7 +173,27 @@ export default function FeedbackButton() {
         </svg>
       </button>
 
-      <div ref={panelRef} className={'feedback-panel' + (open ? ' open' : '')}>
+      {/* Menu */}
+      <div ref={menuRef} className={'fab-menu' + (view === 'menu' ? ' open' : '')}>
+        <button className="fab-menu-item" onClick={openFeedback}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Feedback
+        </button>
+        {isCharacterPage && (
+          <button className="fab-menu-item" onClick={handleQuit}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 3v6" />
+              <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64" />
+            </svg>
+            Quit
+          </button>
+        )}
+      </div>
+
+      {/* Feedback panel */}
+      <div ref={panelRef} className={'feedback-panel' + (view === 'feedback' ? ' open' : '')}>
         <div className="feedback-header">
           <span className="feedback-label">{'// say hi or send feedback'}</span>
         </div>
@@ -182,6 +241,78 @@ export default function FeedbackButton() {
           </div>
         )}
       </div>
+
+      {/* Quit confirmation overlay */}
+      {showQuitConfirm && (
+        <div
+          onClick={cancelQuit}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 4000,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0a0a0a',
+              border: '2px solid #33ff33',
+              boxShadow: '0 0 20px rgba(51,255,51,0.2)',
+              padding: '24px 32px',
+              fontFamily: '"Share Tech Mono", "Courier New", Courier, monospace',
+              color: '#33ff33',
+              textShadow: '0 0 8px rgba(51,255,51,0.6)',
+              textAlign: 'center',
+              maxWidth: 320,
+            }}
+          >
+            <p style={{ margin: '0 0 20px', fontSize: 16, letterSpacing: 1 }}>
+              POWER OFF?
+            </p>
+            <p style={{ margin: '0 0 20px', fontSize: 12, opacity: 0.6 }}>
+              You will return to the main menu.
+            </p>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              <button
+                onClick={confirmQuit}
+                style={{
+                  fontFamily: 'inherit',
+                  fontSize: 14,
+                  color: '#0a0a0a',
+                  background: '#33ff33',
+                  border: 'none',
+                  padding: '6px 20px',
+                  cursor: 'pointer',
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Yes
+              </button>
+              <button
+                onClick={cancelQuit}
+                style={{
+                  fontFamily: 'inherit',
+                  fontSize: 14,
+                  color: '#33ff33',
+                  background: 'transparent',
+                  border: '1px solid #33ff33',
+                  padding: '6px 20px',
+                  cursor: 'pointer',
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                }}
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -5,7 +5,6 @@ import { GameCanvas } from './GameCanvas'
 import type { GameActions } from './GameCanvas'
 import { VisitorPanel } from './VisitorPanel'
 import { UpdateBanner } from './UpdateBanner'
-import { PowerButton } from './PowerButton'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import { useLayoutPersistence } from '@/hooks/useLayoutPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
@@ -116,7 +115,6 @@ export function CharacterView({ name }: CharacterViewProps) {
           onLayoutSwap={persistSwap}
           externalRoomOrder={conflictRoomOrder}
         />
-        <PowerButton />
       </div>
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
     </div>
