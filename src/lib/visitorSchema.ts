@@ -7,7 +7,7 @@ export const VisitorMessageSchema = z.object({
 
 export const VisitorLogSchema = z.object({
   name: z.string(),
-  messages: z.array(VisitorMessageSchema).max(20),
+  messages: z.array(VisitorMessageSchema).max(69),
   totalCount: z.number().int().min(0),
 })
 
