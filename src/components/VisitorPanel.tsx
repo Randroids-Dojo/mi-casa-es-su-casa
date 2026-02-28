@@ -12,6 +12,7 @@ interface VisitorPanelProps {
 const CRT_GREEN = '#33ff33'
 const CRT_DIM = 'rgba(51,255,51,0.55)'
 const FONT = '"Share Tech Mono", "Courier New", Courier, monospace'
+const MESSAGE_LIMIT = 69
 
 function formatAge(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -28,6 +29,7 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
   const [errorMsg, setErrorMsg] = useState('')
   const [collapsed, setCollapsed] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const displayName = characterName.replace(/-/g, ' ').toUpperCase()
 
@@ -83,11 +85,12 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
     [handleSubmit],
   )
 
-  const recentMessages = log ? [...log.messages].reverse().slice(0, 5) : []
+  const recentMessages = log ? [...log.messages].reverse() : []
+  const atCapacity = recentMessages.length >= MESSAGE_LIMIT
   const count = log?.totalCount ?? 0
 
   return (
-    <div style={{ ...styles.panel, height: collapsed ? '40px' : '260px', transition: 'height 0.2s ease' }}>
+    <div style={{ ...styles.panel, height: collapsed ? '40px' : '420px', transition: 'height 0.2s ease' }}>
       {/* Scanline overlay */}
       <div style={styles.scanlines} aria-hidden="true" />
 
@@ -110,17 +113,29 @@ export function VisitorPanel({ characterName, onMessagePosted }: VisitorPanelPro
         <div style={styles.divider} aria-hidden="true">{'─'.repeat(44)}</div>
 
         {/* Message list */}
-        <div style={styles.messageList}>
+        <div ref={listRef} style={styles.messageList}>
           {recentMessages.length === 0 ? (
             <div style={styles.empty}>NO MESSAGES YET. BE THE FIRST!</div>
           ) : (
-            recentMessages.map((msg, i) => (
-              <div key={i} style={styles.messageRow}>
-                <span style={styles.bullet}>&gt;</span>
-                <span style={styles.msgText}>{msg.text}</span>
-                <span style={styles.timestamp}>{formatAge(msg.postedAt)}</span>
-              </div>
-            ))
+            recentMessages.map((msg, i) => {
+              const isOldest = atCapacity && i === recentMessages.length - 1
+              return (
+                <div
+                  key={i}
+                  style={{
+                    ...styles.messageRow,
+                    ...(isOldest ? styles.fallingOff : undefined),
+                  }}
+                >
+                  <span style={styles.bullet}>&gt;</span>
+                  <span style={styles.msgText}>{msg.text}</span>
+                  <span style={styles.timestamp}>
+                    {isOldest ? 'NEXT \u2192 ' : ''}
+                    {formatAge(msg.postedAt)}
+                  </span>
+                </div>
+              )
+            })
           )}
         </div>
 
@@ -238,7 +253,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   messageList: {
     minHeight: '72px',
+    maxHeight: '240px',
+    overflowY: 'auto',
     marginBottom: '8px',
+  },
+  fallingOff: {
+    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+    borderLeft: '2px solid rgba(255, 68, 68, 0.6)',
+    paddingLeft: '6px',
+    marginLeft: '-8px',
   },
   empty: {
     opacity: 0.45,
