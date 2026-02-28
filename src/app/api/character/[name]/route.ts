@@ -3,6 +3,7 @@ import { validateNameFormat, normalizeName } from '@/lib/nameValidation'
 import { getCharacter, saveCharacter, createDefaultCharacter } from '@/lib/kv'
 import { CharacterStateSchema } from '@/lib/characterSchema'
 import { simulateOffline, SIMULATION_THRESHOLD_SECONDS } from '@/lib/simulateOffline'
+import { PERSISTENCE_VERSION } from '@/lib/persistenceVersion'
 
 type RouteParams = { params: Promise<{ name: string }> }
 
@@ -51,6 +52,16 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
   const validation = validateNameFormat(name)
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
+
+  // Reject writes from stale client versions to prevent old browser tabs
+  // from overwriting state after a new deployment.
+  const clientVersion = req.nextUrl.searchParams.get('v')
+  if (clientVersion !== String(PERSISTENCE_VERSION)) {
+    return NextResponse.json(
+      { error: 'Client version outdated', current: PERSISTENCE_VERSION },
+      { status: 409 },
+    )
   }
 
   let body: unknown

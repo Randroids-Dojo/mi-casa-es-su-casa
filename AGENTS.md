@@ -83,6 +83,21 @@ The app version must be kept in sync in two places:
 
 When bumping the version, update both. The boot screen uses a short `vX.Y` format; `package.json` uses semver `X.Y.Z`.
 
+## Persistence Version Guard
+
+`src/lib/persistenceVersion.ts` exports a `PERSISTENCE_VERSION` integer. The
+POST `/api/character/[name]` route rejects saves from clients whose baked-in
+version doesn't match the server's, preventing stale browser tabs from
+overwriting state after a deploy.
+
+**Bump `PERSISTENCE_VERSION`** whenever a deploy includes changes to:
+
+- `src/lib/characterSchema.ts` (field additions, removals, enum changes)
+- `src/game/rooms.ts` (room list, positions, floor heights)
+- `src/lib/simulateOffline.ts` (simulation logic that affects persisted fields)
+
+A mismatch shows an "update available" banner with a refresh button.
+
 ## TypeScript
 
 Always run `npx tsc --noEmit` after code changes. All code must compile with zero errors — strict mode is on.

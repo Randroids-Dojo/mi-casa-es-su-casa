@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { PERSISTENCE_VERSION } from '../../src/lib/persistenceVersion'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
 
@@ -51,7 +52,7 @@ test('POST /api/character/testuser returns valid JSON (200, 201, or 503)', async
     position: { x: 4.0, y: 0.0, z: 4.0 },
   }
 
-  const res = await fetch(`${BASE_URL}/api/character/testuser`, {
+  const res = await fetch(`${BASE_URL}/api/character/testuser?v=${PERSISTENCE_VERSION}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -89,7 +90,7 @@ test('POST /api/character/testuser with accessories round-trips COWBOY_HAT', asy
     accessories: ['COWBOY_HAT'],
   }
 
-  const res = await fetch(`${BASE_URL}/api/character/testuser`, {
+  const res = await fetch(`${BASE_URL}/api/character/testuser?v=${PERSISTENCE_VERSION}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameCanvas } from './GameCanvas'
 import type { GameActions } from './GameCanvas'
 import { VisitorPanel } from './VisitorPanel'
+import { UpdateBanner } from './UpdateBanner'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
@@ -49,7 +50,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   }, [name])
 
   // Persist character state every 30 s and on page unload
-  useCharacterPersistence(name, () => gameActionsRef.current?.getState() ?? null)
+  const versionStale = useCharacterPersistence(name, () => gameActionsRef.current?.getState() ?? null)
 
   const handleGameReady = useCallback((actions: GameActions) => {
     // Wrap in arrow so useState doesn't treat the function as an updater
@@ -89,6 +90,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100dvh' }}>
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
+        {versionStale && <UpdateBanner />}
         <GameCanvas
           characterName={name}
           initialState={initialState}
