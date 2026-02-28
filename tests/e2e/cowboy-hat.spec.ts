@@ -55,9 +55,10 @@ test.describe('Cowboy hat', () => {
     })
 
     // Intercept autosave POSTs and flag when accessories include the hat.
-    // Use $ anchor so this does NOT match the /messages sub-route.
+    // Use (?:\?|$) so we match the path with or without query params (e.g. ?v=1)
+    // but still exclude the /messages sub-route.
     let savedWithHat = false
-    await page.route(/\/api\/character\/playwright$/, async (route) => {
+    await page.route(/\/api\/character\/playwright(?:\?|$)/, async (route) => {
       if (route.request().method() === 'POST') {
         try {
           const body = JSON.parse(route.request().postData() ?? '{}') as {
