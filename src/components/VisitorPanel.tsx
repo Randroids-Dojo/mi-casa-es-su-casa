@@ -497,7 +497,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   senderDropdown: {
     position: 'absolute',
-    top: '100%',
+    bottom: '100%',
     left: '40px',
     right: '56px',
     backgroundColor: '#111',
