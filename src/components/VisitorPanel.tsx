@@ -479,7 +479,6 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     marginBottom: '6px',
     position: 'relative',
-    paddingRight: '56px',
     flexShrink: 0,
   },
   senderLabel: {
@@ -506,7 +505,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: '100%',
     left: '40px',
-    right: '56px',
+    right: '0',
     backgroundColor: '#111',
     border: '1px solid rgba(51,255,51,0.4)',
     zIndex: 10,
@@ -545,7 +544,6 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '8px',
     marginBottom: '4px',
-    paddingRight: '56px', // clear the fixed-position feedback FAB
     flexShrink: 0,
   },
   prompt: {
@@ -588,7 +586,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
     textAlign: 'right' as const,
     textShadow: 'none',
-    paddingRight: '56px', // match inputRow offset for feedback FAB
     flexShrink: 0,
   },
 }
