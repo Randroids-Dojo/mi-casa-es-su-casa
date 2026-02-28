@@ -419,6 +419,11 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '1.6',
     color: CRT_GREEN,
     textShadow: `0 0 6px ${CRT_GREEN}`,
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
   },
   header: {
     fontSize: '12px',
@@ -430,10 +435,11 @@ const styles: Record<string, React.CSSProperties> = {
     textShadow: 'none',
     marginBottom: '8px',
     overflow: 'hidden',
+    flexShrink: 0,
   },
   messageList: {
     minHeight: '72px',
-    maxHeight: '240px',
+    flex: 1,
     overflowY: 'auto',
     marginBottom: '8px',
   },
@@ -474,6 +480,7 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '6px',
     position: 'relative',
     paddingRight: '56px',
+    flexShrink: 0,
   },
   senderLabel: {
     color: CRT_DIM,
@@ -539,6 +546,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     marginBottom: '4px',
     paddingRight: '56px', // clear the fixed-position feedback FAB
+    flexShrink: 0,
   },
   prompt: {
     color: CRT_DIM,
@@ -573,6 +581,7 @@ const styles: Record<string, React.CSSProperties> = {
     textShadow: '0 0 6px #ff4444',
     fontSize: '12px',
     marginBottom: '2px',
+    flexShrink: 0,
   },
   charCount: {
     color: CRT_DIM,
@@ -580,5 +589,6 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'right' as const,
     textShadow: 'none',
     paddingRight: '56px', // match inputRow offset for feedback FAB
+    flexShrink: 0,
   },
 }
