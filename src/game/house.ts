@@ -213,9 +213,9 @@ function buildLivingRoomFurniture(
     // Sofa — centered, back area
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
-    // Sofa cushions
-    { position: { x: cx - 1, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
-    { position: { x: cx + 1, y: ft + 1, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    // Sofa cushions — raised to sit on top of sofa base (y=ft+1) to avoid embedded geometry z-fighting
+    { position: { x: cx - 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    { position: { x: cx + 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
     // TV stand — centered, front
     { position: { x: cx, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
     // TV screen
@@ -309,11 +309,11 @@ function buildBedroomFurniture(
   const specs: VoxelSpec[] = [
     // Bed — centered, back area
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
-    // Duvet
-    { position: { x: cx, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 2 } },
-    // Pillows
-    { position: { x: cx - 1.5, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    { position: { x: cx + 1, y: ft + 1, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Duvet — depth 1.8 (not 2) so its front/back faces don't coincide with the bed's (z=5.5 and z=7.5)
+    { position: { x: cx, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 1.8 } },
+    // Pillows — raised to sit on top of bed (y=ft+1) to avoid embedded geometry z-fighting
+    { position: { x: cx - 1.5, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    { position: { x: cx + 1, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
     // Headboard — centered, back wall
     { position: { x: cx, y: ft + 2, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
     // Rug — centered
