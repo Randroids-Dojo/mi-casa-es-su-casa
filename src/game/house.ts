@@ -772,6 +772,39 @@ const ROOM_BUILDERS: Readonly<
  * Furniture is positioned at absolute world coordinates matching the given slot.
  * Used by the layout editor to render draggable ghost previews.
  */
+/**
+ * Builds a group containing the staircase steps for a single floor transition
+ * (floor → floor+1), positioned at the given stairXStart world X coordinate.
+ * Used for the layout editor drag ghost.
+ */
+export function buildStaircaseGhostGroup(floor: 1 | 2, stairXStart: number): THREE.Group {
+  const group = new THREE.Group()
+  const stairSteps = FLOOR_HEIGHT
+  const stepWidth = 3
+  const startZ = 0.5
+  const stepCenterX = stairXStart + 2.5
+  const baseY = floorY(floor)
+  for (let step = 0; step < stairSteps; step++) {
+    const stepTopY = baseY + 1 + (step + 1)
+    group.add(
+      makeVoxel(
+        { x: stepCenterX, y: stepTopY - 0.5, z: startZ + step + 0.5 },
+        PALETTE.STAIRCASE,
+        { x: stepWidth, y: 1, z: 1 },
+      ),
+    )
+  }
+  // Landing platform
+  group.add(
+    makeVoxel(
+      { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: startZ + stairSteps + 0.5 },
+      PALETTE.STAIRCASE,
+      { x: stepWidth, y: 1, z: 1 },
+    ),
+  )
+  return group
+}
+
 export function buildRoomFurnitureGroup(
   roomId: LayoutRoomId,
   xMin: number,

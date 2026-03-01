@@ -18,7 +18,7 @@
 import * as THREE from 'three'
 import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
 import { roomOrderFromLayout, getWallBounds } from '@/lib/layout'
-import { FLOOR_HEIGHT, HOUSE_WIDTH, buildRoomFurnitureGroup } from './house'
+import { FLOOR_HEIGHT, HOUSE_WIDTH, buildRoomFurnitureGroup, buildStaircaseGhostGroup } from './house'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,7 +37,6 @@ const COLOR_FLASH = 0xffffff
 const COLOR_INVALID_BG = 0xff2222
 const COLOR_INVALID_X = 0xff0000
 const COLOR_WALL_DRAG = 0x44ffcc
-const COLOR_STAIRCASE_GHOST = 0xffaa44
 
 /** World-unit tolerance for clicking near an interior wall */
 const WALL_HIT_TOLERANCE = 1.5
@@ -647,21 +646,14 @@ export class LayoutEditor {
     worldY: number,
   ): void {
     this.clearDragGhost()
-    const stairWidth = stair.xMax - stair.xMin
-    const geo = new THREE.BoxGeometry(stairWidth, FLOOR_HEIGHT - 1, 0.1)
-    const mat = new THREE.MeshBasicMaterial({
-      color: COLOR_STAIRCASE_GHOST,
-      transparent: true,
-      opacity: DRAG_GHOST_OPACITY,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    })
-    const mesh = new THREE.Mesh(geo, mat)
-    mesh.position.z = OVERLAY_Z
-    mesh.renderOrder = 998
-    const ghostGroup = new THREE.Group()
-    ghostGroup.add(mesh)
+    // Use real staircase geometry (same as room ghost) — only floor 1 and 2 have steps
+    const ghostFloor = stair.floor <= 2 ? stair.floor as 1 | 2 : 1
+    const ghostGroup = buildStaircaseGhostGroup(ghostFloor, stair.xMin)
     ghostGroup.position.z = GHOST_Z
+    applyGroupOpacity(ghostGroup, DRAG_GHOST_OPACITY)
+    ghostGroup.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) obj.renderOrder = 998
+    })
     this.dragGhost = ghostGroup
     this.updateDragGhostPosition({ kind: 'staircase', ...stair }, worldX, worldY)
     this.overlayGroup.add(this.dragGhost)
@@ -674,9 +666,9 @@ export class LayoutEditor {
       this.dragGhost.position.x = worldX - source.slot.centerX
       this.dragGhost.position.y = worldY - slotCenterY
     } else {
-      // Staircase ghost is a flat box centered at local origin — position directly at cursor
-      this.dragGhost.position.x = worldX
-      this.dragGhost.position.y = worldY
+      const slotCenterY = floorY(source.floor) + FLOOR_HEIGHT / 2
+      this.dragGhost.position.x = worldX - source.centerX
+      this.dragGhost.position.y = worldY - slotCenterY
     }
   }
 
