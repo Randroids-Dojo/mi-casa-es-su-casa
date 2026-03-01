@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
     const custom = await getCustomLayout(name)
     if (custom) {
       const response: Record<string, unknown> = { roomOrder: custom.roomOrder, version: custom.version }
-      if (custom.staircaseX) response.staircaseX = custom.staircaseX
+      if (custom.staircaseIndex) response.staircaseIndex = custom.staircaseIndex
       if (custom.wallPositions) response.wallPositions = custom.wallPositions
       return NextResponse.json(response, { status: 200 })
     }
@@ -38,7 +38,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
 const PostBodySchema = z.object({
   roomOrder: z.array(z.string()).length(8),
   expectedVersion: z.number().int().min(0),
-  staircaseX: z.tuple([z.number().int(), z.number().int(), z.number().int()]).optional(),
+  staircaseIndex: z.tuple([z.number().int().min(0), z.number().int().min(0), z.number().int().min(0)]).optional(),
   wallPositions: z.tuple([
     z.array(z.number()),
     z.array(z.number()),
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     )
   }
 
-  const { roomOrder, expectedVersion, staircaseX, wallPositions } = parsed.data
+  const { roomOrder, expectedVersion, staircaseIndex, wallPositions } = parsed.data
 
   // Validate all 8 rooms are present exactly once
   const sorted = [...roomOrder].sort()
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       name,
       roomOrder as LayoutRoomId[],
       expectedVersion,
-      staircaseX,
+      staircaseIndex,
       wallPositions as [number[], number[], number[]] | undefined,
     )
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         roomOrder: result.layout.roomOrder,
         version: result.layout.version,
       }
-      if (result.layout.staircaseX) response.staircaseX = result.layout.staircaseX
+      if (result.layout.staircaseIndex) response.staircaseIndex = result.layout.staircaseIndex
       if (result.layout.wallPositions) response.wallPositions = result.layout.wallPositions
       return NextResponse.json(response, { status: 200 })
     }
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       roomOrder: result.current.roomOrder,
       version: result.current.version,
     }
-    if (result.current.staircaseX) conflictResponse.staircaseX = result.current.staircaseX
+    if (result.current.staircaseIndex) conflictResponse.staircaseIndex = result.current.staircaseIndex
     if (result.current.wallPositions) conflictResponse.wallPositions = result.current.wallPositions
     return NextResponse.json(
       { error: 'Version conflict', current: conflictResponse },

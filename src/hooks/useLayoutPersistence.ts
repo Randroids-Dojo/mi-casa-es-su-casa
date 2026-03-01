@@ -12,65 +12,69 @@ interface LayoutPersistenceState {
    * Changes trigger a useEffect in GameCanvas to rebuild.
    */
   conflictRoomOrder: LayoutRoomId[] | null
+  /** Staircase index to apply alongside conflictRoomOrder */
+  conflictStaircaseIndex: Record<1 | 2 | 3, number> | null
 }
 
 /**
  * Manages layout persistence with optimistic concurrency.
- * Returns the current room order, and callbacks to persist swaps, staircase moves, and wall drags.
+ * Returns the current room order, and callbacks to persist swaps and wall drags.
  */
 export function useLayoutPersistence(name: string) {
   const [state, setState] = useState<LayoutPersistenceState>({
     roomOrder: null,
     layoutVersion: 0,
     conflictRoomOrder: null,
+    conflictStaircaseIndex: null,
   })
 
-  // Keep version and room order refs current for async callbacks
+  // Keep version and layout refs current for async callbacks
   const versionRef = useRef(0)
   const roomOrderRef = useRef<LayoutRoomId[] | null>(null)
-  const staircaseXRef = useRef<[number, number, number] | null>(null)
+  const staircaseIndexRef = useRef<[number, number, number] | null>(null)
   const wallPositionsRef = useRef<[number[], number[], number[]] | null>(null)
 
   const initFromServer = useCallback((
     roomOrder: LayoutRoomId[],
     version: number,
-    staircaseX?: [number, number, number],
+    staircaseIndex?: [number, number, number],
     wallPositions?: [number[], number[], number[]],
   ) => {
     versionRef.current = version
     roomOrderRef.current = roomOrder
-    staircaseXRef.current = staircaseX ?? null
+    staircaseIndexRef.current = staircaseIndex ?? null
     wallPositionsRef.current = wallPositions ?? null
-    setState({ roomOrder, layoutVersion: version, conflictRoomOrder: null })
+    setState({ roomOrder, layoutVersion: version, conflictRoomOrder: null, conflictStaircaseIndex: null })
   }, [])
 
-  const persistSwap = useCallback(async (newOrder: LayoutRoomId[]) => {
+  const persistSwap = useCallback(async (newOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2 | 3, number>) => {
     roomOrderRef.current = newOrder
-    // Room swap resets wall positions (proportional for new order)
+    const stairArr: [number, number, number] = [newStaircaseIndex[1], newStaircaseIndex[2], newStaircaseIndex[3]]
+    staircaseIndexRef.current = stairArr
+    // Swap resets wall positions (proportional for new order)
     wallPositionsRef.current = null
     try {
-      const body: Record<string, unknown> = {
-        roomOrder: newOrder,
-        expectedVersion: versionRef.current,
-      }
-      if (staircaseXRef.current) body.staircaseX = staircaseXRef.current
-
       const res = await fetch(`/api/layout/${encodeURIComponent(name)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          roomOrder: newOrder,
+          staircaseIndex: stairArr,
+          expectedVersion: versionRef.current,
+        }),
       })
 
       if (res.ok) {
         const data = await res.json()
         versionRef.current = data.version
-        if (data.staircaseX) staircaseXRef.current = data.staircaseX
+        if (data.staircaseIndex) staircaseIndexRef.current = data.staircaseIndex
         if (data.wallPositions) wallPositionsRef.current = data.wallPositions
         setState((prev) => ({
           ...prev,
           roomOrder: data.roomOrder,
           layoutVersion: data.version,
           conflictRoomOrder: null,
+          conflictStaircaseIndex: null,
         }))
         return
       }
@@ -82,48 +86,21 @@ export function useLayoutPersistence(name: string) {
         if (current) {
           versionRef.current = current.version
           roomOrderRef.current = current.roomOrder
-          if (current.staircaseX) staircaseXRef.current = current.staircaseX
+          if (current.staircaseIndex) staircaseIndexRef.current = current.staircaseIndex
           if (current.wallPositions) wallPositionsRef.current = current.wallPositions
+          const conflictStairIdx: Record<1 | 2 | 3, number> | null = current.staircaseIndex
+            ? { 1: current.staircaseIndex[0], 2: current.staircaseIndex[1], 3: current.staircaseIndex[2] }
+            : null
           setState({
             roomOrder: current.roomOrder,
             layoutVersion: current.version,
-            // Signal GameCanvas to rebuild with the server's layout
             conflictRoomOrder: current.roomOrder,
+            conflictStaircaseIndex: conflictStairIdx,
           })
         }
       }
     } catch {
       // Network error — silently fail (swap still happened locally)
-    }
-  }, [name])
-
-  const persistStaircaseX = useCallback(async (staircaseX: Record<1 | 2 | 3, number>) => {
-    const stairArr: [number, number, number] = [staircaseX[1], staircaseX[2], staircaseX[3]]
-    staircaseXRef.current = stairArr
-    // Staircase drag resets wall positions to proportional
-    wallPositionsRef.current = null
-    const roomOrder = roomOrderRef.current
-    if (!roomOrder) return // no layout yet — skip
-    try {
-      const res = await fetch(`/api/layout/${encodeURIComponent(name)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomOrder,
-          staircaseX: stairArr,
-          expectedVersion: versionRef.current,
-        }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        versionRef.current = data.version
-        if (data.staircaseX) staircaseXRef.current = data.staircaseX
-        setState((prev) => ({ ...prev, layoutVersion: data.version }))
-      }
-      // On conflict, silently accept — staircase position is cosmetic
-    } catch {
-      // Network error — silently fail
     }
   }, [name])
 
@@ -137,7 +114,7 @@ export function useLayoutPersistence(name: string) {
         expectedVersion: versionRef.current,
         wallPositions,
       }
-      if (staircaseXRef.current) body.staircaseX = staircaseXRef.current
+      if (staircaseIndexRef.current) body.staircaseIndex = staircaseIndexRef.current
 
       const res = await fetch(`/api/layout/${encodeURIComponent(name)}`, {
         method: 'POST',
@@ -161,9 +138,9 @@ export function useLayoutPersistence(name: string) {
     roomOrder: state.roomOrder,
     layoutVersion: state.layoutVersion,
     conflictRoomOrder: state.conflictRoomOrder,
+    conflictStaircaseIndex: state.conflictStaircaseIndex,
     initFromServer,
     persistSwap,
-    persistStaircaseX,
     persistWallPositions,
   }
 }

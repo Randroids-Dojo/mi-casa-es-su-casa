@@ -22,18 +22,18 @@ interface GameCanvasProps {
   onGameReady?: (actions: GameActions) => void
   /** Initial room ordering for custom layout */
   initialRoomOrder?: LayoutRoomId[]
-  /** Initial staircase x positions per floor */
-  initialStaircaseX?: Record<1 | 2 | 3, number>
+  /** Initial staircase index (0-based position per floor) */
+  initialStaircaseIndex?: Record<1 | 2 | 3, number>
   /** Initial interior wall x-positions per floor [floor1walls, floor2walls, floor3walls] */
   initialWallPositions?: [number[], number[], number[]]
-  /** Called when the layout editor swaps two rooms (for persistence) */
-  onLayoutSwap?: (roomOrder: LayoutRoomId[]) => void
-  /** Called when the staircase drag ends (for persistence) */
-  onStaircaseSave?: (staircaseX: Record<1 | 2 | 3, number>) => void
+  /** Called when the layout editor swaps rooms or staircase (for persistence) */
+  onLayoutSwap?: (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void
   /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
   onWallSave?: (wallPositions: [number[], number[], number[]]) => void
   /** Apply an externally-resolved layout (e.g. after conflict resolution) */
   externalRoomOrder?: LayoutRoomId[] | null
+  /** Apply an externally-resolved staircase index (paired with externalRoomOrder) */
+  externalStaircaseIndex?: Record<1 | 2 | 3, number> | null
 }
 
 function getTouchDistance(touches: TouchList): number {
@@ -52,12 +52,12 @@ export function GameCanvas({
   initialState,
   onGameReady,
   initialRoomOrder,
-  initialStaircaseX,
+  initialStaircaseIndex,
   initialWallPositions,
   onLayoutSwap,
-  onStaircaseSave,
   onWallSave,
   externalRoomOrder,
+  externalStaircaseIndex,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -90,8 +90,6 @@ export function GameCanvas({
   // Keep callback refs current
   const onLayoutSwapRef = useRef(onLayoutSwap)
   onLayoutSwapRef.current = onLayoutSwap
-  const onStaircaseSaveRef = useRef(onStaircaseSave)
-  onStaircaseSaveRef.current = onStaircaseSave
   const onWallSaveRef = useRef(onWallSave)
   onWallSaveRef.current = onWallSave
 
@@ -126,17 +124,12 @@ export function GameCanvas({
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder, initialStaircaseX, initialWallPositions)
+    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder, initialStaircaseIndex, initialWallPositions)
     gameRef.current = game
 
     // Wire layout swap callback
-    game.onLayoutSwap = (roomOrder: LayoutRoomId[]) => {
-      onLayoutSwapRef.current?.(roomOrder)
-    }
-
-    // Wire staircase save callback
-    game.onStaircaseSave = (staircaseX: Record<1 | 2 | 3, number>) => {
-      onStaircaseSaveRef.current?.(staircaseX)
+    game.onLayoutSwap = (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => {
+      onLayoutSwapRef.current?.(roomOrder, staircaseIndex)
     }
 
     // Wire wall save callback
@@ -168,14 +161,14 @@ export function GameCanvas({
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName, initialState, onGameReady, initialRoomOrder, initialStaircaseX, initialWallPositions])
+  }, [characterName, initialState, onGameReady, initialRoomOrder, initialStaircaseIndex, initialWallPositions])
 
   // Apply externally-resolved layout (e.g. after conflict)
   useEffect(() => {
-    if (externalRoomOrder && gameRef.current) {
-      gameRef.current.applyExternalLayout(externalRoomOrder)
+    if (externalRoomOrder && externalStaircaseIndex && gameRef.current) {
+      gameRef.current.applyExternalLayout(externalRoomOrder, externalStaircaseIndex)
     }
-  }, [externalRoomOrder])
+  }, [externalRoomOrder, externalStaircaseIndex])
 
   // Native touch event listeners (non-passive so we can preventDefault)
   useEffect(() => {

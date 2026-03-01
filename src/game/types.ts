@@ -90,11 +90,9 @@ export interface GameInstance {
   /** Returns true when the layout editor has captured input (suppress panning). */
   isLayoutEditActive(): boolean
   /** Called by the persistence hook when a swap completes. */
-  onLayoutSwap: ((roomOrder: LayoutRoomId[]) => void) | null
-  /** Called when a staircase drag ends (for persistence). */
-  onStaircaseSave: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null
+  onLayoutSwap: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void) | null
   /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
   onWallSave: ((wallPositions: [number[], number[], number[]]) => void) | null
   /** Replace the current layout externally (e.g. after conflict resolution). */
-  applyExternalLayout(roomOrder: LayoutRoomId[]): void
+  applyExternalLayout(roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>): void
 }

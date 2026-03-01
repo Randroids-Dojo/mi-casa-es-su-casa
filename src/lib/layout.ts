@@ -49,6 +49,10 @@ export interface HouseLayout {
   slotMap: Readonly<Record<LayoutRoomId, RoomSlot>>
   /** Left edge x-coordinate of the staircase column per floor */
   staircaseX: Record<1 | 2 | 3, number>
+  /** 0-based position of staircase in the combined (rooms+staircase) sequence per floor */
+  staircaseIndex: Record<1 | 2 | 3, number>
+  /** Staircase bounds in world-x per floor */
+  stairBounds: Record<1 | 2 | 3, { xMin: number; xMax: number; centerX: number }>
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +87,21 @@ export const ALL_ROOMS: readonly LayoutRoomId[] = [
   'storage',
 ]
 
-/** Default staircase x position (left edge) per floor */
+/** Width (in voxels) reserved for the staircase column */
+export const STAIRCASE_WIDTH = 5
+
+/** Total room space per floor (x=1..27 in default position = 26 voxels) */
+export const ROOM_SPACE = 26
+
+/**
+ * Default staircase index (0-based position in the combined rooms+staircase
+ * sequence per floor). The default places the staircase at the last position
+ * (rightmost in world-x = leftmost on screen due to camera x-axis inversion).
+ * Floor 1 & 2 each have 3 rooms → index 3. Floor 3 has 2 rooms → index 2.
+ */
+export const DEFAULT_STAIRCASE_INDEX: Record<1 | 2 | 3, number> = { 1: 3, 2: 3, 3: 2 }
+
+/** Default staircase left-edge x per floor (derived from DEFAULT_STAIRCASE_INDEX) */
 export const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3: 27 }
 
 // ---------------------------------------------------------------------------
@@ -94,14 +112,18 @@ export const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3:
  * Builds a HouseLayout from a specific room ordering (8 rooms: 3+3+2 floor
  * distribution). The first 3 go to floor 1, next 3 to floor 2, last 2 to
  * floor 3. Room widths are computed proportionally from preferred sizes,
- * scaled to fit the available width on each floor (staircaseX[floor] - 1).
+ * scaled to fit the available room space (ROOM_SPACE = 26 voxels per floor).
  *
- * Pass `customWallPositions` to override proportional sizing on specific floors.
- * For a floor with N rooms, provide N-1 wall x-coordinates in left-to-right order.
+ * `staircaseIndex` is a per-floor 0-based position in the combined
+ * (rooms + staircase) sequence. Default: staircase at last position.
+ *
+ * `customWallPositions` overrides proportional room sizing for floors where
+ * the staircase is at its last position (stairIdx === nRooms). Other floors
+ * always use proportional widths.
  */
 export function layoutFromOrder(
   rooms: LayoutRoomId[],
-  staircaseX: Record<1 | 2 | 3, number> = DEFAULT_STAIRCASE_X,
+  staircaseIndex: Record<1 | 2 | 3, number> = DEFAULT_STAIRCASE_INDEX,
   customWallPositions?: Partial<Record<1 | 2 | 3, number[]>>,
 ): HouseLayout {
   // Assign to floors: first 3 → floor 1, next 3 → floor 2, last 2 → floor 3
@@ -113,65 +135,91 @@ export function layoutFromOrder(
 
   const slots: RoomSlot[] = []
   const walls: WallPosition[] = []
+  const staircaseX: Record<1 | 2 | 3, number> = { 1: 0, 2: 0, 3: 0 }
+  const stairBounds: Record<1 | 2 | 3, { xMin: number; xMax: number; centerX: number }> = {
+    1: { xMin: 0, xMax: 0, centerX: 0 },
+    2: { xMin: 0, xMax: 0, centerX: 0 },
+    3: { xMin: 0, xMax: 0, centerX: 0 },
+  }
 
   for (let f = 0; f < 3; f++) {
     const floor = (f + 1) as 1 | 2 | 3
     const floorRooms = floorAssignments[f]
-    const floorStairX = staircaseX[floor]
-    const customFloorWalls = customWallPositions?.[floor]
+    const nRooms = floorRooms.length
+    const stairIdx = staircaseIndex[floor]
 
-    let currentX = 1 // room space starts at x=1 (after left exterior wall)
+    // Custom walls only apply when staircase is at the last position (all rooms before staircase)
+    const useCustomWalls = stairIdx === nRooms
+    const customFloorWalls = useCustomWalls ? customWallPositions?.[floor] : undefined
 
-    if (customFloorWalls && customFloorWalls.length === floorRooms.length - 1) {
-      // Use explicit wall positions provided by the caller (e.g. from wall drag)
-      for (let i = 0; i < floorRooms.length; i++) {
-        const xMin = currentX
-        const xMax = i < customFloorWalls.length ? customFloorWalls[i] : floorStairX
-        slots.push({ roomId: floorRooms[i], floor, xMin, xMax, centerX: (xMin + xMax) / 2 })
-        if (i < floorRooms.length - 1) {
-          walls.push({ floor, x: xMax })
-        }
-        currentX = xMax
+    // Compute proportional room widths (total must equal ROOM_SPACE = 26)
+    let roomWidths: number[]
+
+    if (customFloorWalls && customFloorWalls.length === nRooms - 1) {
+      // Derive widths from explicit wall positions
+      roomWidths = []
+      let prevX = 1
+      for (let i = 0; i < nRooms; i++) {
+        const nextX = i < customFloorWalls.length ? customFloorWalls[i] : 1 + ROOM_SPACE
+        roomWidths.push(nextX - prevX)
+        prevX = nextX
       }
     } else {
       // Proportional widths from preferred sizes
-      const floorRoomWidth = floorStairX - 1
-      const totalPreferred = floorRooms.reduce(
-        (sum, r) => sum + ROOM_SIZES[r].preferred,
-        0,
-      )
-      const scale = floorRoomWidth / totalPreferred
+      const totalPreferred = floorRooms.reduce((sum, r) => sum + ROOM_SIZES[r].preferred, 0)
+      const scale = ROOM_SPACE / totalPreferred
+      roomWidths = []
+      let usedWidth = 0
 
-      for (let i = 0; i < floorRooms.length; i++) {
-        const roomId = floorRooms[i]
+      for (let i = 0; i < nRooms; i++) {
         let width: number
-
-        if (i === floorRooms.length - 1) {
-          // Last room gets remainder to ensure exact fit
-          width = floorStairX - currentX
+        if (i === nRooms - 1) {
+          width = ROOM_SPACE - usedWidth
         } else {
-          // Proportional width, respecting minimum
           width = Math.max(
-            ROOM_SIZES[roomId].min,
-            Math.round(ROOM_SIZES[roomId].preferred * scale),
+            ROOM_SIZES[floorRooms[i]].min,
+            Math.round(ROOM_SIZES[floorRooms[i]].preferred * scale),
           )
-          // Ensure remaining rooms can still fit their minimums
           const remainingRooms = floorRooms.slice(i + 1)
-          const remainingMinWidth = remainingRooms.reduce(
-            (sum, r) => sum + ROOM_SIZES[r].min,
-            0,
-          )
-          const maxWidth = floorStairX - currentX - remainingMinWidth
-          width = Math.min(width, maxWidth)
+          const remainingMinWidth = remainingRooms.reduce((sum, r) => sum + ROOM_SIZES[r].min, 0)
+          width = Math.min(width, ROOM_SPACE - usedWidth - remainingMinWidth)
         }
+        roomWidths.push(width)
+        usedWidth += width
+      }
+    }
 
+    // Build combined sequence: iterate positions 0..nRooms (inclusive)
+    // At position stairIdx: place staircase. At other positions: place room.
+    let currentX = 1
+    let roomIdx = 0
+    let prevWasRoom = false
+
+    for (let pos = 0; pos <= nRooms; pos++) {
+      if (pos === stairIdx) {
+        // Staircase slot
+        const xMin = currentX
+        const xMax = currentX + STAIRCASE_WIDTH
+        staircaseX[floor] = xMin
+        stairBounds[floor] = { xMin, xMax, centerX: (xMin + xMax) / 2 }
+        currentX = xMax
+        prevWasRoom = false
+      } else {
+        // Room slot
+        const roomId = floorRooms[roomIdx]
+        const width = roomWidths[roomIdx]
         const xMin = currentX
         const xMax = currentX + width
-        slots.push({ roomId, floor, xMin, xMax, centerX: (xMin + xMax) / 2 })
-        if (i < floorRooms.length - 1) {
-          walls.push({ floor, x: xMax })
+
+        // Room-to-room wall: only when both this and previous slot were rooms
+        if (prevWasRoom) {
+          walls.push({ floor, x: xMin })
         }
+
+        slots.push({ roomId, floor, xMin, xMax, centerX: (xMin + xMax) / 2 })
         currentX = xMax
+        prevWasRoom = true
+        roomIdx++
       }
     }
   }
@@ -180,22 +228,7 @@ export function layoutFromOrder(
     slots.map((s) => [s.roomId, s]),
   ) as Record<LayoutRoomId, RoomSlot>
 
-  return { slots, walls, slotMap, staircaseX }
-}
-
-/**
- * Returns the valid [min, max] range for staircaseX on a given floor.
- * min = sum of all rooms' minimum widths + 1 (leftmost start)
- * max = 27 (HOUSE_WIDTH - staircase_width: leaves 5 voxels for the staircase)
- */
-export function getStaircaseXBounds(
-  floor: 1 | 2 | 3,
-  layout: HouseLayout,
-): { min: number; max: number } {
-  const minStairX = layout.slots
-    .filter((s) => s.floor === floor)
-    .reduce((sum, s) => sum + ROOM_SIZES[s.roomId].min, 1)
-  return { min: minStairX, max: 27 }
+  return { slots, walls, slotMap, staircaseX, staircaseIndex, stairBounds }
 }
 
 /**
@@ -240,7 +273,7 @@ export function generateLayout(characterName: string): HouseLayout {
     ;[rooms[entranceIdx], rooms[floorFirstIdx]] = [rooms[floorFirstIdx], rooms[entranceIdx]]
   }
 
-  return layoutFromOrder(rooms, DEFAULT_STAIRCASE_X)
+  return layoutFromOrder(rooms, DEFAULT_STAIRCASE_INDEX)
 }
 
 /**
@@ -270,6 +303,6 @@ export function getDefaultLayout(): HouseLayout {
   // Floor 1: entrance(leftmost) | living_room | kitchen
   return layoutFromOrder(
     ['entrance', 'living_room', 'kitchen', 'bedroom', 'bathroom', 'study', 'hobby_room', 'storage'],
-    DEFAULT_STAIRCASE_X,
+    DEFAULT_STAIRCASE_INDEX,
   )
 }

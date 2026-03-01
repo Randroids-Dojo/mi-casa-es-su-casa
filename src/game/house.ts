@@ -18,9 +18,6 @@ export const WALL_THICKNESS = 1
 /** Number of floors */
 export const FLOOR_COUNT = 3
 
-// Staircase occupies a 5-wide column on the far right (x = 27..32)
-const STAIR_X_START = 27
-
 // ---------------------------------------------------------------------------
 // Voxel builder helpers
 // ---------------------------------------------------------------------------
@@ -136,7 +133,7 @@ function buildInteriorWalls(
   group: THREE.Group,
   floor: 1 | 2 | 3,
   wallXPositions: number[],
-  stairXStart: number,
+  stairBounds: { xMin: number; xMax: number },
 ): void {
   const baseY = floorY(floor)
   const hd = HOUSE_DEPTH
@@ -146,18 +143,7 @@ function buildInteriorWalls(
   const wallZCenter = (hd - 1) / 2  // 3.5
   const wallZSize = hd - 1           // 7
 
-  // Staircase divider wall for this floor
-  group.add(
-    makeVoxel(
-      { x: stairXStart + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
-      PALETTE.WALL_INTERIOR,
-      { x: wt, y: wallH, z: wallZSize },
-      true,
-    ),
-  )
-
-  // Dynamic interior walls from layout
-  for (const wallX of wallXPositions) {
+  function addWall(wallX: number): void {
     group.add(
       makeVoxel(
         { x: wallX + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
@@ -166,6 +152,21 @@ function buildInteriorWalls(
         true,
       ),
     )
+  }
+
+  // Left staircase divider: between room-below and staircase (exists when staircase not at leftmost position)
+  if (stairBounds.xMin > 1) {
+    addWall(stairBounds.xMin)
+  }
+
+  // Right staircase divider: between staircase and room-above (exists when staircase not at rightmost position)
+  if (stairBounds.xMax < HOUSE_WIDTH) {
+    addWall(stairBounds.xMax - 1)
+  }
+
+  // Room-to-room interior walls from layout
+  for (const wallX of wallXPositions) {
+    addWall(wallX)
   }
 }
 
@@ -596,18 +597,23 @@ export function getRooms(layout?: HouseLayout): Room[] {
         max: { x: slot.xMax, y: floorY(slot.floor) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     }))
-    // Staircase bounds: cover from the leftmost staircaseX across all floors
+    // Staircase bounds: union of all floor staircase columns
     const minStairX = Math.min(
-      layout.staircaseX[1],
-      layout.staircaseX[2],
-      layout.staircaseX[3],
+      layout.stairBounds[1].xMin,
+      layout.stairBounds[2].xMin,
+      layout.stairBounds[3].xMin,
+    )
+    const maxStairX = Math.max(
+      layout.stairBounds[1].xMax,
+      layout.stairBounds[2].xMax,
+      layout.stairBounds[3].xMax,
     )
     rooms.push({
       id: 'staircase',
       floor: 1,
       bounds: {
         min: { x: minStairX, y: 0, z: 1 },
-        max: { x: HOUSE_WIDTH - 1, y: FLOOR_HEIGHT * FLOOR_COUNT, z: HOUSE_DEPTH - 1 },
+        max: { x: maxStairX, y: FLOOR_HEIGHT * FLOOR_COUNT, z: HOUSE_DEPTH - 1 },
       },
     })
     return rooms
@@ -635,7 +641,7 @@ export function getRooms(layout?: HouseLayout): Room[] {
       floor: 1,
       bounds: {
         min: { x: 16, y: floorY(1), z: 1 },
-        max: { x: STAIR_X_START, y: floorY(1) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        max: { x: 27, y: floorY(1) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
@@ -651,7 +657,7 @@ export function getRooms(layout?: HouseLayout): Room[] {
       floor: 2,
       bounds: {
         min: { x: 20, y: floorY(2), z: 1 },
-        max: { x: STAIR_X_START, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        max: { x: 27, y: floorY(2) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
@@ -675,14 +681,14 @@ export function getRooms(layout?: HouseLayout): Room[] {
       floor: 3,
       bounds: {
         min: { x: 16, y: floorY(3), z: 1 },
-        max: { x: STAIR_X_START, y: floorY(3) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
+        max: { x: 27, y: floorY(3) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     },
     {
       id: 'staircase',
       floor: 1,
       bounds: {
-        min: { x: STAIR_X_START, y: 0, z: 1 },
+        min: { x: 27, y: 0, z: 1 },
         max: { x: HOUSE_WIDTH - 1, y: FLOOR_HEIGHT * FLOOR_COUNT, z: HOUSE_DEPTH - 1 },
       },
     },
@@ -795,12 +801,12 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     buildFloorShell(house, floor)
   }
 
-  // Interior walls from layout (per-floor staircase divider)
+  // Interior walls from layout (staircase dividers + room-to-room walls)
   for (const floor of [1, 2, 3] as const) {
     const floorWalls = layout.walls
       .filter((w) => w.floor === floor)
       .map((w) => w.x)
-    buildInteriorWalls(house, floor, floorWalls, layout.staircaseX[floor])
+    buildInteriorWalls(house, floor, floorWalls, layout.stairBounds[floor])
   }
 
   // Build furniture for each room slot

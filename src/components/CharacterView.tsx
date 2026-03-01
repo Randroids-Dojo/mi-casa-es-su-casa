@@ -9,7 +9,7 @@ import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
 import { useLayoutPersistence } from '@/hooks/useLayoutPersistence'
 import type { CharacterState } from '@/lib/characterSchema'
 import type { LayoutRoomId } from '@/lib/layout'
-import { DEFAULT_STAIRCASE_X } from '@/lib/layout'
+import { DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
 
 interface CharacterViewProps {
@@ -20,7 +20,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   const [gameActions, setGameActions] = useState<GameActions | null>(null)
   const [initialState, setInitialState] = useState<CharacterState | undefined>(undefined)
   const [initialRoomOrder, setInitialRoomOrder] = useState<LayoutRoomId[] | undefined>(undefined)
-  const [initialStaircaseX, setInitialStaircaseX] = useState<Record<1 | 2 | 3, number> | undefined>(undefined)
+  const [initialStaircaseIndex, setInitialStaircaseIndex] = useState<Record<1 | 2 | 3, number> | undefined>(undefined)
   const [initialWallPositions, setInitialWallPositions] = useState<[number[], number[], number[]] | undefined>(undefined)
   const [stateLoaded, setStateLoaded] = useState(false)
 
@@ -32,7 +32,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   const triggerSeedRef = useRef(0)
 
   // Layout persistence hook
-  const { conflictRoomOrder, initFromServer, persistSwap, persistStaircaseX, persistWallPositions } = useLayoutPersistence(name)
+  const { conflictRoomOrder, conflictStaircaseIndex, initFromServer, persistSwap, persistWallPositions } = useLayoutPersistence(name)
 
   // Fetch initial character state and layout in parallel once on mount.
   // Abort after 4 s so a slow/unavailable KV store doesn't block rendering.
@@ -50,7 +50,7 @@ export function CharacterView({ name }: CharacterViewProps) {
     const layoutFetch = fetch(`/api/layout/${encodeURIComponent(name)}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) return null
-        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseX?: [number, number, number]; wallPositions?: [number[], number[], number[]] }>
+        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseIndex?: [number, number, number]; wallPositions?: [number[], number[], number[]] }>
       })
       .catch(() => null)
 
@@ -59,17 +59,17 @@ export function CharacterView({ name }: CharacterViewProps) {
         if (charState) setInitialState(charState)
         if (layoutData) {
           setInitialRoomOrder(layoutData.roomOrder)
-          if (layoutData.staircaseX) {
-            setInitialStaircaseX({
-              1: layoutData.staircaseX[0],
-              2: layoutData.staircaseX[1],
-              3: layoutData.staircaseX[2],
+          if (layoutData.staircaseIndex) {
+            setInitialStaircaseIndex({
+              1: layoutData.staircaseIndex[0],
+              2: layoutData.staircaseIndex[1],
+              3: layoutData.staircaseIndex[2],
             })
           }
           if (layoutData.wallPositions) {
             setInitialWallPositions(layoutData.wallPositions)
           }
-          initFromServer(layoutData.roomOrder, layoutData.version, layoutData.staircaseX, layoutData.wallPositions)
+          initFromServer(layoutData.roomOrder, layoutData.version, layoutData.staircaseIndex, layoutData.wallPositions)
         }
         setStateLoaded(true)
       })
@@ -125,12 +125,12 @@ export function CharacterView({ name }: CharacterViewProps) {
           initialState={initialState}
           onGameReady={handleGameReady}
           initialRoomOrder={initialRoomOrder}
-          initialStaircaseX={initialStaircaseX ?? (initialRoomOrder ? DEFAULT_STAIRCASE_X : undefined)}
+          initialStaircaseIndex={initialStaircaseIndex ?? (initialRoomOrder ? DEFAULT_STAIRCASE_INDEX : undefined)}
           initialWallPositions={initialWallPositions}
           onLayoutSwap={persistSwap}
-          onStaircaseSave={persistStaircaseX}
           onWallSave={persistWallPositions}
           externalRoomOrder={conflictRoomOrder}
+          externalStaircaseIndex={conflictStaircaseIndex}
         />
       </div>
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
