@@ -203,6 +203,9 @@ export function initGame(
   let currentLayout: HouseLayout = initialRoomOrder
     ? layoutFromOrder(initialRoomOrder)
     : generateLayout(characterName)
+  // Cached room order — kept in sync with currentLayout by onSwap/applyExternalLayout.
+  // Avoids re-extracting on every staircase drag pixel.
+  let cachedRoomOrder = roomOrderFromLayout(currentLayout)
   let currentRoomMap = buildRooms(currentLayout).roomMap
 
   // ------------------------------------------------------------------
@@ -274,6 +277,7 @@ export function initGame(
     onSwap(newRoomOrder: LayoutRoomId[]) {
       // Preserve current staircaseX when rooms are swapped
       const newLayout = layoutFromOrder(newRoomOrder, currentLayout.staircaseX)
+      cachedRoomOrder = newRoomOrder
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
 
@@ -284,8 +288,9 @@ export function initGame(
     },
     onStaircaseMove(floor: 1 | 2 | 3, newX: number) {
       const newStaircaseX = { ...currentLayout.staircaseX, [floor]: newX }
-      const roomOrder = roomOrderFromLayout(currentLayout)
-      const newLayout = layoutFromOrder(roomOrder, newStaircaseX)
+      // Room order is stable during staircase drag; use cached value instead of
+      // re-extracting on every mouse-move event.
+      const newLayout = layoutFromOrder(cachedRoomOrder, newStaircaseX)
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
     },
@@ -442,6 +447,7 @@ export function initGame(
     applyExternalLayout(roomOrder: LayoutRoomId[]) {
       // Preserve current staircaseX when applying external layout
       const newLayout = layoutFromOrder(roomOrder, currentLayout.staircaseX)
+      cachedRoomOrder = roomOrder
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
     },

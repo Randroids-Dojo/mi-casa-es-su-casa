@@ -339,14 +339,6 @@ export function getStaircasePosition(floor: 1 | 2 | 3, stairX = STAIR_X): THREE.
 }
 
 /**
- * Returns the world-space X center of the staircase column for a given floor.
- * stairXStart is the left edge of the staircase column (layout.staircaseX[floor]).
- */
-export function getStairCenterX(floor: 1 | 2 | 3, stairXStart: number): number {
-  return stairXStart + 2.5
-}
-
-/**
  * Returns the direction the character should face (as a Y-axis rotation angle)
  * when moving from one room to another.
  */

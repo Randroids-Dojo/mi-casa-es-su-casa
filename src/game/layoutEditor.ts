@@ -158,15 +158,15 @@ function makeInvalidOverlay(slot: RoomSlot): THREE.Group {
     depthWrite: false,
   })
 
-  const bar1Geo = new THREE.BoxGeometry(barLen, barH, 0.1)
-  const bar1 = new THREE.Mesh(bar1Geo, barMat)
+  const barGeo = new THREE.BoxGeometry(barLen, barH, 0.1)
+
+  const bar1 = new THREE.Mesh(barGeo, barMat)
   bar1.position.set(cx, cy, OVERLAY_Z - 0.01)
   bar1.rotation.z = angle
   bar1.renderOrder = 1000
   group.add(bar1)
 
-  const bar2Geo = new THREE.BoxGeometry(barLen, barH, 0.1)
-  const bar2 = new THREE.Mesh(bar2Geo, barMat)
+  const bar2 = new THREE.Mesh(barGeo, barMat)
   bar2.position.set(cx, cy, OVERLAY_Z - 0.01)
   bar2.rotation.z = -angle
   bar2.renderOrder = 1000
@@ -328,7 +328,7 @@ export class LayoutEditor {
       const delta = world.x - this.state.startWorldX
       const rawX = Math.round(this.state.startStairX + delta)
       const { min, max } = getStaircaseXBounds(this.state.floor, this.layout)
-      const clampedX = Math.max(min, Math.min(max, rawX))
+      const clampedX = THREE.MathUtils.clamp(rawX, min, max)
       if (clampedX !== this.layout.staircaseX[this.state.floor]) {
         this.onStaircaseMove!(this.state.floor, clampedX)
       }

@@ -60,7 +60,7 @@ interface RoomSizePrefs {
   preferred: number
 }
 
-export const ROOM_SIZES: Readonly<Record<LayoutRoomId, RoomSizePrefs>> = {
+const ROOM_SIZES: Readonly<Record<LayoutRoomId, RoomSizePrefs>> = {
   entrance: { min: 3, preferred: 4 },
   living_room: { min: 6, preferred: 12 },
   kitchen: { min: 6, preferred: 11 },
@@ -239,16 +239,17 @@ export function roomOrderFromLayout(layout: HouseLayout): LayoutRoomId[] {
  */
 export function getDefaultLayout(): HouseLayout {
   // Floor 1: entrance is rightmost (xMax = 27 = staircaseX[1])
-  const slots: RoomSlot[] = [
-    { roomId: 'living_room', floor: 1, xMin: 1, xMax: 13, centerX: 7 },
-    { roomId: 'kitchen', floor: 1, xMin: 13, xMax: 24, centerX: 18.5 },
-    { roomId: 'entrance', floor: 1, xMin: 24, xMax: 27, centerX: 25.5 },
-    { roomId: 'bedroom', floor: 2, xMin: 1, xMax: 14, centerX: 7.5 },
-    { roomId: 'bathroom', floor: 2, xMin: 14, xMax: 20, centerX: 17 },
-    { roomId: 'study', floor: 2, xMin: 20, xMax: 27, centerX: 23.5 },
-    { roomId: 'hobby_room', floor: 3, xMin: 1, xMax: 16, centerX: 8.5 },
-    { roomId: 'storage', floor: 3, xMin: 16, xMax: 27, centerX: 21.5 },
+  const rawSlots: Omit<RoomSlot, 'centerX'>[] = [
+    { roomId: 'living_room', floor: 1, xMin: 1, xMax: 13 },
+    { roomId: 'kitchen', floor: 1, xMin: 13, xMax: 24 },
+    { roomId: 'entrance', floor: 1, xMin: 24, xMax: 27 },
+    { roomId: 'bedroom', floor: 2, xMin: 1, xMax: 14 },
+    { roomId: 'bathroom', floor: 2, xMin: 14, xMax: 20 },
+    { roomId: 'study', floor: 2, xMin: 20, xMax: 27 },
+    { roomId: 'hobby_room', floor: 3, xMin: 1, xMax: 16 },
+    { roomId: 'storage', floor: 3, xMin: 16, xMax: 27 },
   ]
+  const slots: RoomSlot[] = rawSlots.map((s) => ({ ...s, centerX: (s.xMin + s.xMax) / 2 }))
 
   const walls: WallPosition[] = [
     { floor: 1, x: 13 },
