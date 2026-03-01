@@ -212,6 +212,10 @@ export function approachStaircasePosition(
  * For multi-floor paths the climb is divided into per-flight segments so the
  * character routes through each intermediate landing.
  *
+ * **X contract:** X stays at `stairXPerFloor[flightFromFloor]` for the duration
+ * of each flight — staircases are independent per floor and must not drift
+ * horizontally toward the next floor's staircase position.
+ *
  * **Y contract:** Y interpolates from getFloorCenterY(prevFloor) to
  * getFloorCenterY(toFloor), monotonically.
  */
@@ -219,8 +223,7 @@ export function climbStaircasePosition(
   prevFloor: 1 | 2 | 3,
   toFloor: 1 | 2 | 3,
   progress: number,
-  fromStairX = STAIR_X,
-  toStairX = STAIR_X,
+  stairXPerFloor?: StairXPerFloor,
 ): THREE.Vector3 {
   const ascending = toFloor > prevFloor
   const numFlights = Math.abs(toFloor - prevFloor)
@@ -236,7 +239,7 @@ export function climbStaircasePosition(
     : [STAIR_Z_TOP, STAIR_Z_BOTTOM]
 
   return new THREE.Vector3(
-    THREE.MathUtils.lerp(fromStairX, toStairX, progress),
+    stairXPerFloor?.[flightFromFloor] ?? STAIR_X,
     THREE.MathUtils.lerp(
       getFloorCenterY(flightFromFloor),
       getFloorCenterY(flightToFloor),
@@ -324,7 +327,7 @@ export function getPositionAlongPath(
     }
 
     // Phase 1 (progress 0–0.5): climb / descend the staircase
-    return climbStaircasePosition(prevFloor, toFloor, legProgress / 0.5, stairX(prevFloor), stairX(toFloor))
+    return climbStaircasePosition(prevFloor, toFloor, legProgress / 0.5, stairXPerFloor)
   }
 
   // ---- Normal leg between two non-staircase rooms ----

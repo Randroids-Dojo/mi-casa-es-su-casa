@@ -208,6 +208,35 @@ describe('climbStaircasePosition', () => {
       }
     }
   })
+
+  test('X stays at the current flight stairX — does not drift toward next floor stairX', () => {
+    // Floors 1 and 2 have staircases at completely different X positions
+    const customStairX = { 1: 10, 2: 25, 3: 25 }
+
+    // Floor 1→2: entire climb should stay at floor 1's stairX (10), not drift toward 25
+    for (const p of progressSteps) {
+      const pos = climbStaircasePosition(1, 2, p, customStairX)
+      approxEqual(pos.x, 10, `climb 1→2 p=${p.toFixed(2)} x should stay at 10`)
+    }
+
+    // Floor 2→1: entire climb should stay at floor 2's stairX (25)
+    for (const p of progressSteps) {
+      const pos = climbStaircasePosition(2, 1, p, customStairX)
+      approxEqual(pos.x, 25, `climb 2→1 p=${p.toFixed(2)} x should stay at 25`)
+    }
+
+    // Floor 1→3: flight 0 (1→2) uses stairX[1]=10, flight 1 (2→3) uses stairX[2]=25
+    const firstFlight = progressSteps.filter(p => p < 0.5)
+    const secondFlight = progressSteps.filter(p => p > 0.5)
+    for (const p of firstFlight) {
+      const pos = climbStaircasePosition(1, 3, p, customStairX)
+      approxEqual(pos.x, 10, `climb 1→3 p=${p.toFixed(2)} first flight x should be 10`)
+    }
+    for (const p of secondFlight) {
+      const pos = climbStaircasePosition(1, 3, p, customStairX)
+      approxEqual(pos.x, 25, `climb 1→3 p=${p.toFixed(2)} second flight x should be 25`)
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------
