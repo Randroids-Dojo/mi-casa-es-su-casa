@@ -604,6 +604,35 @@ export class Character {
   }
 
   /**
+   * Rings the doorbell: the character reacts with surprise, walks to the
+   * entrance hall, idles briefly, then resumes their normal schedule.
+   * Uses drowsier reaction phrases when the character is sleeping.
+   */
+  ringDoorbell(): void {
+    const isSleeping = this.fsm.state.kind === 'sleeping'
+    const reactionCategory = isSleeping ? 'doorbell_sleeping' : 'doorbell_reaction'
+    const reactionPhrase = pickPhrase(reactionCategory, this.thoughtSeed++)
+    const entrancePhrase = pickPhrase('doorbell_entrance', this.thoughtSeed++)
+
+    this._injectedThought = reactionPhrase
+    this._thoughtQueue = [entrancePhrase]
+
+    if (this.currentRoom === 'entrance') {
+      this._startPerforming('idle', 1)
+    } else {
+      const path = findPath(
+        this.currentRoom,
+        'entrance',
+        `${this.name}:doorbell:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        this.roomMap,
+      )
+      this._queued = { activity: 'idle', durationHours: 1 }
+      this.fsm.transitionToMoving(path)
+      this.animationState = createAnimationState('walk')
+    }
+  }
+
+  /**
    * Walks the character to the bedroom wardrobe and puts on the given item.
    * The item is applied visually when the 'dress' activity completes.
    * No-op if the character is already wearing the item.
