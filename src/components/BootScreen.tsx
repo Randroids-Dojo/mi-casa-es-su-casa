@@ -196,10 +196,17 @@ const CREDITS_CONTENT: string[] = [
 
 const V4_CREDITS_CONTENT: { title: string; desc?: string }[] = [
   { title: 'MI CASA ES SU CASA', desc: 'v0.4' },
-  { title: 'REARRANGE YOUR ROOMS', desc: 'drag furniture around\nin the layout editor' },
-  { title: 'CHARACTER SEARCH', desc: 'find visitors by\nsearching character names' },
+  { title: 'REARRANGE YOUR ROOMS', desc: 'drag furniture to\nredesign the layout' },
   { title: 'VISITOR IDENTITY', desc: 'messages now show\nwho sent them' },
-  { title: 'SMOOTHER RENDERING', desc: 'z-fighting fixes for\nroom furniture' },
+  { title: 'CHARACTER SEARCH', desc: 'find visitors by\nsearching character names' },
+  { title: 'FOOTSTEP SFX', desc: 'procedural step sounds\nsynthed in real time' },
+  { title: 'PERSISTENT BEHAVIOR', desc: 'character keeps living\neven when you\'re away' },
+  { title: 'UNIQUE HOUSE LAYOUTS', desc: 'each name seeds\na different room arrangement' },
+  { title: 'POWER BUTTON', desc: 'retro return-to-menu\nbutton on the game screen' },
+  { title: 'CHAT HISTORY', desc: 'scrollable message log\nwith 69-message limit' },
+  { title: 'ROTATING BOOT ART', desc: 'the boot screen now\ncycles through artwork' },
+  { title: 'BUG FIXES', desc: 'z-fighting, mobile UI,\nthought bubble & more' },
+  { title: 'THANKS MIGUEL & JESSICA', desc: 'for testing, feedback,\nand being good sports ♥' },
   { title: 'THANKS FOR PLAYING ♥' },
 ]
 
