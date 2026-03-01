@@ -674,9 +674,9 @@ export class LayoutEditor {
       this.dragGhost.position.x = worldX - source.slot.centerX
       this.dragGhost.position.y = worldY - slotCenterY
     } else {
-      const slotCenterY = floorY(source.floor) + FLOOR_HEIGHT / 2
-      this.dragGhost.position.x = worldX - source.centerX
-      this.dragGhost.position.y = worldY - slotCenterY
+      // Staircase ghost is a flat box centered at local origin — position directly at cursor
+      this.dragGhost.position.x = worldX
+      this.dragGhost.position.y = worldY
     }
   }
 
