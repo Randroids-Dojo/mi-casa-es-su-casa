@@ -22,6 +22,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
     if (custom) {
       const response: Record<string, unknown> = { roomOrder: custom.roomOrder, version: custom.version }
       if (custom.staircaseX) response.staircaseX = custom.staircaseX
+      if (custom.wallPositions) response.wallPositions = custom.wallPositions
       return NextResponse.json(response, { status: 200 })
     }
 
@@ -38,6 +39,11 @@ const PostBodySchema = z.object({
   roomOrder: z.array(z.string()).length(8),
   expectedVersion: z.number().int().min(0),
   staircaseX: z.tuple([z.number().int(), z.number().int(), z.number().int()]).optional(),
+  wallPositions: z.tuple([
+    z.array(z.number()),
+    z.array(z.number()),
+    z.array(z.number()),
+  ]).optional(),
 })
 
 export async function POST(req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     )
   }
 
-  const { roomOrder, expectedVersion, staircaseX } = parsed.data
+  const { roomOrder, expectedVersion, staircaseX, wallPositions } = parsed.data
 
   // Validate all 8 rooms are present exactly once
   const sorted = [...roomOrder].sort()
@@ -93,6 +99,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       roomOrder as LayoutRoomId[],
       expectedVersion,
       staircaseX,
+      wallPositions as [number[], number[], number[]] | undefined,
     )
 
     if (result.ok) {
@@ -101,6 +108,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
         version: result.layout.version,
       }
       if (result.layout.staircaseX) response.staircaseX = result.layout.staircaseX
+      if (result.layout.wallPositions) response.wallPositions = result.layout.wallPositions
       return NextResponse.json(response, { status: 200 })
     }
 
@@ -110,6 +118,7 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
       version: result.current.version,
     }
     if (result.current.staircaseX) conflictResponse.staircaseX = result.current.staircaseX
+    if (result.current.wallPositions) conflictResponse.wallPositions = result.current.wallPositions
     return NextResponse.json(
       { error: 'Version conflict', current: conflictResponse },
       { status: 409 },

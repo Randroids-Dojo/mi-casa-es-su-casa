@@ -95,10 +95,14 @@ export const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3:
  * distribution). The first 3 go to floor 1, next 3 to floor 2, last 2 to
  * floor 3. Room widths are computed proportionally from preferred sizes,
  * scaled to fit the available width on each floor (staircaseX[floor] - 1).
+ *
+ * Pass `customWallPositions` to override proportional sizing on specific floors.
+ * For a floor with N rooms, provide N-1 wall x-coordinates in left-to-right order.
  */
 export function layoutFromOrder(
   rooms: LayoutRoomId[],
   staircaseX: Record<1 | 2 | 3, number> = DEFAULT_STAIRCASE_X,
+  customWallPositions?: Partial<Record<1 | 2 | 3, number[]>>,
 ): HouseLayout {
   // Assign to floors: first 3 → floor 1, next 3 → floor 2, last 2 → floor 3
   const floorAssignments: LayoutRoomId[][] = [
@@ -114,57 +118,61 @@ export function layoutFromOrder(
     const floor = (f + 1) as 1 | 2 | 3
     const floorRooms = floorAssignments[f]
     const floorStairX = staircaseX[floor]
-    const floorRoomWidth = floorStairX - 1  // available room width for this floor
-
-    // Calculate proportional widths
-    const totalPreferred = floorRooms.reduce(
-      (sum, r) => sum + ROOM_SIZES[r].preferred,
-      0,
-    )
-    const scale = floorRoomWidth / totalPreferred
+    const customFloorWalls = customWallPositions?.[floor]
 
     let currentX = 1 // room space starts at x=1 (after left exterior wall)
 
-    for (let i = 0; i < floorRooms.length; i++) {
-      const roomId = floorRooms[i]
-      let width: number
-
-      if (i === floorRooms.length - 1) {
-        // Last room gets remainder to ensure exact fit
-        width = floorStairX - currentX
-      } else {
-        // Proportional width, respecting minimum
-        width = Math.max(
-          ROOM_SIZES[roomId].min,
-          Math.round(ROOM_SIZES[roomId].preferred * scale),
-        )
-        // Ensure remaining rooms can still fit their minimums
-        const remainingRooms = floorRooms.slice(i + 1)
-        const remainingMinWidth = remainingRooms.reduce(
-          (sum, r) => sum + ROOM_SIZES[r].min,
-          0,
-        )
-        const maxWidth = floorStairX - currentX - remainingMinWidth
-        width = Math.min(width, maxWidth)
+    if (customFloorWalls && customFloorWalls.length === floorRooms.length - 1) {
+      // Use explicit wall positions provided by the caller (e.g. from wall drag)
+      for (let i = 0; i < floorRooms.length; i++) {
+        const xMin = currentX
+        const xMax = i < customFloorWalls.length ? customFloorWalls[i] : floorStairX
+        slots.push({ roomId: floorRooms[i], floor, xMin, xMax, centerX: (xMin + xMax) / 2 })
+        if (i < floorRooms.length - 1) {
+          walls.push({ floor, x: xMax })
+        }
+        currentX = xMax
       }
+    } else {
+      // Proportional widths from preferred sizes
+      const floorRoomWidth = floorStairX - 1
+      const totalPreferred = floorRooms.reduce(
+        (sum, r) => sum + ROOM_SIZES[r].preferred,
+        0,
+      )
+      const scale = floorRoomWidth / totalPreferred
 
-      const xMin = currentX
-      const xMax = currentX + width
+      for (let i = 0; i < floorRooms.length; i++) {
+        const roomId = floorRooms[i]
+        let width: number
 
-      slots.push({
-        roomId,
-        floor,
-        xMin,
-        xMax,
-        centerX: (xMin + xMax) / 2,
-      })
+        if (i === floorRooms.length - 1) {
+          // Last room gets remainder to ensure exact fit
+          width = floorStairX - currentX
+        } else {
+          // Proportional width, respecting minimum
+          width = Math.max(
+            ROOM_SIZES[roomId].min,
+            Math.round(ROOM_SIZES[roomId].preferred * scale),
+          )
+          // Ensure remaining rooms can still fit their minimums
+          const remainingRooms = floorRooms.slice(i + 1)
+          const remainingMinWidth = remainingRooms.reduce(
+            (sum, r) => sum + ROOM_SIZES[r].min,
+            0,
+          )
+          const maxWidth = floorStairX - currentX - remainingMinWidth
+          width = Math.min(width, maxWidth)
+        }
 
-      // Add interior wall between rooms (not after the last room on a floor)
-      if (i < floorRooms.length - 1) {
-        walls.push({ floor, x: xMax })
+        const xMin = currentX
+        const xMax = currentX + width
+        slots.push({ roomId, floor, xMin, xMax, centerX: (xMin + xMax) / 2 })
+        if (i < floorRooms.length - 1) {
+          walls.push({ floor, x: xMax })
+        }
+        currentX = xMax
       }
-
-      currentX = xMax
     }
   }
 
@@ -188,6 +196,26 @@ export function getStaircaseXBounds(
     .filter((s) => s.floor === floor)
     .reduce((sum, s) => sum + ROOM_SIZES[s.roomId].min, 1)
   return { min: minStairX, max: 27 }
+}
+
+/**
+ * Returns the valid [min, max] x-range for dragging the wall at wallIndex on a floor.
+ * Ensures neither adjacent room shrinks below its minimum width.
+ */
+export function getWallBounds(
+  floor: 1 | 2 | 3,
+  wallIndex: number,
+  layout: HouseLayout,
+): { min: number; max: number } {
+  const floorSlots = layout.slots
+    .filter((s) => s.floor === floor)
+    .sort((a, b) => a.xMin - b.xMin)
+  const leftSlot = floorSlots[wallIndex]
+  const rightSlot = floorSlots[wallIndex + 1]
+  return {
+    min: leftSlot.xMin + ROOM_SIZES[leftSlot.roomId].min,
+    max: rightSlot.xMax - ROOM_SIZES[rightSlot.roomId].min,
+  }
 }
 
 /**

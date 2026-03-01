@@ -127,7 +127,7 @@ export async function getCustomLayout(name: string): Promise<CustomLayout | null
 }
 
 /**
- * Saves a custom room ordering (and optional staircase positions) with optimistic concurrency.
+ * Saves a custom room ordering (and optional staircase/wall positions) with optimistic concurrency.
  * Pass expectedVersion=0 for first save (no existing layout).
  * Returns { ok: true, layout } on success, { ok: false, current } on conflict.
  */
@@ -136,6 +136,7 @@ export async function saveCustomLayout(
   roomOrder: LayoutRoomId[],
   expectedVersion: number,
   staircaseX?: [number, number, number],
+  wallPositions?: [number[], number[], number[]],
 ): Promise<{ ok: true; layout: CustomLayout } | { ok: false; current: CustomLayout }> {
   const existing = await getCustomLayout(name)
   const currentVersion = existing?.version ?? 0
@@ -145,24 +146,23 @@ export async function saveCustomLayout(
     if (existing) {
       return { ok: false, current: existing }
     }
-    // expectedVersion was non-zero but no layout exists — treat as conflict
-    // by returning a version-0 representation
     return {
       ok: false,
       current: {
-        roomOrder: roomOrder, // return what was sent so caller can reconcile
+        roomOrder: roomOrder,
         version: 0,
         updatedAt: new Date().toISOString(),
       },
     }
   }
 
-  // Preserve existing staircaseX if not provided in this save
   const resolvedStaircaseX = staircaseX ?? existing?.staircaseX
+  const resolvedWallPositions = wallPositions ?? existing?.wallPositions
 
   const newLayout: CustomLayout = {
     roomOrder,
     ...(resolvedStaircaseX ? { staircaseX: resolvedStaircaseX } : {}),
+    ...(resolvedWallPositions ? { wallPositions: resolvedWallPositions } : {}),
     version: currentVersion + 1,
     updatedAt: new Date().toISOString(),
   }
@@ -181,7 +181,10 @@ export async function resolveLayout(name: string) {
     const staircaseX = custom.staircaseX
       ? { 1: custom.staircaseX[0], 2: custom.staircaseX[1], 3: custom.staircaseX[2] }
       : DEFAULT_STAIRCASE_X
-    return { layout: layoutFromOrder(custom.roomOrder, staircaseX), version: custom.version }
+    const wallPositions: Partial<Record<1 | 2 | 3, number[]>> | undefined = custom.wallPositions
+      ? { 1: custom.wallPositions[0], 2: custom.wallPositions[1], 3: custom.wallPositions[2] }
+      : undefined
+    return { layout: layoutFromOrder(custom.roomOrder, staircaseX, wallPositions), version: custom.version }
   }
   return { layout: generateLayout(name), version: 0 }
 }

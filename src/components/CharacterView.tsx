@@ -21,6 +21,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   const [initialState, setInitialState] = useState<CharacterState | undefined>(undefined)
   const [initialRoomOrder, setInitialRoomOrder] = useState<LayoutRoomId[] | undefined>(undefined)
   const [initialStaircaseX, setInitialStaircaseX] = useState<Record<1 | 2 | 3, number> | undefined>(undefined)
+  const [initialWallPositions, setInitialWallPositions] = useState<[number[], number[], number[]] | undefined>(undefined)
   const [stateLoaded, setStateLoaded] = useState(false)
 
   // The ref stays current even as gameActions state updates, so the persistence
@@ -31,7 +32,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   const triggerSeedRef = useRef(0)
 
   // Layout persistence hook
-  const { conflictRoomOrder, initFromServer, persistSwap, persistStaircaseX } = useLayoutPersistence(name)
+  const { conflictRoomOrder, initFromServer, persistSwap, persistStaircaseX, persistWallPositions } = useLayoutPersistence(name)
 
   // Fetch initial character state and layout in parallel once on mount.
   // Abort after 4 s so a slow/unavailable KV store doesn't block rendering.
@@ -49,7 +50,7 @@ export function CharacterView({ name }: CharacterViewProps) {
     const layoutFetch = fetch(`/api/layout/${encodeURIComponent(name)}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) return null
-        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseX?: [number, number, number] }>
+        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseX?: [number, number, number]; wallPositions?: [number[], number[], number[]] }>
       })
       .catch(() => null)
 
@@ -65,7 +66,10 @@ export function CharacterView({ name }: CharacterViewProps) {
               3: layoutData.staircaseX[2],
             })
           }
-          initFromServer(layoutData.roomOrder, layoutData.version, layoutData.staircaseX)
+          if (layoutData.wallPositions) {
+            setInitialWallPositions(layoutData.wallPositions)
+          }
+          initFromServer(layoutData.roomOrder, layoutData.version, layoutData.staircaseX, layoutData.wallPositions)
         }
         setStateLoaded(true)
       })
@@ -122,8 +126,10 @@ export function CharacterView({ name }: CharacterViewProps) {
           onGameReady={handleGameReady}
           initialRoomOrder={initialRoomOrder}
           initialStaircaseX={initialStaircaseX ?? (initialRoomOrder ? DEFAULT_STAIRCASE_X : undefined)}
+          initialWallPositions={initialWallPositions}
           onLayoutSwap={persistSwap}
           onStaircaseSave={persistStaircaseX}
+          onWallSave={persistWallPositions}
           externalRoomOrder={conflictRoomOrder}
         />
       </div>

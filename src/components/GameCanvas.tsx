@@ -24,10 +24,14 @@ interface GameCanvasProps {
   initialRoomOrder?: LayoutRoomId[]
   /** Initial staircase x positions per floor */
   initialStaircaseX?: Record<1 | 2 | 3, number>
+  /** Initial interior wall x-positions per floor [floor1walls, floor2walls, floor3walls] */
+  initialWallPositions?: [number[], number[], number[]]
   /** Called when the layout editor swaps two rooms (for persistence) */
   onLayoutSwap?: (roomOrder: LayoutRoomId[]) => void
   /** Called when the staircase drag ends (for persistence) */
   onStaircaseSave?: (staircaseX: Record<1 | 2 | 3, number>) => void
+  /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
+  onWallSave?: (wallPositions: [number[], number[], number[]]) => void
   /** Apply an externally-resolved layout (e.g. after conflict resolution) */
   externalRoomOrder?: LayoutRoomId[] | null
 }
@@ -49,8 +53,10 @@ export function GameCanvas({
   onGameReady,
   initialRoomOrder,
   initialStaircaseX,
+  initialWallPositions,
   onLayoutSwap,
   onStaircaseSave,
+  onWallSave,
   externalRoomOrder,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -86,6 +92,8 @@ export function GameCanvas({
   onLayoutSwapRef.current = onLayoutSwap
   const onStaircaseSaveRef = useRef(onStaircaseSave)
   onStaircaseSaveRef.current = onStaircaseSave
+  const onWallSaveRef = useRef(onWallSave)
+  onWallSaveRef.current = onWallSave
 
   // ----- Long press helpers (stable functions, no React state dependency) -----
 
@@ -118,7 +126,7 @@ export function GameCanvas({
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder, initialStaircaseX)
+    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder, initialStaircaseX, initialWallPositions)
     gameRef.current = game
 
     // Wire layout swap callback
@@ -129,6 +137,11 @@ export function GameCanvas({
     // Wire staircase save callback
     game.onStaircaseSave = (staircaseX: Record<1 | 2 | 3, number>) => {
       onStaircaseSaveRef.current?.(staircaseX)
+    }
+
+    // Wire wall save callback
+    game.onWallSave = (wallPositions: [number[], number[], number[]]) => {
+      onWallSaveRef.current?.(wallPositions)
     }
 
     if (onGameReady) {
@@ -155,7 +168,7 @@ export function GameCanvas({
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName, initialState, onGameReady, initialRoomOrder, initialStaircaseX])
+  }, [characterName, initialState, onGameReady, initialRoomOrder, initialStaircaseX, initialWallPositions])
 
   // Apply externally-resolved layout (e.g. after conflict)
   useEffect(() => {

@@ -93,6 +93,8 @@ export interface GameInstance {
   onLayoutSwap: ((roomOrder: LayoutRoomId[]) => void) | null
   /** Called when a staircase drag ends (for persistence). */
   onStaircaseSave: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null
+  /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
+  onWallSave: ((wallPositions: [number[], number[], number[]]) => void) | null
   /** Replace the current layout externally (e.g. after conflict resolution). */
   applyExternalLayout(roomOrder: LayoutRoomId[]): void
 }

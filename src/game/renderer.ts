@@ -61,6 +61,7 @@ export function initGame(
   initialState?: SchemaCharacterState,
   initialRoomOrder?: LayoutRoomId[],
   initialStaircaseX?: Record<1 | 2 | 3, number>,
+  initialWallPositions?: [number[], number[], number[]],
 ): GameInstance {
   // ------------------------------------------------------------------
   // Renderer
@@ -87,6 +88,7 @@ export function initGame(
       isLayoutEditActive() { return false },
       onLayoutSwap: null,
       onStaircaseSave: null,
+      onWallSave: null,
       applyExternalLayout() {},
     }
   }
@@ -202,8 +204,11 @@ export function initGame(
   // ------------------------------------------------------------------
   // Layout — custom from room order, or deterministic from character name
   // ------------------------------------------------------------------
+  const initialCustomWalls: Partial<Record<1 | 2 | 3, number[]>> | undefined = initialWallPositions
+    ? { 1: initialWallPositions[0], 2: initialWallPositions[1], 3: initialWallPositions[2] }
+    : undefined
   let currentLayout: HouseLayout = initialRoomOrder
-    ? layoutFromOrder(initialRoomOrder, initialStaircaseX)
+    ? layoutFromOrder(initialRoomOrder, initialStaircaseX, initialCustomWalls)
     : generateLayout(characterName)
   // Cached room order — kept in sync with currentLayout by onSwap/applyExternalLayout.
   // Avoids re-extracting on every staircase drag pixel.
@@ -247,6 +252,20 @@ export function initGame(
   let externalSwapCallback: ((roomOrder: LayoutRoomId[]) => void) | null = null
   /** External callback set by GameCanvas for persisting staircase position */
   let externalStaircaseSaveCallback: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null = null
+  /** External callback set by GameCanvas for persisting wall positions */
+  let externalWallSaveCallback: ((wallPositions: [number[], number[], number[]]) => void) | null = null
+
+  /** Extract per-floor wall x-positions from a layout as a [floor1, floor2, floor3] tuple */
+  function wallPositionsFromLayout(layout: HouseLayout): [number[], number[], number[]] {
+    const result: [number[], number[], number[]] = [[], [], []]
+    for (const wall of layout.walls) {
+      result[wall.floor - 1].push(wall.x)
+    }
+    return result
+  }
+
+  /** Per-floor wall x positions, kept in sync with currentLayout */
+  let cachedWallPositions: [number[], number[], number[]] = wallPositionsFromLayout(currentLayout)
 
   function rebuildHouse(newLayout: HouseLayout): void {
     // Remove old house
@@ -264,6 +283,7 @@ export function initGame(
 
     // Build new house
     currentLayout = newLayout
+    cachedWallPositions = wallPositionsFromLayout(newLayout)
     currentRoomMap = buildRooms(newLayout).roomMap
     houseResult = buildHouse(newLayout)
     scene.add(houseResult.group)
@@ -279,7 +299,7 @@ export function initGame(
     canvas,
     layout: currentLayout,
     onSwap(newRoomOrder: LayoutRoomId[]) {
-      // Preserve current staircaseX when rooms are swapped
+      // Preserve current staircaseX when rooms are swapped; reset wall positions (new proportions)
       const newLayout = layoutFromOrder(newRoomOrder, currentLayout.staircaseX)
       cachedRoomOrder = newRoomOrder
       rebuildHouse(newLayout)
@@ -294,6 +314,7 @@ export function initGame(
       const newStaircaseX = { ...currentLayout.staircaseX, [floor]: newX }
       // Room order is stable during staircase drag; use cached value instead of
       // re-extracting on every mouse-move event.
+      // Staircase drag resets wall positions to proportional for that floor.
       const newLayout = layoutFromOrder(cachedRoomOrder, newStaircaseX)
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
@@ -301,6 +322,27 @@ export function initGame(
     onStaircaseDragEnd(staircaseX: Record<1 | 2 | 3, number>) {
       if (externalStaircaseSaveCallback) {
         externalStaircaseSaveCallback(staircaseX)
+      }
+    },
+    onWallMove(floor: 1 | 2 | 3, wallIndex: number, newX: number) {
+      const newWallPositions: [number[], number[], number[]] = [
+        [...cachedWallPositions[0]],
+        [...cachedWallPositions[1]],
+        [...cachedWallPositions[2]],
+      ]
+      newWallPositions[floor - 1][wallIndex] = newX
+      const customWalls: Partial<Record<1 | 2 | 3, number[]>> = {
+        1: newWallPositions[0],
+        2: newWallPositions[1],
+        3: newWallPositions[2],
+      }
+      const newLayout = layoutFromOrder(cachedRoomOrder, currentLayout.staircaseX, customWalls)
+      rebuildHouse(newLayout)
+      layoutEditor.setLayout(newLayout)
+    },
+    onWallDragEnd() {
+      if (externalWallSaveCallback) {
+        externalWallSaveCallback(cachedWallPositions)
       }
     },
   })
@@ -454,8 +496,9 @@ export function initGame(
     },
     onLayoutSwap: null,
     onStaircaseSave: null,
+    onWallSave: null,
     applyExternalLayout(roomOrder: LayoutRoomId[]) {
-      // Preserve current staircaseX when applying external layout
+      // Preserve current staircaseX and wall positions when applying external layout
       const newLayout = layoutFromOrder(roomOrder, currentLayout.staircaseX)
       cachedRoomOrder = roomOrder
       rebuildHouse(newLayout)
@@ -477,6 +520,15 @@ export function initGame(
     get: () => externalStaircaseSaveCallback,
     set: (cb: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null) => {
       externalStaircaseSaveCallback = cb
+    },
+    enumerable: true,
+  })
+
+  // Wire up the external wall save callback
+  Object.defineProperty(gameInstance, 'onWallSave', {
+    get: () => externalWallSaveCallback,
+    set: (cb: ((wallPositions: [number[], number[], number[]]) => void) | null) => {
+      externalWallSaveCallback = cb
     },
     enumerable: true,
   })

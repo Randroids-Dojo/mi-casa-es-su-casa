@@ -15,7 +15,7 @@
 
 import * as THREE from 'three'
 import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
-import { roomOrderFromLayout, getStaircaseXBounds } from '@/lib/layout'
+import { roomOrderFromLayout, getStaircaseXBounds, getWallBounds } from '@/lib/layout'
 import { FLOOR_HEIGHT, HOUSE_WIDTH, buildRoomFurnitureGroup } from './house'
 
 // ---------------------------------------------------------------------------
@@ -34,6 +34,10 @@ const COLOR_SELECTED = 0x4488ff
 const COLOR_FLASH = 0xffffff
 const COLOR_INVALID_BG = 0xff2222
 const COLOR_INVALID_X = 0xff0000
+const COLOR_WALL_DRAG = 0x44ffcc
+
+/** World-unit tolerance for clicking near an interior wall */
+const WALL_HIT_TOLERANCE = 1.5
 
 // Ghost opacities
 const DRAG_GHOST_OPACITY = 0.65
@@ -218,6 +222,30 @@ function slotAtWorld(
   return null
 }
 
+/**
+ * Given a world-space point, find if it's near an interior wall.
+ * Returns floor, wallIndex within that floor, and the wall's current x, or null.
+ */
+function wallAtWorld(
+  worldX: number,
+  worldY: number,
+  layout: HouseLayout,
+): { floor: 1 | 2 | 3; wallIndex: number; wallX: number } | null {
+  for (const floor of [1, 2, 3] as const) {
+    const yMin = floorY(floor)
+    const yMax = yMin + FLOOR_HEIGHT
+    if (worldY < yMin || worldY > yMax) continue
+
+    const floorWalls = layout.walls.filter((w) => w.floor === floor)
+    for (let i = 0; i < floorWalls.length; i++) {
+      if (Math.abs(worldX - floorWalls[i].x) <= WALL_HIT_TOLERANCE) {
+        return { floor, wallIndex: i, wallX: floorWalls[i].x }
+      }
+    }
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // LayoutEditor
 // ---------------------------------------------------------------------------
@@ -237,6 +265,13 @@ type EditorState =
       startWorldX: number
       startStairX: number
     }
+  | {
+      kind: 'dragging_wall'
+      floor: 1 | 2 | 3
+      wallIndex: number
+      startWorldX: number
+      startWallX: number
+    }
   | { kind: 'flash'; elapsed: number }
 
 export class LayoutEditor {
@@ -247,6 +282,8 @@ export class LayoutEditor {
   private onSwap: (newRoomOrder: LayoutRoomId[]) => void
   private onStaircaseMove: ((floor: 1 | 2 | 3, newX: number) => void) | null
   private onStaircaseDragEnd: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null
+  private onWallMove: ((floor: 1 | 2 | 3, wallIndex: number, newX: number) => void) | null
+  private onWallDragEnd: (() => void) | null
 
   private overlayGroup: THREE.Group
   private selectedOverlay: THREE.Mesh | null = null
@@ -259,6 +296,8 @@ export class LayoutEditor {
   private invalidOverlay: THREE.Group | null = null
   /** Tracks the last hovered target to avoid redundant ghost rebuilds */
   private lastHoverTargetId: LayoutRoomId | null = null
+  private wallDragOverlayLeft: THREE.Mesh | null = null
+  private wallDragOverlayRight: THREE.Mesh | null = null
 
   private state: EditorState = { kind: 'idle' }
 
@@ -273,6 +312,8 @@ export class LayoutEditor {
     onSwap: (newRoomOrder: LayoutRoomId[]) => void
     onStaircaseMove?: (floor: 1 | 2 | 3, newX: number) => void
     onStaircaseDragEnd?: (staircaseX: Record<1 | 2 | 3, number>) => void
+    onWallMove?: (floor: 1 | 2 | 3, wallIndex: number, newX: number) => void
+    onWallDragEnd?: () => void
   }) {
     this.scene = params.scene
     this.camera = params.camera
@@ -281,6 +322,8 @@ export class LayoutEditor {
     this.onSwap = params.onSwap
     this.onStaircaseMove = params.onStaircaseMove ?? null
     this.onStaircaseDragEnd = params.onStaircaseDragEnd ?? null
+    this.onWallMove = params.onWallMove ?? null
+    this.onWallDragEnd = params.onWallDragEnd ?? null
 
     this.overlayGroup = new THREE.Group()
     this.overlayGroup.renderOrder = 999
@@ -292,13 +335,31 @@ export class LayoutEditor {
   // -----------------------------------------------------------------------
 
   get isActive(): boolean {
-    return this.state.kind === 'dragging' || this.state.kind === 'dragging_staircase'
+    return (
+      this.state.kind === 'dragging' ||
+      this.state.kind === 'dragging_staircase' ||
+      this.state.kind === 'dragging_wall'
+    )
   }
 
   onPointerDown(screenX: number, screenY: number): void {
     const world = this.screenToWorld(screenX, screenY)
 
-    // Check staircase column first — initiates staircase drag
+    // Check interior walls first (narrow target — higher priority over room slots)
+    const wallHit = wallAtWorld(world.x, world.y, this.layout)
+    if (wallHit !== null && this.onWallMove) {
+      this.state = {
+        kind: 'dragging_wall',
+        floor: wallHit.floor,
+        wallIndex: wallHit.wallIndex,
+        startWorldX: world.x,
+        startWallX: wallHit.wallX,
+      }
+      this.showWallDragOverlay(wallHit.floor, wallHit.wallIndex)
+      return
+    }
+
+    // Check staircase column — initiates staircase drag
     const stairFloor = staircaseFloorAtWorld(world.x, world.y, this.layout)
     if (stairFloor !== null && this.onStaircaseMove) {
       this.state = {
@@ -326,6 +387,20 @@ export class LayoutEditor {
   }
 
   onPointerMove(screenX: number, screenY: number): void {
+    if (this.state.kind === 'dragging_wall') {
+      const wallState = this.state
+      const world = this.screenToWorld(screenX, screenY)
+      const delta = world.x - wallState.startWorldX
+      const rawX = Math.round(wallState.startWallX + delta)
+      const { min, max } = getWallBounds(wallState.floor, wallState.wallIndex, this.layout)
+      const clampedX = THREE.MathUtils.clamp(rawX, min, max)
+      const floorWalls = this.layout.walls.filter((w) => w.floor === wallState.floor)
+      if (clampedX !== floorWalls[wallState.wallIndex]?.x) {
+        this.onWallMove!(wallState.floor, wallState.wallIndex, clampedX)
+      }
+      return
+    }
+
     if (this.state.kind === 'dragging_staircase') {
       const world = this.screenToWorld(screenX, screenY)
       const delta = world.x - this.state.startWorldX
@@ -376,6 +451,13 @@ export class LayoutEditor {
   }
 
   onPointerUp(): void {
+    if (this.state.kind === 'dragging_wall') {
+      this.onWallDragEnd?.()
+      this.clearWallDragOverlay()
+      this.state = { kind: 'idle' }
+      return
+    }
+
     if (this.state.kind === 'dragging_staircase') {
       this.onStaircaseDragEnd?.(this.layout.staircaseX)
       this.state = { kind: 'idle' }
@@ -403,13 +485,21 @@ export class LayoutEditor {
     }
   }
 
-  /** Replace layout after external update (e.g. conflict resolution or staircase move) */
+  /** Replace layout after external update (e.g. conflict resolution or staircase/wall move) */
   setLayout(layout: HouseLayout): void {
     this.layout = layout
-    // If mid-interaction (other than staircase drag), cancel it since the layout changed under us
-    if (this.state.kind !== 'idle' && this.state.kind !== 'dragging_staircase') {
+    // If mid-interaction (other than staircase/wall drag), cancel since the layout changed under us
+    if (
+      this.state.kind !== 'idle' &&
+      this.state.kind !== 'dragging_staircase' &&
+      this.state.kind !== 'dragging_wall'
+    ) {
       this.state = { kind: 'idle' }
       this.clearAllOverlays()
+    }
+    // Update wall drag overlays to reflect the new room dimensions
+    if (this.state.kind === 'dragging_wall') {
+      this.showWallDragOverlay(this.state.floor, this.state.wallIndex)
     }
   }
 
@@ -521,6 +611,32 @@ export class LayoutEditor {
   // Private: overlay management
   // -----------------------------------------------------------------------
 
+  private showWallDragOverlay(floor: 1 | 2 | 3, wallIndex: number): void {
+    this.clearWallDragOverlay()
+    const floorSlots = this.layout.slots
+      .filter((s) => s.floor === floor)
+      .sort((a, b) => a.xMin - b.xMin)
+    const leftSlot = floorSlots[wallIndex]
+    const rightSlot = floorSlots[wallIndex + 1]
+    if (!leftSlot || !rightSlot) return
+    this.wallDragOverlayLeft = makeOverlay(leftSlot, COLOR_WALL_DRAG, 0.18)
+    this.wallDragOverlayRight = makeOverlay(rightSlot, COLOR_WALL_DRAG, 0.18)
+    this.overlayGroup.add(this.wallDragOverlayLeft)
+    this.overlayGroup.add(this.wallDragOverlayRight)
+  }
+
+  private clearWallDragOverlay(): void {
+    for (const mesh of [this.wallDragOverlayLeft, this.wallDragOverlayRight]) {
+      if (mesh) {
+        this.overlayGroup.remove(mesh)
+        mesh.geometry.dispose()
+        ;(mesh.material as THREE.Material).dispose()
+      }
+    }
+    this.wallDragOverlayLeft = null
+    this.wallDragOverlayRight = null
+  }
+
   private showSelectedOverlay(slot: RoomSlot): void {
     this.clearSelectedOverlay()
     this.selectedOverlay = makeOverlay(slot, COLOR_SELECTED, 0.25)
@@ -555,6 +671,7 @@ export class LayoutEditor {
     this.clearDragGhost()
     this.clearHoverGhost()
     this.clearInvalidOverlay()
+    this.clearWallDragOverlay()
     this.lastHoverTargetId = null
 
     if (this.flashOverlayA) {

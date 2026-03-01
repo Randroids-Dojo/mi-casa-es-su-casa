@@ -16,7 +16,7 @@ interface LayoutPersistenceState {
 
 /**
  * Manages layout persistence with optimistic concurrency.
- * Returns the current room order, and callbacks to persist swaps and staircase moves.
+ * Returns the current room order, and callbacks to persist swaps, staircase moves, and wall drags.
  */
 export function useLayoutPersistence(name: string) {
   const [state, setState] = useState<LayoutPersistenceState>({
@@ -29,20 +29,25 @@ export function useLayoutPersistence(name: string) {
   const versionRef = useRef(0)
   const roomOrderRef = useRef<LayoutRoomId[] | null>(null)
   const staircaseXRef = useRef<[number, number, number] | null>(null)
+  const wallPositionsRef = useRef<[number[], number[], number[]] | null>(null)
 
   const initFromServer = useCallback((
     roomOrder: LayoutRoomId[],
     version: number,
     staircaseX?: [number, number, number],
+    wallPositions?: [number[], number[], number[]],
   ) => {
     versionRef.current = version
     roomOrderRef.current = roomOrder
     staircaseXRef.current = staircaseX ?? null
+    wallPositionsRef.current = wallPositions ?? null
     setState({ roomOrder, layoutVersion: version, conflictRoomOrder: null })
   }, [])
 
   const persistSwap = useCallback(async (newOrder: LayoutRoomId[]) => {
     roomOrderRef.current = newOrder
+    // Room swap resets wall positions (proportional for new order)
+    wallPositionsRef.current = null
     try {
       const body: Record<string, unknown> = {
         roomOrder: newOrder,
@@ -60,6 +65,7 @@ export function useLayoutPersistence(name: string) {
         const data = await res.json()
         versionRef.current = data.version
         if (data.staircaseX) staircaseXRef.current = data.staircaseX
+        if (data.wallPositions) wallPositionsRef.current = data.wallPositions
         setState((prev) => ({
           ...prev,
           roomOrder: data.roomOrder,
@@ -77,6 +83,7 @@ export function useLayoutPersistence(name: string) {
           versionRef.current = current.version
           roomOrderRef.current = current.roomOrder
           if (current.staircaseX) staircaseXRef.current = current.staircaseX
+          if (current.wallPositions) wallPositionsRef.current = current.wallPositions
           setState({
             roomOrder: current.roomOrder,
             layoutVersion: current.version,
@@ -93,6 +100,8 @@ export function useLayoutPersistence(name: string) {
   const persistStaircaseX = useCallback(async (staircaseX: Record<1 | 2 | 3, number>) => {
     const stairArr: [number, number, number] = [staircaseX[1], staircaseX[2], staircaseX[3]]
     staircaseXRef.current = stairArr
+    // Staircase drag resets wall positions to proportional
+    wallPositionsRef.current = null
     const roomOrder = roomOrderRef.current
     if (!roomOrder) return // no layout yet — skip
     try {
@@ -118,6 +127,36 @@ export function useLayoutPersistence(name: string) {
     }
   }, [name])
 
+  const persistWallPositions = useCallback(async (wallPositions: [number[], number[], number[]]) => {
+    wallPositionsRef.current = wallPositions
+    const roomOrder = roomOrderRef.current
+    if (!roomOrder) return // no layout yet — skip
+    try {
+      const body: Record<string, unknown> = {
+        roomOrder,
+        expectedVersion: versionRef.current,
+        wallPositions,
+      }
+      if (staircaseXRef.current) body.staircaseX = staircaseXRef.current
+
+      const res = await fetch(`/api/layout/${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        versionRef.current = data.version
+        if (data.wallPositions) wallPositionsRef.current = data.wallPositions
+        setState((prev) => ({ ...prev, layoutVersion: data.version }))
+      }
+      // On conflict, silently accept — wall positions are cosmetic
+    } catch {
+      // Network error — silently fail
+    }
+  }, [name])
+
   return {
     roomOrder: state.roomOrder,
     layoutVersion: state.layoutVersion,
@@ -125,5 +164,6 @@ export function useLayoutPersistence(name: string) {
     initFromServer,
     persistSwap,
     persistStaircaseX,
+    persistWallPositions,
   }
 }
