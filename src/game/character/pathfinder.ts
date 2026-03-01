@@ -190,6 +190,16 @@ export const STAIR_Z_TOP = 7
 // contract.  Keeping them separate makes it easy to unit-test the invariant
 // that horizontal segments never change Y.
 
+/** Resolves the staircase center X for a given floor, falling back to STAIR_X. */
+function resolveStairX(floor: 1 | 2 | 3, stairXPerFloor?: StairXPerFloor): number {
+  return stairXPerFloor?.[floor] ?? STAIR_X
+}
+
+/** Progress thresholds for the three-phase staircase→room movement. */
+const PHASE_CLIMB_END = 1 / 3
+const PHASE_LAND_END = 2 / 3
+const PHASE_LAND_DURATION = PHASE_LAND_END - PHASE_CLIMB_END
+
 /**
  * Horizontal walk from a room center toward the staircase entry point.
  *
@@ -232,51 +242,49 @@ export function climbStaircasePosition(
   const ascending = toFloor > prevFloor
   const numFlights = Math.abs(toFloor - prevFloor)
   const dir = ascending ? 1 : -1
-  const [climbStartZ, climbEndZ] = ascending
-    ? [STAIR_Z_BOTTOM, STAIR_Z_TOP]
-    : [STAIR_Z_TOP, STAIR_Z_BOTTOM]
+  // climbStartZ / climbEndZ are the Z values at the bottom and top of every staircase flight.
+  // Both are needed at the top level because the landing walk uses both to smoothly
+  // transition from the exit of one flight (climbEndZ) to the entry of the next (climbStartZ).
+  const climbStartZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
+  const climbEndZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
 
-  function floorStairX(floor: 1 | 2 | 3): number {
-    return stairXPerFloor?.[floor] ?? STAIR_X
-  }
-
-  if (numFlights === 1) {
-    // Single flight: straight climb, no intermediate landing needed
-    return new THREE.Vector3(
-      floorStairX(prevFloor),
-      THREE.MathUtils.lerp(getFloorCenterY(prevFloor), getFloorCenterY(toFloor), progress),
-      THREE.MathUtils.lerp(climbStartZ, climbEndZ, progress),
-    )
-  }
-
-  // Multi-flight: alternate climb and landing walk segments.
-  // Segments: climb0, land0, climb1, land1, …, climbN-1
+  // Segments alternate: climb0, land0, climb1, land1, …, climbN-1
   // Total: 2*numFlights - 1 segments, each with equal duration.
+  // This also handles single-flight (numFlights=1): one segment, no landing.
   const segmentCount = 2 * numFlights - 1
   const scaledProgress = progress * segmentCount
   const segmentIdx = Math.min(Math.floor(scaledProgress), segmentCount - 1)
   const segmentT = scaledProgress - segmentIdx
 
   if (segmentIdx % 2 === 0) {
-    // Climb segment
+    // Climb segment: X fixed at this flight's stairX, Y and Z interpolate from entry to exit
     const flightIdx = segmentIdx / 2
     const flightFromFloor = (prevFloor + dir * flightIdx) as 1 | 2 | 3
     const flightToFloor = (prevFloor + dir * (flightIdx + 1)) as 1 | 2 | 3
+    // The staircase column connecting two adjacent floors belongs to the LOWER floor.
+    // Use Math.min so both ascending (flightFromFloor < flightToFloor) and descending
+    // (flightFromFloor > flightToFloor) flights resolve to the same physical column.
     return new THREE.Vector3(
-      floorStairX(flightFromFloor),
+      resolveStairX(Math.min(flightFromFloor, flightToFloor) as 1 | 2 | 3, stairXPerFloor),
       THREE.MathUtils.lerp(getFloorCenterY(flightFromFloor), getFloorCenterY(flightToFloor), segmentT),
       THREE.MathUtils.lerp(climbStartZ, climbEndZ, segmentT),
     )
   } else {
-    // Landing walk segment: horizontal walk at the intermediate floor between two flights
+    // Landing walk segment: walk at the intermediate floor Y, transitioning both X and Z.
+    // X moves from the previous flight's stairX to the next flight's stairX.
+    // Z moves from climbEndZ (exit of previous flight) back to climbStartZ (entry of next flight),
+    // so the character walks from the back of one staircase to the front of the next.
     const completedFlightIdx = (segmentIdx - 1) / 2
     const landingFloor = (prevFloor + dir * (completedFlightIdx + 1)) as 1 | 2 | 3
-    const fromX = floorStairX((prevFloor + dir * completedFlightIdx) as 1 | 2 | 3)
-    const toX = floorStairX(landingFloor)
+    // Each flight's column belongs to the LOWER of its two floors.
+    const completedFlightLower = Math.min(prevFloor + dir * completedFlightIdx, prevFloor + dir * (completedFlightIdx + 1)) as 1 | 2 | 3
+    const nextFlightLower = Math.min(prevFloor + dir * (completedFlightIdx + 1), prevFloor + dir * (completedFlightIdx + 2)) as 1 | 2 | 3
+    const fromX = resolveStairX(completedFlightLower, stairXPerFloor)
+    const toX = resolveStairX(nextFlightLower, stairXPerFloor)
     return new THREE.Vector3(
       THREE.MathUtils.lerp(fromX, toX, segmentT),
       getFloorCenterY(landingFloor),
-      climbEndZ,
+      THREE.MathUtils.lerp(climbEndZ, climbStartZ, segmentT),
     )
   }
 }
@@ -338,17 +346,19 @@ export function getPositionAlongPath(
   const fromRoomId = path[fromIdx]
   const toRoomId = path[toIdx]
 
-  function stairX(floor: 1 | 2 | 3): number {
-    return stairXPerFloor?.[floor] ?? STAIR_X
-  }
-
   // ---- Leg toward the staircase ----
   if (toRoomId === 'staircase') {
     const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
     const fromFloor = roomMap[fromRoomId].floor
     const nextFloor = nextRoomId ? roomMap[nextRoomId].floor : fromFloor
     const ascending = nextFloor > fromFloor
-    return approachStaircasePosition(roomMap[fromRoomId].center, ascending, legProgress, stairX(fromFloor))
+    // For ascending, the staircase column starts at fromFloor.
+    // For descending, the staircase column that connects fromFloor to fromFloor-1
+    // is the one on the LOWER floor (fromFloor - 1).
+    const approachStairX = ascending
+      ? resolveStairX(fromFloor, stairXPerFloor)
+      : resolveStairX((fromFloor - 1) as 1 | 2 | 3, stairXPerFloor)
+    return approachStaircasePosition(roomMap[fromRoomId].center, ascending, legProgress, approachStairX)
   }
 
   // ---- Leg away from the staircase ----
@@ -359,28 +369,28 @@ export function getPositionAlongPath(
     const destCenter = roomMap[toRoomId].center
     const ascending = toFloor > prevFloor
 
-    const PHASE_CLIMB_END = 1 / 3
-    const PHASE_LAND_END = 2 / 3
-
     // Phase 3 (2/3–1): walk horizontally from the staircase exit to the room center
     if (legProgress > PHASE_LAND_END) {
       return exitStaircasePosition(
         destCenter,
         ascending,
         (legProgress - PHASE_LAND_END) / (1 - PHASE_LAND_END),
-        stairX(toFloor),
+        resolveStairX(toFloor, stairXPerFloor),
       )
     }
 
     // Phase 2 (1/3–2/3): landing walk — move horizontally at destination floor Y
     // from the top of the last staircase column to the exit of the destination staircase.
     if (legProgress > PHASE_CLIMB_END) {
-      const landProgress = (legProgress - PHASE_CLIMB_END) / (PHASE_LAND_END - PHASE_CLIMB_END)
+      const landProgress = (legProgress - PHASE_CLIMB_END) / PHASE_LAND_DURATION
       // The last staircase climbed belongs to the floor just below (or above) the destination
-      const lastClimbFromFloor = (ascending ? toFloor - 1 : toFloor + 1) as 1 | 2 | 3
+      // The last flight's column belongs to the lower of its two floors.
+      // Ascending: last flight went from (toFloor-1) to toFloor → lower = toFloor-1.
+      // Descending: last flight went from (toFloor+1) to toFloor → lower = toFloor.
+      const lastClimbFromFloor = (ascending ? toFloor - 1 : toFloor) as 1 | 2 | 3
       const exitZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
       return new THREE.Vector3(
-        THREE.MathUtils.lerp(stairX(lastClimbFromFloor), stairX(toFloor), landProgress),
+        THREE.MathUtils.lerp(resolveStairX(lastClimbFromFloor, stairXPerFloor), resolveStairX(toFloor, stairXPerFloor), landProgress),
         getFloorCenterY(toFloor),
         exitZ,
       )

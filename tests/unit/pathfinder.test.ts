@@ -209,6 +209,34 @@ describe('climbStaircasePosition', () => {
     }
   })
 
+  test('Z is continuous at internal segment boundaries for multi-floor climbs', () => {
+    const DT = 0.002
+    const MAX_SNAP = 0.5
+
+    for (const [from, to] of [[1, 3] as const, [3, 1] as const]) {
+      const ascending = to > from
+      // Boundary at 1/3: end of flight0 → start of landing
+      // Boundary at 2/3: end of landing → start of flight1
+      for (const t of [1 / 3, 2 / 3]) {
+        const before = climbStaircasePosition(from, to, t - DT)
+        const after = climbStaircasePosition(from, to, t + DT)
+        const dz = Math.abs(after.z - before.z)
+        assert.ok(
+          dz < MAX_SNAP,
+          `climb ${from}→${to} Z at boundary t=${t.toFixed(2)}: snapped by ${dz.toFixed(3)} (${before.z.toFixed(3)} → ${after.z.toFixed(3)})`,
+        )
+      }
+      // Start: Z at entry of first flight
+      const start = climbStaircasePosition(from, to, 0)
+      const expectedStartZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
+      approxEqual(start.z, expectedStartZ, `climb ${from}→${to} start Z`)
+      // End: Z at exit of last flight
+      const end = climbStaircasePosition(from, to, 1)
+      const expectedEndZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
+      approxEqual(end.z, expectedEndZ, `climb ${from}→${to} end Z`)
+    }
+  })
+
   test('X stays at flight stairX during climb segments, walks smoothly during landing segments', () => {
     // Floors 1 and 2 have staircases at different X positions
     const customStairX = { 1: 10, 2: 25, 3: 25 }
@@ -219,15 +247,32 @@ describe('climbStaircasePosition', () => {
       approxEqual(pos.x, 10, `single climb 1→2 p=${p.toFixed(2)} x should stay at 10`)
     }
 
-    // Single flight 2→1: entire climb stays at stairX[2]=25
+    // Single flight 2→1: uses the floor-1 staircase column (which connects floors 1–2),
+    // so X stays at stairX[1]=10, not stairX[2]=25.
     for (const p of progressSteps) {
       const pos = climbStaircasePosition(2, 1, p, customStairX)
-      approxEqual(pos.x, 25, `single climb 2→1 p=${p.toFixed(2)} x should stay at 25`)
+      approxEqual(pos.x, 10, `single climb 2→1 p=${p.toFixed(2)} x should stay at 10`)
     }
 
     // Multi-flight 1→3: segments are climb(1→2), land, climb(2→3) each 1/3 of progress
     // Climb segments hold their stairX; landing segment smoothly transitions
     const PHASE = 1 / 3
+
+    // Multi-flight 3→1: flight0(3→2) uses stairX[2]=25, land, flight1(2→1) uses stairX[1]=10
+    for (const p of progressSteps) {
+      const pos = climbStaircasePosition(3, 1, p, customStairX)
+      if (p <= PHASE) {
+        // First climb (3→2): stays at stairX[2]=25
+        approxEqual(pos.x, 25, `multi climb 3→1 p=${p.toFixed(2)} first climb x should be 25`)
+      } else if (p >= PHASE * 2) {
+        // Second climb (2→1): stays at stairX[1]=10
+        approxEqual(pos.x, 10, `multi climb 3→1 p=${p.toFixed(2)} second climb x should be 10`)
+      } else {
+        // Landing segment: X transitions smoothly from 25 to 10
+        assert.ok(pos.x >= 10 && pos.x <= 25, `multi climb 3→1 p=${p.toFixed(2)} landing x should be between 10 and 25 (got ${pos.x})`)
+      }
+    }
+
     for (const p of progressSteps) {
       const pos = climbStaircasePosition(1, 3, p, customStairX)
       if (p <= PHASE) {
