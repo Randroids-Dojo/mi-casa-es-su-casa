@@ -135,7 +135,7 @@ export async function saveCustomLayout(
   name: string,
   roomOrder: LayoutRoomId[],
   expectedVersion: number,
-  staircaseIndex?: [number, number, number],
+  staircaseIndex?: [number, number],
   wallPositions?: [number[], number[], number[]],
 ): Promise<{ ok: true; layout: CustomLayout } | { ok: false; current: CustomLayout }> {
   const existing = await getCustomLayout(name)
@@ -179,7 +179,7 @@ export async function resolveLayout(name: string) {
   const custom = await getCustomLayout(name)
   if (custom) {
     const stairIdx = custom.staircaseIndex
-      ? { 1: custom.staircaseIndex[0], 2: custom.staircaseIndex[1], 3: custom.staircaseIndex[2] }
+      ? { 1: custom.staircaseIndex[0], 2: custom.staircaseIndex[1] }
       : DEFAULT_STAIRCASE_INDEX
     const wallPositions: Partial<Record<1 | 2 | 3, number[]>> | undefined = custom.wallPositions
       ? { 1: custom.wallPositions[0], 2: custom.wallPositions[1], 3: custom.wallPositions[2] }

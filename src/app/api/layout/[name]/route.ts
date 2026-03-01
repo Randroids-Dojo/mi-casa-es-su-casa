@@ -36,9 +36,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams): Promise<N
 }
 
 const PostBodySchema = z.object({
-  roomOrder: z.array(z.string()).length(8),
+  roomOrder: z.array(z.string()).length(9),
   expectedVersion: z.number().int().min(0),
-  staircaseIndex: z.tuple([z.number().int().min(0), z.number().int().min(0), z.number().int().min(0)]).optional(),
+  staircaseIndex: z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional(),
   wallPositions: z.tuple([
     z.array(z.number()),
     z.array(z.number()),
@@ -72,12 +72,12 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
 
   const { roomOrder, expectedVersion, staircaseIndex, wallPositions } = parsed.data
 
-  // Validate all 8 rooms are present exactly once
+  // Validate all 9 rooms are present exactly once
   const sorted = [...roomOrder].sort()
   const expected = [...ALL_ROOMS].sort()
   if (JSON.stringify(sorted) !== JSON.stringify(expected)) {
     return NextResponse.json(
-      { error: 'roomOrder must contain all 8 rooms exactly once' },
+      { error: 'roomOrder must contain all 9 rooms exactly once' },
       { status: 400 },
     )
   }

@@ -47,6 +47,7 @@ const ROOM_ACTIVITY_MAP: Readonly<Record<LayoutRoomId, readonly string[]>> = {
   bathroom: ['bathe', 'groom', 'use_bathroom', 'idle'],
   hobby_room: ['paint', 'play_instrument', 'tinker', 'read', 'idle'],
   storage: ['rummage', 'idle'],
+  landing: ['read', 'idle'],
 }
 
 // ---------------------------------------------------------------------------

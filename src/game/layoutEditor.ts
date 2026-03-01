@@ -51,7 +51,7 @@ const HOVER_GHOST_OPACITY = 0.4
 
 export type DraggableSlot =
   | { kind: 'room'; slot: RoomSlot }
-  | { kind: 'staircase'; floor: 1 | 2 | 3; xMin: number; xMax: number; centerX: number }
+  | { kind: 'staircase'; floor: 1 | 2; xMin: number; xMax: number; centerX: number }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -241,8 +241,8 @@ function staircaseSlotAtWorld(
   worldX: number,
   worldY: number,
   layout: HouseLayout,
-): { floor: 1 | 2 | 3; xMin: number; xMax: number; centerX: number } | null {
-  for (const floor of [1, 2, 3] as const) {
+): { floor: 1 | 2; xMin: number; xMax: number; centerX: number } | null {
+  for (const floor of [1, 2] as const) {
     const yMin = floorY(floor)
     const yMax = yMin + FLOOR_HEIGHT
     const bounds = layout.stairBounds[floor]
@@ -281,13 +281,13 @@ function wallAtWorld(
  * Returns the new room order and new staircaseIndex.
  */
 export function computeStaircaseRoomSwap(
-  floor: 1 | 2 | 3,
+  floor: 1 | 2,
   roomOrder: LayoutRoomId[],
-  staircaseIndex: Record<1 | 2 | 3, number>,
+  staircaseIndex: Record<1 | 2, number>,
   targetRoomId: LayoutRoomId,
-): { newRoomOrder: LayoutRoomId[]; newStaircaseIndex: Record<1 | 2 | 3, number> } {
-  const floorStart = floor === 1 ? 0 : floor === 2 ? 3 : 6
-  const nRooms = floor === 3 ? 2 : 3
+): { newRoomOrder: LayoutRoomId[]; newStaircaseIndex: Record<1 | 2, number> } {
+  const floorStart = floor === 1 ? 0 : 3
+  const nRooms = 3
   const I = staircaseIndex[floor]  // current staircase combined index
 
   const floorRooms = roomOrder.slice(floorStart, floorStart + nRooms)
@@ -363,7 +363,7 @@ export class LayoutEditor {
   private camera: THREE.OrthographicCamera
   private canvas: HTMLCanvasElement
   private layout: HouseLayout
-  private onSwap: (newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2 | 3, number>) => void
+  private onSwap: (newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2, number>) => void
   private onWallMove: ((floor: 1 | 2 | 3, wallIndex: number, newX: number) => void) | null
   private onWallDragEnd: (() => void) | null
 
@@ -391,7 +391,7 @@ export class LayoutEditor {
     camera: THREE.OrthographicCamera
     canvas: HTMLCanvasElement
     layout: HouseLayout
-    onSwap: (newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2 | 3, number>) => void
+    onSwap: (newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2, number>) => void
     onWallMove?: (floor: 1 | 2 | 3, wallIndex: number, newX: number) => void
     onWallDragEnd?: () => void
   }) {
@@ -588,7 +588,7 @@ export class LayoutEditor {
 
   private executeSwap(source: DraggableSlot, target: DraggableSlot): void {
     let newRoomOrder: LayoutRoomId[]
-    let newStaircaseIndex: Record<1 | 2 | 3, number>
+    let newStaircaseIndex: Record<1 | 2, number>
 
     if (source.kind === 'room' && target.kind === 'room') {
       // Room–room swap: just reorder
@@ -602,7 +602,7 @@ export class LayoutEditor {
       newStaircaseIndex = this.layout.staircaseIndex
     } else {
       // Staircase–room or room–staircase swap
-      const floor = source.kind === 'staircase' ? source.floor : (target as { floor: 1|2|3 }).floor
+      const floor = source.kind === 'staircase' ? source.floor : (target as { floor: 1|2 }).floor
       const targetRoomId = source.kind === 'staircase'
         ? (target as { kind: 'room'; slot: RoomSlot }).slot.roomId
         : source.slot.roomId
@@ -641,14 +641,12 @@ export class LayoutEditor {
   }
 
   private showStaircaseDragGhost(
-    stair: { floor: 1 | 2 | 3; xMin: number; xMax: number; centerX: number },
+    stair: { floor: 1 | 2; xMin: number; xMax: number; centerX: number },
     worldX: number,
     worldY: number,
   ): void {
     this.clearDragGhost()
-    // Use real staircase geometry (same as room ghost) — only floor 1 and 2 have steps
-    const ghostFloor = stair.floor <= 2 ? stair.floor as 1 | 2 : 1
-    const ghostGroup = buildStaircaseGhostGroup(ghostFloor, stair.xMin)
+    const ghostGroup = buildStaircaseGhostGroup(stair.floor, stair.xMin)
     ghostGroup.position.z = GHOST_Z
     applyGroupOpacity(ghostGroup, DRAG_GHOST_OPACITY)
     ghostGroup.traverse((obj) => {
@@ -759,7 +757,7 @@ export class LayoutEditor {
     this.overlayGroup.add(this.selectedOverlay)
   }
 
-  private showStaircaseSelectedOverlay(stair: { floor: 1|2|3; xMin: number; xMax: number }): void {
+  private showStaircaseSelectedOverlay(stair: { floor: 1|2; xMin: number; xMax: number }): void {
     this.clearSelectedOverlay()
     this.selectedOverlay = makeOverlayRect(stair.xMin, stair.xMax, stair.floor, COLOR_SELECTED, 0.25)
     this.overlayGroup.add(this.selectedOverlay)

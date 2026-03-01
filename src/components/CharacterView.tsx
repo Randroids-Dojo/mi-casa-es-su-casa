@@ -20,7 +20,7 @@ export function CharacterView({ name }: CharacterViewProps) {
   const [gameActions, setGameActions] = useState<GameActions | null>(null)
   const [initialState, setInitialState] = useState<CharacterState | undefined>(undefined)
   const [initialRoomOrder, setInitialRoomOrder] = useState<LayoutRoomId[] | undefined>(undefined)
-  const [initialStaircaseIndex, setInitialStaircaseIndex] = useState<Record<1 | 2 | 3, number> | undefined>(undefined)
+  const [initialStaircaseIndex, setInitialStaircaseIndex] = useState<Record<1 | 2, number> | undefined>(undefined)
   const [initialWallPositions, setInitialWallPositions] = useState<[number[], number[], number[]] | undefined>(undefined)
   const [stateLoaded, setStateLoaded] = useState(false)
 
@@ -50,7 +50,7 @@ export function CharacterView({ name }: CharacterViewProps) {
     const layoutFetch = fetch(`/api/layout/${encodeURIComponent(name)}`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) return null
-        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseIndex?: [number, number, number]; wallPositions?: [number[], number[], number[]] }>
+        return r.json() as Promise<{ roomOrder: LayoutRoomId[]; version: number; staircaseIndex?: [number, number]; wallPositions?: [number[], number[], number[]] }>
       })
       .catch(() => null)
 
@@ -63,7 +63,6 @@ export function CharacterView({ name }: CharacterViewProps) {
             setInitialStaircaseIndex({
               1: layoutData.staircaseIndex[0],
               2: layoutData.staircaseIndex[1],
-              3: layoutData.staircaseIndex[2],
             })
           }
           if (layoutData.wallPositions) {

@@ -133,7 +133,7 @@ function buildInteriorWalls(
   group: THREE.Group,
   floor: 1 | 2 | 3,
   wallXPositions: number[],
-  stairBounds: { xMin: number; xMax: number },
+  stairBounds?: { xMin: number; xMax: number },
 ): void {
   const baseY = floorY(floor)
   const hd = HOUSE_DEPTH
@@ -155,12 +155,12 @@ function buildInteriorWalls(
   }
 
   // Left staircase divider: between room-below and staircase (exists when staircase not at leftmost position)
-  if (stairBounds.xMin > 1) {
+  if (stairBounds && stairBounds.xMin > 1) {
     addWall(stairBounds.xMin)
   }
 
   // Right staircase divider: between staircase and room-above (exists when staircase not at rightmost position)
-  if (stairBounds.xMax < HOUSE_WIDTH) {
+  if (stairBounds && stairBounds.xMax < HOUSE_WIDTH) {
     addWall(stairBounds.xMax - 1)
   }
 
@@ -537,11 +537,39 @@ function buildStorageFurniture(
   addVoxels(group, specs)
 }
 
+function buildLandingFurniture(
+  group: THREE.Group,
+  xMin: number,
+  xMax: number,
+  floor: 1 | 2 | 3,
+): void {
+  const ft = floorY(floor) + 1
+  const cx = (xMin + xMax) / 2
+  const w = xMax - xMin
+
+  const specs: VoxelSpec[] = [
+    // Tall bookshelf against back wall
+    { position: { x: cx, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: Math.min(w - 1, 3), y: 5, z: 0.8 } },
+    // Book spines
+    { position: { x: cx - 0.8, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.4, y: 1, z: 0.3 } },
+    { position: { x: cx, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.4, y: 1, z: 0.3 } },
+    { position: { x: cx + 0.8, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.4, y: 1, z: 0.3 } },
+    // Small armchair
+    { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1, z: 1.5 } },
+    { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
+    // Floor lamp
+    { position: { x: xMin + 1, y: ft + 1.5, z: 5.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 3, z: 0.2 } },
+    { position: { x: xMin + 1, y: ft + 3.2, z: 5.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
+  ]
+
+  addVoxels(group, specs)
+}
+
 // ---------------------------------------------------------------------------
 // Staircase builder — per-floor independent positioning
 // ---------------------------------------------------------------------------
 
-function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2 | 3, number>): void {
+function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2, number>): void {
   // Each floor's staircase corridor starts at staircaseX[floor].
   // The corridor is 5 wide; steps are 3 wide, centered in the corridor.
   // 8 steps per floor (one step per voxel of FLOOR_HEIGHT).
@@ -552,7 +580,7 @@ function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2 | 3, number
   const startZ = 0.5
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
-    const floor = f as 1 | 2 | 3
+    const floor = f as 1 | 2
     const stairXStart = staircaseX[floor]
     const stepCenterX = stairXStart + 2.5
     const baseY = floorY(floor)
@@ -597,16 +625,14 @@ export function getRooms(layout?: HouseLayout): Room[] {
         max: { x: slot.xMax, y: floorY(slot.floor) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     }))
-    // Staircase bounds: union of all floor staircase columns
+    // Staircase bounds: union of floor 1 & 2 staircase columns (floor 3 has no staircase)
     const minStairX = Math.min(
       layout.stairBounds[1].xMin,
       layout.stairBounds[2].xMin,
-      layout.stairBounds[3].xMin,
     )
     const maxStairX = Math.max(
       layout.stairBounds[1].xMax,
       layout.stairBounds[2].xMax,
-      layout.stairBounds[3].xMax,
     )
     rooms.push({
       id: 'staircase',
@@ -761,6 +787,7 @@ const ROOM_BUILDERS: Readonly<
   study: buildStudyFurniture,
   hobby_room: buildHobbyRoomFurniture,
   storage: buildStorageFurniture,
+  landing: buildLandingFurniture,
 }
 
 // ---------------------------------------------------------------------------
@@ -839,7 +866,8 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     const floorWalls = layout.walls
       .filter((w) => w.floor === floor)
       .map((w) => w.x)
-    buildInteriorWalls(house, floor, floorWalls, layout.stairBounds[floor])
+    const stairBoundsForFloor = floor !== 3 ? layout.stairBounds[floor as 1 | 2] : undefined
+    buildInteriorWalls(house, floor, floorWalls, stairBoundsForFloor)
   }
 
   // Build furniture for each room slot

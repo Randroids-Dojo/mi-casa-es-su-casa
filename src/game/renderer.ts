@@ -60,7 +60,7 @@ export function initGame(
   characterName = 'resident',
   initialState?: SchemaCharacterState,
   initialRoomOrder?: LayoutRoomId[],
-  initialStaircaseIndex?: Record<1 | 2 | 3, number>,
+  initialStaircaseIndex?: Record<1 | 2, number>,
   initialWallPositions?: [number[], number[], number[]],
 ): GameInstance {
   // ------------------------------------------------------------------
@@ -248,7 +248,7 @@ export function initGame(
   // ------------------------------------------------------------------
 
   /** External callback set by GameCanvas for persisting layout swaps */
-  let externalSwapCallback: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void) | null = null
+  let externalSwapCallback: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) => void) | null = null
   /** External callback set by GameCanvas for persisting wall positions */
   let externalWallSaveCallback: ((wallPositions: [number[], number[], number[]]) => void) | null = null
 
@@ -295,7 +295,7 @@ export function initGame(
     camera,
     canvas,
     layout: currentLayout,
-    onSwap(newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2 | 3, number>) {
+    onSwap(newRoomOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2, number>) {
       // Swap resets wall positions to proportional
       const newLayout = layoutFromOrder(newRoomOrder, newStaircaseIndex)
       cachedRoomOrder = newRoomOrder
@@ -479,7 +479,7 @@ export function initGame(
     },
     onLayoutSwap: null,
     onWallSave: null,
-    applyExternalLayout(roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) {
+    applyExternalLayout(roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) {
       const newLayout = layoutFromOrder(roomOrder, staircaseIndex)
       cachedRoomOrder = roomOrder
       rebuildHouse(newLayout)
@@ -490,7 +490,7 @@ export function initGame(
   // Wire up the external swap callback through the GameInstance property
   Object.defineProperty(gameInstance, 'onLayoutSwap', {
     get: () => externalSwapCallback,
-    set: (cb: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void) | null) => {
+    set: (cb: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) => void) | null) => {
       externalSwapCallback = cb
     },
     enumerable: true,

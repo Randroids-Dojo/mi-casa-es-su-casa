@@ -5,7 +5,7 @@
 // These tests verify:
 //   1. Determinism: same name always produces same layout
 //   2. Variety: different names produce different layouts
-//   3. Validity: all floors sum to 26 voxels, no room below minimum width
+//   3. Validity: floors 1&2 sum to 26 voxels, floor 3 sums to 31, no room below minimum width
 //   4. Traversability: adjacency graph is symmetric and fully connected
 //
 // Run:  npm run test:unit
@@ -30,6 +30,7 @@ const ROOM_MIN_WIDTHS: Record<LayoutRoomId, number> = {
   study: 5,
   hobby_room: 6,
   storage: 5,
+  landing: 4,
 }
 
 const ALL_ROOMS: LayoutRoomId[] = [
@@ -41,9 +42,8 @@ const ALL_ROOMS: LayoutRoomId[] = [
   'study',
   'hobby_room',
   'storage',
+  'landing',
 ]
-
-const FLOOR_ROOM_WIDTH = 26 // x=1 to x=27
 
 // ---------------------------------------------------------------------------
 // Determinism
@@ -100,22 +100,23 @@ describe('layout validity', () => {
   const testNames = ['Alice', 'Bob', 'Charlie', 'TestUser', 'ZZZ', 'a1b2c3']
 
   for (const name of testNames) {
-    test(`${name}: all 8 rooms present`, () => {
+    test(`${name}: all 9 rooms present`, () => {
       const layout = generateLayout(name)
       const roomIds = layout.slots.map((s) => s.roomId).sort()
       assert.deepStrictEqual(roomIds, [...ALL_ROOMS].sort())
     })
 
-    test(`${name}: each floor sums to ${FLOOR_ROOM_WIDTH} voxels`, () => {
+    test(`${name}: each floor sums to correct voxel width`, () => {
       const layout = generateLayout(name)
 
       for (const floor of [1, 2, 3] as const) {
         const floorSlots = layout.slots.filter((s) => s.floor === floor)
         const totalWidth = floorSlots.reduce((sum, s) => sum + (s.xMax - s.xMin), 0)
+        const expectedWidth = floor === 3 ? 31 : 26
         assert.strictEqual(
           totalWidth,
-          FLOOR_ROOM_WIDTH,
-          `Floor ${floor} total width is ${totalWidth}, expected ${FLOOR_ROOM_WIDTH}`,
+          expectedWidth,
+          `Floor ${floor} total width is ${totalWidth}, expected ${expectedWidth}`,
         )
       }
     })
@@ -133,7 +134,7 @@ describe('layout validity', () => {
       }
     })
 
-    test(`${name}: rooms don't overlap and cover x=1..27`, () => {
+    test(`${name}: rooms don't overlap and cover correct x range`, () => {
       const layout = generateLayout(name)
 
       for (const floor of [1, 2, 3] as const) {
@@ -143,11 +144,11 @@ describe('layout validity', () => {
 
         // First room starts at x=1
         assert.strictEqual(floorSlots[0].xMin, 1, `Floor ${floor} first room should start at x=1`)
-        // Last room ends at x=27
+        // Last room ends at x=27 for floors 1&2, x=32 for floor 3
         assert.strictEqual(
           floorSlots[floorSlots.length - 1].xMax,
-          27,
-          `Floor ${floor} last room should end at x=27`,
+          floor === 3 ? 32 : 27,
+          `Floor ${floor} last room should end at x=${floor === 3 ? 32 : 27}`,
         )
 
         // No gaps between rooms
@@ -161,7 +162,7 @@ describe('layout validity', () => {
       }
     })
 
-    test(`${name}: 3 rooms on floor 1, 3 on floor 2, 2 on floor 3`, () => {
+    test(`${name}: 3 rooms on floor 1, 3 on floor 2, 3 on floor 3`, () => {
       const layout = generateLayout(name)
 
       const f1 = layout.slots.filter((s) => s.floor === 1)
@@ -170,7 +171,7 @@ describe('layout validity', () => {
 
       assert.strictEqual(f1.length, 3, `Floor 1 should have 3 rooms, got ${f1.length}`)
       assert.strictEqual(f2.length, 3, `Floor 2 should have 3 rooms, got ${f2.length}`)
-      assert.strictEqual(f3.length, 2, `Floor 3 should have 2 rooms, got ${f3.length}`)
+      assert.strictEqual(f3.length, 3, `Floor 3 should have 3 rooms, got ${f3.length}`)
     })
 
     test(`${name}: entrance is leftmost room on its floor (xMin=1, rightmost on screen)`, () => {
@@ -222,22 +223,25 @@ describe('default layout', () => {
     assert.strictEqual(layout.slotMap.kitchen.xMax, 27)
     // Entrance is leftmost (xMin = 1)
     assert.strictEqual(layout.slotMap.entrance.xMin, 1)
-    // Other floors unchanged
+    // Floor 2 unchanged
     assert.strictEqual(layout.slotMap.bedroom.xMin, 1)
     assert.strictEqual(layout.slotMap.bedroom.xMax, 14)
     assert.strictEqual(layout.slotMap.bathroom.xMin, 14)
     assert.strictEqual(layout.slotMap.bathroom.xMax, 20)
     assert.strictEqual(layout.slotMap.study.xMin, 20)
     assert.strictEqual(layout.slotMap.study.xMax, 27)
+    // Floor 3: hobby_room | storage | landing (31 voxels total)
     assert.strictEqual(layout.slotMap.hobby_room.xMin, 1)
     assert.strictEqual(layout.slotMap.hobby_room.xMax, 16)
     assert.strictEqual(layout.slotMap.storage.xMin, 16)
     assert.strictEqual(layout.slotMap.storage.xMax, 27)
+    assert.strictEqual(layout.slotMap.landing.xMin, 27)
+    assert.strictEqual(layout.slotMap.landing.xMax, 32)
   })
 
-  test('staircaseX defaults to {1:27, 2:27, 3:27}', () => {
+  test('staircaseX defaults to {1:27, 2:27}', () => {
     const layout = getDefaultLayout()
-    assert.deepStrictEqual(layout.staircaseX, { 1: 27, 2: 27, 3: 27 })
+    assert.deepStrictEqual(layout.staircaseX, { 1: 27, 2: 27 })
   })
 })
 

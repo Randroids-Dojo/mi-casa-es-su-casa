@@ -23,17 +23,17 @@ interface GameCanvasProps {
   /** Initial room ordering for custom layout */
   initialRoomOrder?: LayoutRoomId[]
   /** Initial staircase index (0-based position per floor) */
-  initialStaircaseIndex?: Record<1 | 2 | 3, number>
+  initialStaircaseIndex?: Record<1 | 2, number>
   /** Initial interior wall x-positions per floor [floor1walls, floor2walls, floor3walls] */
   initialWallPositions?: [number[], number[], number[]]
   /** Called when the layout editor swaps rooms or staircase (for persistence) */
-  onLayoutSwap?: (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void
+  onLayoutSwap?: (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) => void
   /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
   onWallSave?: (wallPositions: [number[], number[], number[]]) => void
   /** Apply an externally-resolved layout (e.g. after conflict resolution) */
   externalRoomOrder?: LayoutRoomId[] | null
   /** Apply an externally-resolved staircase index (paired with externalRoomOrder) */
-  externalStaircaseIndex?: Record<1 | 2 | 3, number> | null
+  externalStaircaseIndex?: Record<1 | 2, number> | null
 }
 
 function getTouchDistance(touches: TouchList): number {
@@ -128,7 +128,7 @@ export function GameCanvas({
     gameRef.current = game
 
     // Wire layout swap callback
-    game.onLayoutSwap = (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => {
+    game.onLayoutSwap = (roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) => {
       onLayoutSwapRef.current?.(roomOrder, staircaseIndex)
     }
 

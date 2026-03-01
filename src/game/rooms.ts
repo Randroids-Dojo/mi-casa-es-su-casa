@@ -52,6 +52,7 @@ export type RoomId =
   | 'hobby_room'
   | 'storage'
   | 'staircase'
+  | 'landing'
 
 export interface Room {
   id: RoomId
@@ -86,6 +87,7 @@ export const ACTIVITY_MAP: Readonly<Record<LayoutRoomId, readonly ActivityType[]
   bathroom: ['bathe', 'groom', 'use_bathroom', 'idle'],
   hobby_room: ['paint', 'play_instrument', 'tinker', 'read', 'idle'],
   storage: ['rummage', 'idle'],
+  landing: ['read', 'idle'],
 }
 
 // ---------------------------------------------------------------------------

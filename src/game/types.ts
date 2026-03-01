@@ -20,6 +20,7 @@ export type RoomId =
   | 'hobby_room'
   | 'storage'
   | 'staircase'
+  | 'landing'
 
 export interface Room {
   id: RoomId
@@ -90,9 +91,9 @@ export interface GameInstance {
   /** Returns true when the layout editor has captured input (suppress panning). */
   isLayoutEditActive(): boolean
   /** Called by the persistence hook when a swap completes. */
-  onLayoutSwap: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>) => void) | null
+  onLayoutSwap: ((roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>) => void) | null
   /** Called when a wall drag ends (for persistence). [floor1walls, floor2walls, floor3walls] */
   onWallSave: ((wallPositions: [number[], number[], number[]]) => void) | null
   /** Replace the current layout externally (e.g. after conflict resolution). */
-  applyExternalLayout(roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2 | 3, number>): void
+  applyExternalLayout(roomOrder: LayoutRoomId[], staircaseIndex: Record<1 | 2, number>): void
 }

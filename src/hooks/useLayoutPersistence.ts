@@ -13,7 +13,7 @@ interface LayoutPersistenceState {
    */
   conflictRoomOrder: LayoutRoomId[] | null
   /** Staircase index to apply alongside conflictRoomOrder */
-  conflictStaircaseIndex: Record<1 | 2 | 3, number> | null
+  conflictStaircaseIndex: Record<1 | 2, number> | null
 }
 
 /**
@@ -31,13 +31,13 @@ export function useLayoutPersistence(name: string) {
   // Keep version and layout refs current for async callbacks
   const versionRef = useRef(0)
   const roomOrderRef = useRef<LayoutRoomId[] | null>(null)
-  const staircaseIndexRef = useRef<[number, number, number] | null>(null)
+  const staircaseIndexRef = useRef<[number, number] | null>(null)
   const wallPositionsRef = useRef<[number[], number[], number[]] | null>(null)
 
   const initFromServer = useCallback((
     roomOrder: LayoutRoomId[],
     version: number,
-    staircaseIndex?: [number, number, number],
+    staircaseIndex?: [number, number],
     wallPositions?: [number[], number[], number[]],
   ) => {
     versionRef.current = version
@@ -47,9 +47,9 @@ export function useLayoutPersistence(name: string) {
     setState({ roomOrder, layoutVersion: version, conflictRoomOrder: null, conflictStaircaseIndex: null })
   }, [])
 
-  const persistSwap = useCallback(async (newOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2 | 3, number>) => {
+  const persistSwap = useCallback(async (newOrder: LayoutRoomId[], newStaircaseIndex: Record<1 | 2, number>) => {
     roomOrderRef.current = newOrder
-    const stairArr: [number, number, number] = [newStaircaseIndex[1], newStaircaseIndex[2], newStaircaseIndex[3]]
+    const stairArr: [number, number] = [newStaircaseIndex[1], newStaircaseIndex[2]]
     staircaseIndexRef.current = stairArr
     // Swap resets wall positions (proportional for new order)
     wallPositionsRef.current = null
@@ -88,8 +88,8 @@ export function useLayoutPersistence(name: string) {
           roomOrderRef.current = current.roomOrder
           if (current.staircaseIndex) staircaseIndexRef.current = current.staircaseIndex
           if (current.wallPositions) wallPositionsRef.current = current.wallPositions
-          const conflictStairIdx: Record<1 | 2 | 3, number> | null = current.staircaseIndex
-            ? { 1: current.staircaseIndex[0], 2: current.staircaseIndex[1], 3: current.staircaseIndex[2] }
+          const conflictStairIdx: Record<1 | 2, number> | null = current.staircaseIndex
+            ? { 1: current.staircaseIndex[0], 2: current.staircaseIndex[1] }
             : null
           setState({
             roomOrder: current.roomOrder,
