@@ -12,6 +12,7 @@ import * as THREE from 'three'
 import type { RoomId, Room } from '../rooms'
 import { ROOM_MAP, ROOMS, getFloorCenterY } from '../rooms'
 import { seededRngFromKey } from './seeder'
+import type { StairXPerFloor } from '@/lib/layout'
 
 // ---------------------------------------------------------------------------
 // BFS pathfinding
@@ -279,7 +280,7 @@ export function getPositionAlongPath(
   legIndex: number,
   legProgress: number,
   roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
-  stairXPerFloor?: Partial<Record<1 | 2 | 3, number>>,
+  stairXPerFloor?: StairXPerFloor,
 ): THREE.Vector3 {
   if (path.length === 0) {
     return new THREE.Vector3(0, 0, 0)

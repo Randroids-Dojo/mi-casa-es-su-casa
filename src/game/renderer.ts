@@ -7,7 +7,7 @@ import type { CharacterState as SchemaCharacterState } from '@/lib/characterSche
 import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
 import { buildRooms } from './rooms'
-import { generateLayout, layoutFromOrder, roomOrderFromLayout, DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
+import { generateLayout, layoutFromOrder, roomOrderFromLayout, stairXPerFloorFromLayout, DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
 import type { LayoutRoomId, HouseLayout } from '@/lib/layout'
 import { LayoutEditor } from './layoutEditor'
 
@@ -241,7 +241,7 @@ export function initGame(
   // ------------------------------------------------------------------
   const sfxEngine = new SfxEngine()
 
-  const character = new Character(characterName, scene, gameCharacterState, sfxEngine, currentRoomMap)
+  const character = new Character(characterName, scene, gameCharacterState, sfxEngine, currentRoomMap, stairXPerFloorFromLayout(currentLayout))
 
   // ------------------------------------------------------------------
   // Layout editor
@@ -286,8 +286,8 @@ export function initGame(
     scene.add(houseResult.group)
     bathroomDoor = houseResult.bathroomDoor
 
-    // Update character to use new room positions
-    character.updateRoomMap(currentRoomMap)
+    // Update character to use new room positions and staircase X
+    character.updateRoomMap(currentRoomMap, stairXPerFloorFromLayout(newLayout))
   }
 
   const layoutEditor = new LayoutEditor({

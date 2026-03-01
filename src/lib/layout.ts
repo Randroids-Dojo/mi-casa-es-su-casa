@@ -43,6 +43,10 @@ export interface WallPosition {
   x: number
 }
 
+/** Per-floor staircase center X used by the pathfinder. Floor 3 reuses floor 2's value
+ *  because floor 3 has no staircase column — the staircase exit lands there via floor 2. */
+export type StairXPerFloor = Record<1 | 2 | 3, number>
+
 export interface HouseLayout {
   slots: RoomSlot[]
   walls: WallPosition[]
@@ -285,6 +289,18 @@ export function generateLayout(characterName: string): HouseLayout {
   }
 
   return layoutFromOrder(rooms, DEFAULT_STAIRCASE_INDEX)
+}
+
+/**
+ * Derives per-floor staircase center X from a layout.
+ * Floor 3 has no staircase column so it reuses floor 2's center X.
+ */
+export function stairXPerFloorFromLayout(layout: HouseLayout): StairXPerFloor {
+  return {
+    1: layout.stairBounds[1].centerX,
+    2: layout.stairBounds[2].centerX,
+    3: layout.stairBounds[2].centerX,
+  }
 }
 
 /**

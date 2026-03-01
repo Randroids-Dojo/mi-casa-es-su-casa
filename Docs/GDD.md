@@ -1,7 +1,7 @@
 # Game Design Document: Mi Casa Es Su Casa
 
-**Version**: 0.1 (Pre-Production)
-**Last Updated**: 2026-02-24
+**Version**: 0.2
+**Last Updated**: 2026-02-28
 
 ---
 
@@ -138,39 +138,46 @@ Fixed orthographic-ish perspective. The house is centered. No pan/zoom in MVP. T
 
 ### Overview
 
-The house is **3 floors tall**, shown in cross-section (front wall removed). Each floor has a distinct set of rooms. The layout is fixed — all characters live in the same house structure.
+The house is **3 floors tall**, shown in cross-section (front wall removed). Each floor has **3 rooms**. The layout is **unique per character** — room order and staircase position are deterministically generated from the character's name, then optionally customised by the resident via a drag-and-drop layout editor.
 
-### Floor 1 — Ground Floor
+### Rooms (9 total, distributed 3 per floor)
 
-| Room         | Description                                              |
-|--------------|----------------------------------------------------------|
-| Living Room  | Sofa, TV, bookshelf. Character relaxes, watches TV, reads. |
-| Kitchen      | Counter, stove, fridge, table. Character cooks, eats.    |
-| Entrance Hall | Front door, coat rack. Character enters/exits occasionally. |
+| Room          | Description                                                             |
+|---------------|-------------------------------------------------------------------------|
+| Entrance Hall | Front door, coat rack. Character enters/exits occasionally.             |
+| Living Room   | Sofa, TV, bookshelf. Character relaxes, watches TV, reads.              |
+| Kitchen       | Counter, stove, fridge, table. Character cooks, eats.                   |
+| Bedroom       | Bed, nightstand, wardrobe. Character sleeps, dresses.                   |
+| Study         | Desk, computer, shelves. Character works, reads, types.                 |
+| Bathroom      | Bathtub/shower, sink, toilet. Character bathes, grooms.                 |
+| Hobby Room    | Easel, instruments, workbench (varies by seed). Character pursues hobbies. |
+| Storage       | Boxes, old furniture. Character occasionally rummages.                  |
+| Landing       | Staircase exit on floor 3. Character reads, idles here.                 |
 
-### Floor 2 — Middle Floor
+### Layout Generation
 
-| Room         | Description                                              |
-|--------------|----------------------------------------------------------|
-| Bedroom      | Bed, nightstand, wardrobe. Character sleeps, dresses.    |
-| Study / Office | Desk, computer, shelves. Character works, reads, types. |
-| Bathroom     | Bathtub/shower, sink, toilet. Character bathes, grooms.  |
+- Room order across all 3 floors is **seeded from the character's name** (deterministic Fisher-Yates shuffle).
+- Entrance is always pinned to the leftmost slot on its floor (rightmost on screen, near the door).
+- Room widths are computed proportionally from preferred sizes within the available floor space.
+- The layout can be **customised** via a drag-and-drop editor: rooms can be swapped and internal walls repositioned.
 
-### Floor 3 — Top Floor / Attic
+### Staircase
 
-| Room         | Description                                              |
-|--------------|----------------------------------------------------------|
-| Hobby Room   | Easel, instruments, workbench (varies by character seed). Character pursues hobbies. |
-| Storage      | Boxes, old furniture. Character occasionally rummages.   |
+- Floors 1 & 2 each have a **staircase column** (5 voxels wide) that can be repositioned horizontally via drag.
+- Floor 3 has no staircase column; the **Landing** room serves as the staircase exit on that floor.
+- The staircase X position is **independent per floor** — floors 1 and 2 can each have their staircase in a different location.
+- Pathfinding uses the per-floor staircase center X so the character always walks to the actual staircase geometry, regardless of its position.
 
 ### Movement Between Floors
 
-A **staircase** connects all floors on one side of the house. The character navigates up/down stairs as part of normal movement. Stairs are visible in the cross-section view.
+The character navigates to the staircase entry point on the current floor, climbs or descends to the target floor, then walks horizontally to the destination room. All three segments (approach, climb, exit) use the layout's actual staircase center X per floor.
 
 ### Room Dimensions (Voxel Grid)
 
-- Each floor: approx. 16 voxels wide × 5 voxels tall × 8 voxels deep
-- Walls: 1 voxel thick
+- House width: 32 voxels (x: 1–32)
+- Each floor: 8 voxels tall, 8 voxels deep
+- Floors 1 & 2 room space: 26 voxels (remaining 5 reserved for staircase column)
+- Floor 3 room space: 31 voxels (full width, no staircase column)
 - Character height: ~3 voxels
 
 ---
@@ -400,23 +407,19 @@ Inspired by the original *Little Computer People* indirect interaction model:
 
 These interactions would be throttled (once per real-time period) to prevent abuse.
 
-### 11.2 Generated House Variants
-
-Currently all characters share the same house layout. Future: house layout (number of rooms, furniture style, wallpaper/flooring) is seeded from the character name, giving each character a unique home.
-
-### 11.3 Synced State / Presence
+### 11.2 Synced State / Presence
 
 Real-time sync so multiple visitors see the same character behavior simultaneously. See Section 9.3.
 
-### 11.4 Character Relationships
+### 11.3 Character Relationships
 
 Characters could "know about" other characters via interactions. A character who has received gifts from another might reference them in thought bubbles. Cross-character state is complex and deferred.
 
-### 11.5 Mobile Support
+### 11.4 Mobile Support
 
 MVP is desktop-first. Mobile layout requires rethinking the dollhouse viewport for portrait screens.
 
-### 11.6 Accessibility
+### 11.5 Accessibility
 
 - Keyboard navigation for name entry
 - Screen reader descriptions of character activity

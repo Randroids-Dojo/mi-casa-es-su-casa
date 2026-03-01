@@ -44,6 +44,7 @@ import {
 import type { AnimationState } from './animations'
 import type { RoomId, ActivityType, Room } from '../rooms'
 import { ROOM_MAP } from '../rooms'
+import type { StairXPerFloor } from '@/lib/layout'
 import { pickPhrase, selectPhraseCategory } from './phrases'
 import type { SfxEngine } from '../sfx/engine'
 import {
@@ -108,6 +109,7 @@ export class Character {
   private readonly mesh: CharacterMesh
   private readonly fsm: CharacterStateMachine
   private roomMap: Readonly<Record<RoomId, Room>>
+  private stairXPerFloor: StairXPerFloor
   private needs: Needs
   private clock: GameClock
   private currentRoom: RoomId
@@ -139,10 +141,12 @@ export class Character {
     initialState?: CharacterState,
     sfx?: SfxEngine,
     roomMap?: Readonly<Record<RoomId, Room>>,
+    stairXPerFloor?: StairXPerFloor,
   ) {
     this.name = name
     this.scene = scene
     this.roomMap = roomMap ?? ROOM_MAP
+    this.stairXPerFloor = stairXPerFloor ?? { 1: 29.5, 2: 29.5, 3: 29.5 }
 
     // Build appearance from name seed
     const appearance = seedFromName(name)
@@ -315,6 +319,7 @@ export class Character {
       movingState.pathIndex,
       movingState.legProgress,
       this.roomMap,
+      this.stairXPerFloor,
     )
     this.mesh.group.position.copy(pos)
 
@@ -650,11 +655,16 @@ export class Character {
   }
 
   /**
-   * Replaces the room map after a layout swap. If the character's current room
-   * moved, instantly repositions the mesh to the new room center.
+   * Replaces the room map and staircase X positions after a layout swap.
+   * If the character's current room moved, instantly repositions the mesh
+   * to the new room center.
    */
-  updateRoomMap(newRoomMap: Readonly<Record<RoomId, Room>>): void {
+  updateRoomMap(
+    newRoomMap: Readonly<Record<RoomId, Room>>,
+    newStairXPerFloor: StairXPerFloor,
+  ): void {
     this.roomMap = newRoomMap
+    this.stairXPerFloor = newStairXPerFloor
 
     // If mid-movement, cancel and snap to current room center
     const state = this.fsm.state
