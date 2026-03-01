@@ -78,10 +78,11 @@ The Playwright config (`playwright.config.ts`) uses `--use-angle=swiftshader` fo
 
 The app version must be kept in sync in two places:
 
-- `package.json` — the `"version"` field (e.g. `"0.3.0"`)
-- `src/components/BootScreen.tsx` — the `BOOT_LINES` array, first element (e.g. `'MI CASA ES SU CASA v0.3'`)
+- `package.json` — the `"version"` field (e.g. `"0.4.19"`)
+- `src/components/BootScreen.tsx` — the `BOOT_LINES` array, first element (e.g. `'MI CASA ES SU CASA v0.4.19'`)
 
-When bumping the version, update both. The boot screen uses a short `vX.Y` format; `package.json` uses semver `X.Y.Z`.
+**Always bump the patch version** (the last number) with every code change.
+Update both files together. The boot screen uses the same `vX.Y.Z` format as `package.json`.
 
 ## Persistence Version Guard
 
