@@ -416,16 +416,20 @@ function makeBookshelfVoxels(
   const numRows = 4
   const rowH = (height - (numRows + 1) * boardH) / numRows
 
-  // Side panels (full height)
+  // Back panel — innerW so it sits between side panels with no x-overlap.
+  // Front face at z=7.70, behind books (back face z=7.14). Visible above shorter books.
+  specs.push({ position: { x, y: yBase + height / 2, z: zShelf + shelfDepth / 2 - 0.1 }, color: wood, size: { x: innerW, y: height, z: 0.2 } })
+
+  // Side panels — full height, at x edges. z=7.10–7.90.
   specs.push(
     { position: { x: x - width / 2 + sideW / 2, y: yBase + height / 2, z: zShelf }, color: wood, size: { x: sideW, y: height, z: shelfDepth } },
     { position: { x: x + width / 2 - sideW / 2, y: yBase + height / 2, z: zShelf }, color: wood, size: { x: sideW, y: height, z: shelfDepth } },
   )
 
-  // Shelf boards: bottom + (numRows-1) internal + top
+  // Shelf boards — innerW so they sit between side panels with no x-overlap. z=7.10–7.90.
   for (let i = 0; i <= numRows; i++) {
     const boardY = yBase + boardH / 2 + i * (rowH + boardH)
-    specs.push({ position: { x, y: boardY, z: zShelf }, color: wood, size: { x: width, y: boardH, z: shelfDepth } })
+    specs.push({ position: { x, y: boardY, z: zShelf }, color: wood, size: { x: innerW, y: boardH, z: shelfDepth } })
   }
 
   // Books — deterministic, offset per row for variety
