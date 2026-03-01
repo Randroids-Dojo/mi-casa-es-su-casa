@@ -519,17 +519,25 @@ function buildHobbyRoomFurniture(
     // Piano black keys
     { position: { x: xMin + 2.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
     { position: { x: xMin + 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
-    // Piano bench
-    { position: { x: xMin + 3, y: ft + 0.5, z: 5.5 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
-    // Record player / stereo on cabinet — centered
-    { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
-    { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+    // Piano bench (z=6.2 keeps front face at 5.7, clear of couch back face at 5.45 in narrow rooms)
+    { position: { x: xMin + 3, y: ft + 0.5, z: 6.2 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
     // Couch — centered
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 4, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
     // Rug
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: Math.min(6, w - 2), y: 0.1, z: 4 } },
   ]
+
+  // Record player / stereo on cabinet — placed to the right of the piano to avoid
+  // coplanar faces (both at z=7.5) that cause z-fighting in narrow rooms.
+  const pianoRightEdge = xMin + 5 // piano center xMin+3 + half-width 2
+  const cabinetX = Math.max(cx, pianoRightEdge + 1.6)
+  if (cabinetX + 1.5 <= xMax - 0.5) {
+    specs.push(
+      { position: { x: cabinetX, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
+      { position: { x: cabinetX, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+    )
+  }
 
   // Speakers (only if wide enough)
   if (w >= 10) {
