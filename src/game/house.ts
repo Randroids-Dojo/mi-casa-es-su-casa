@@ -387,6 +387,79 @@ function buildBathroomFurniture(
   ])
 }
 
+/**
+ * Returns VoxelSpec[] for a fully stocked bookshelf unit.
+ * Produces side panels, evenly-spaced shelf boards, and densely packed
+ * colorful books on every row.
+ *   x       — center x
+ *   yBase   — bottom y (floor level)
+ *   width   — total x width of the unit
+ *   height  — total height of the unit
+ *   zShelf  — z center of the shelf body (depth 0.8)
+ *   zBooks  — z center of the book spines (depth 0.28)
+ */
+function makeBookshelfVoxels(
+  x: number,
+  yBase: number,
+  width: number,
+  height: number,
+  zShelf: number,
+  zBooks: number,
+): VoxelSpec[] {
+  const specs: VoxelSpec[] = []
+  const wood = PALETTE.BOOKSHELF
+  const sideW = 0.2
+  const boardH = 0.15
+  const shelfDepth = 0.8
+  const bookDepth = 0.28
+  const innerW = width - sideW * 2
+  const numRows = 4
+  const rowH = (height - (numRows + 1) * boardH) / numRows
+
+  // Side panels (full height)
+  specs.push(
+    { position: { x: x - width / 2 + sideW / 2, y: yBase + height / 2, z: zShelf }, color: wood, size: { x: sideW, y: height, z: shelfDepth } },
+    { position: { x: x + width / 2 - sideW / 2, y: yBase + height / 2, z: zShelf }, color: wood, size: { x: sideW, y: height, z: shelfDepth } },
+  )
+
+  // Shelf boards: bottom + (numRows-1) internal + top
+  for (let i = 0; i <= numRows; i++) {
+    const boardY = yBase + boardH / 2 + i * (rowH + boardH)
+    specs.push({ position: { x, y: boardY, z: zShelf }, color: wood, size: { x: width, y: boardH, z: shelfDepth } })
+  }
+
+  // Books — deterministic, offset per row for variety
+  const BOOK_COLORS = [
+    0x8b1a1a, 0x1a3a7a, 0x1a5a20, 0x7a5010, 0x5a1a7a,
+    0x8b3a10, 0x1a5a5a, 0x7a6010, 0x8b1a50, 0x2a4a20,
+    0xa02020, 0x203070, 0x305030, 0x906020, 0x602090,
+    0x4a1a0a, 0x0a2a5a, 0x2a6a10, 0x5a3a0a, 0x3a0a5a,
+  ]
+  const BOOK_WIDTHS = [0.36, 0.30, 0.42, 0.28, 0.38, 0.44, 0.30, 0.34, 0.40, 0.28, 0.38, 0.32]
+  const BOOK_H_FACTORS = [0.92, 0.82, 0.95, 0.76, 0.88, 0.93, 0.75, 0.90, 0.85, 0.79, 0.94, 0.77]
+
+  for (let row = 0; row < numRows; row++) {
+    const rowBottom = yBase + boardH + row * (rowH + boardH)
+    const bookMaxH = rowH * 0.90
+    let xCursor = x - innerW / 2
+    let idx = row * 5
+    while (xCursor < x + innerW / 2 - 0.1) {
+      const bw = Math.min(BOOK_WIDTHS[idx % BOOK_WIDTHS.length], x + innerW / 2 - xCursor)
+      if (bw < 0.18) break
+      const bh = bookMaxH * BOOK_H_FACTORS[idx % BOOK_H_FACTORS.length]
+      specs.push({
+        position: { x: xCursor + bw / 2, y: rowBottom + bh / 2, z: zBooks },
+        color: BOOK_COLORS[idx % BOOK_COLORS.length],
+        size: { x: bw - 0.02, y: bh, z: bookDepth },
+      })
+      xCursor += bw
+      idx++
+    }
+  }
+
+  return specs
+}
+
 function buildStudyFurniture(
   group: THREE.Group,
   xMin: number,
@@ -410,11 +483,7 @@ function buildStudyFurniture(
     { position: { x: cx, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
     // Left bookshelf
-    { position: { x: xMin + 1, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-    // Book spines (left; z=7.0 keeps front face at 6.85, clear of shelf front at 7.1)
-    { position: { x: xMin + 0.5, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1.5, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    ...makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.5, 7.0),
     // Desk lamp (shade at ft+2.3 clears pole top face at ft+2)
     { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
     { position: { x: cx + 1.5, y: ft + 2.3, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
@@ -422,11 +491,7 @@ function buildStudyFurniture(
 
   // Right bookshelf (only if wide enough)
   if (w >= 7) {
-    specs.push(
-      { position: { x: xMax - 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 5, z: 0.8 } },
-      { position: { x: xMax - 2, y: ft + 1, z: 7.0 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMax - 1, y: ft + 2.5, z: 7.0 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    )
+    specs.push(...makeBookshelfVoxels(xMax - 1.5, ft, 2, 5, 7.5, 7.0))
   }
 
   addVoxels(group, specs)
@@ -493,10 +558,7 @@ function buildStorageFurniture(
 
   const specs: VoxelSpec[] = [
     // Center bookshelf — back wall
-    { position: { x: cx, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-    // Book accents (center; z=7.0 keeps front face at 6.85, clear of shelf front at 7.1)
-    { position: { x: cx - 0.5, y: ft + 1.5, z: 7.0 }, color: 0x8b6a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: cx + 0.5, y: ft + 3, z: 7.0 }, color: 0x6a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    ...makeBookshelfVoxels(cx, ft, 3, 5, 7.5, 7.0),
     // Reading armchair — left-center
     { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
     { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
@@ -510,20 +572,12 @@ function buildStorageFurniture(
 
   // Left bookshelf (if wide enough for 2+)
   if (w >= 8) {
-    specs.push(
-      { position: { x: xMin + 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMin + 1.5, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMin + 2.5, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-      { position: { x: xMin + 3, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    )
+    specs.push(...makeBookshelfVoxels(xMin + 2, ft, 3, 5, 7.5, 7.0))
   }
 
   // Right bookshelf (if wide enough for 3)
   if (w >= 10) {
-    specs.push(
-      { position: { x: xMax - 2, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMax - 2.5, y: ft + 2, z: 7.0 }, color: 0x8b8b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    )
+    specs.push(...makeBookshelfVoxels(xMax - 2, ft, 3, 5, 7.5, 7.0))
   }
 
   // Writing desk (right side, if wide enough)
@@ -549,11 +603,7 @@ function buildLandingFurniture(
 
   const specs: VoxelSpec[] = [
     // Tall bookshelf against back wall
-    { position: { x: cx, y: ft + 2.5, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: Math.min(w - 1, 3), y: 5, z: 0.8 } },
-    // Book spines
-    { position: { x: cx - 0.8, y: ft + 1, z: 7.0 }, color: 0x8b3a3a, size: { x: 0.4, y: 1, z: 0.3 } },
-    { position: { x: cx, y: ft + 2, z: 7.0 }, color: 0x3a5a8b, size: { x: 0.4, y: 1, z: 0.3 } },
-    { position: { x: cx + 0.8, y: ft + 3.5, z: 7.0 }, color: 0x3a8b3a, size: { x: 0.4, y: 1, z: 0.3 } },
+    ...makeBookshelfVoxels(cx, ft, Math.min(w - 1, 3), 5, 7.5, 7.0),
     // Small armchair
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
