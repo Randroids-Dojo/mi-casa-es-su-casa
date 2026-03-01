@@ -209,32 +209,37 @@ describe('climbStaircasePosition', () => {
     }
   })
 
-  test('X stays at the current flight stairX — does not drift toward next floor stairX', () => {
-    // Floors 1 and 2 have staircases at completely different X positions
+  test('X stays at flight stairX during climb segments, walks smoothly during landing segments', () => {
+    // Floors 1 and 2 have staircases at different X positions
     const customStairX = { 1: 10, 2: 25, 3: 25 }
 
-    // Floor 1→2: entire climb should stay at floor 1's stairX (10), not drift toward 25
+    // Single flight 1→2: entire climb stays at stairX[1]=10
     for (const p of progressSteps) {
       const pos = climbStaircasePosition(1, 2, p, customStairX)
-      approxEqual(pos.x, 10, `climb 1→2 p=${p.toFixed(2)} x should stay at 10`)
+      approxEqual(pos.x, 10, `single climb 1→2 p=${p.toFixed(2)} x should stay at 10`)
     }
 
-    // Floor 2→1: entire climb should stay at floor 2's stairX (25)
+    // Single flight 2→1: entire climb stays at stairX[2]=25
     for (const p of progressSteps) {
       const pos = climbStaircasePosition(2, 1, p, customStairX)
-      approxEqual(pos.x, 25, `climb 2→1 p=${p.toFixed(2)} x should stay at 25`)
+      approxEqual(pos.x, 25, `single climb 2→1 p=${p.toFixed(2)} x should stay at 25`)
     }
 
-    // Floor 1→3: flight 0 (1→2) uses stairX[1]=10, flight 1 (2→3) uses stairX[2]=25
-    const firstFlight = progressSteps.filter(p => p < 0.5)
-    const secondFlight = progressSteps.filter(p => p > 0.5)
-    for (const p of firstFlight) {
+    // Multi-flight 1→3: segments are climb(1→2), land, climb(2→3) each 1/3 of progress
+    // Climb segments hold their stairX; landing segment smoothly transitions
+    const PHASE = 1 / 3
+    for (const p of progressSteps) {
       const pos = climbStaircasePosition(1, 3, p, customStairX)
-      approxEqual(pos.x, 10, `climb 1→3 p=${p.toFixed(2)} first flight x should be 10`)
-    }
-    for (const p of secondFlight) {
-      const pos = climbStaircasePosition(1, 3, p, customStairX)
-      approxEqual(pos.x, 25, `climb 1→3 p=${p.toFixed(2)} second flight x should be 25`)
+      if (p <= PHASE) {
+        // First climb segment: stays at stairX[1]=10
+        approxEqual(pos.x, 10, `multi climb 1→3 p=${p.toFixed(2)} first climb x should be 10`)
+      } else if (p >= PHASE * 2) {
+        // Second climb segment: stays at stairX[2]=25
+        approxEqual(pos.x, 25, `multi climb 1→3 p=${p.toFixed(2)} second climb x should be 25`)
+      } else {
+        // Landing segment: X is between 10 and 25 (no snap, strictly transitioning)
+        assert.ok(pos.x >= 10 && pos.x <= 25, `multi climb 1→3 p=${p.toFixed(2)} landing x should be between 10 and 25 (got ${pos.x})`)
+      }
     }
   })
 })
@@ -268,6 +273,37 @@ describe('full-path position continuity', () => {
           thisStart.z,
           `${from}→${to} [${path.join(',')}] Z at boundary leg ${legIndex - 1}→${legIndex}`,
         )
+      }
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Full-path: no snap when staircases are at different X positions per floor
+// ---------------------------------------------------------------------------
+
+describe('full-path staircase independence', () => {
+  test('X is continuous at phase boundaries when per-floor stairX values differ', () => {
+    // Simulate a layout where floor 1 staircase is far left, floor 2 is far right.
+    // A snap (teleport) would show a large X change for a tiny progress delta.
+    // A smooth transition shows a very small X change for dt=0.002.
+    const customStairX = { 1: 10, 2: 25, 3: 25 }
+    const DT = 0.002
+    const MAX_SNAP = 0.5 // smooth function changes at most ~0.5 units per 0.002 progress
+
+    for (const [from, to] of crossFloorPairs) {
+      const path = findPath(from, to)
+
+      for (let legIndex = 1; legIndex < path.length; legIndex++) {
+        for (const t of [1 / 3, 2 / 3]) {
+          const before = getPositionAlongPath(path, legIndex, t - DT, ROOM_MAP, customStairX)
+          const after = getPositionAlongPath(path, legIndex, t + DT, ROOM_MAP, customStairX)
+          const dx = Math.abs(after.x - before.x)
+          assert.ok(
+            dx < MAX_SNAP,
+            `${from}→${to} leg ${legIndex} phase boundary t=${t.toFixed(2)}: X snapped by ${dx.toFixed(2)} (${before.x.toFixed(2)} → ${after.x.toFixed(2)})`,
+          )
+        }
       }
     }
   })
