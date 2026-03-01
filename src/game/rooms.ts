@@ -219,11 +219,11 @@ export function buildRooms(layout: HouseLayout): {
     }
   }
 
-  // Add staircase (always fixed position)
+  // Add staircase — center uses floor 1's staircaseX
   rooms.push({
     id: 'staircase',
     floor: 1,
-    center: new THREE.Vector3(29.5, floorCenterY(1), 4),
+    center: new THREE.Vector3(layout.staircaseX[1] + 2.5, floorCenterY(1), 4),
     activities: ['idle'],
     adjacentRooms: layout.slots.map((s) => s.roomId as RoomId),
   })

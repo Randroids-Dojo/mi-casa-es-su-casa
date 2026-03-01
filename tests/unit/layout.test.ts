@@ -201,15 +201,19 @@ describe('layout validity', () => {
 // ---------------------------------------------------------------------------
 
 describe('default layout', () => {
-  test('matches original hardcoded positions', () => {
+  test('entrance is rightmost on floor 1', () => {
     const layout = getDefaultLayout()
 
-    assert.strictEqual(layout.slotMap.entrance.xMin, 1)
-    assert.strictEqual(layout.slotMap.entrance.xMax, 4)
-    assert.strictEqual(layout.slotMap.living_room.xMin, 4)
-    assert.strictEqual(layout.slotMap.living_room.xMax, 16)
-    assert.strictEqual(layout.slotMap.kitchen.xMin, 16)
-    assert.strictEqual(layout.slotMap.kitchen.xMax, 27)
+    // Floor 1: living_room | kitchen | entrance (rightmost)
+    assert.strictEqual(layout.slotMap.living_room.xMin, 1)
+    assert.strictEqual(layout.slotMap.living_room.xMax, 13)
+    assert.strictEqual(layout.slotMap.kitchen.xMin, 13)
+    assert.strictEqual(layout.slotMap.kitchen.xMax, 24)
+    assert.strictEqual(layout.slotMap.entrance.xMin, 24)
+    assert.strictEqual(layout.slotMap.entrance.xMax, 27)
+    // Entrance is rightmost (xMax = staircaseX[1])
+    assert.strictEqual(layout.slotMap.entrance.xMax, layout.staircaseX[1])
+    // Other floors unchanged
     assert.strictEqual(layout.slotMap.bedroom.xMin, 1)
     assert.strictEqual(layout.slotMap.bedroom.xMax, 14)
     assert.strictEqual(layout.slotMap.bathroom.xMin, 14)
@@ -220,6 +224,11 @@ describe('default layout', () => {
     assert.strictEqual(layout.slotMap.hobby_room.xMax, 16)
     assert.strictEqual(layout.slotMap.storage.xMin, 16)
     assert.strictEqual(layout.slotMap.storage.xMax, 27)
+  })
+
+  test('staircaseX defaults to {1:27, 2:27, 3:27}', () => {
+    const layout = getDefaultLayout()
+    assert.deepStrictEqual(layout.staircaseX, { 1: 27, 2: 27, 3: 27 })
   })
 })
 
@@ -232,9 +241,10 @@ describe('buildLayoutRoomData', () => {
     const layout = getDefaultLayout()
     const data = buildLayoutRoomData(layout)
 
-    assert.strictEqual(data.centers.entrance.x, 2.5)
-    assert.strictEqual(data.centers.living_room.x, 10)
-    assert.strictEqual(data.centers.kitchen.x, 21.5)
+    // New default: living_room(1–13), kitchen(13–24), entrance(24–27) rightmost
+    assert.strictEqual(data.centers.living_room.x, 7)
+    assert.strictEqual(data.centers.kitchen.x, 18.5)
+    assert.strictEqual(data.centers.entrance.x, 25.5)
   })
 
   test('staircase center is always at x=29.5', () => {

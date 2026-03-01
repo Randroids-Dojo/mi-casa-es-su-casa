@@ -67,8 +67,8 @@ export function buildLayoutRoomData(layout: HouseLayout): LayoutRoomData {
       z: 4,
     }
   }
-  // Staircase center (fixed)
-  centers['staircase'] = { x: 29.5, y: floorY(1), z: 4 }
+  // Staircase center — uses floor 1's staircaseX
+  centers['staircase'] = { x: layout.staircaseX[1] + 2.5, y: floorY(1), z: 4 }
 
   // Activities are intrinsic to room type
   const activities: Record<string, readonly string[]> = {

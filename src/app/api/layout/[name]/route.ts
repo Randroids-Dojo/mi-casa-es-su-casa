@@ -73,6 +73,16 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
     )
   }
 
+  // Validate entrance is the rightmost room on its floor
+  // (indices 0–2 = floor 1, 3–5 = floor 2, 6–7 = floor 3; rightmost = last index)
+  const floorLastIndices = [2, 5, 7]
+  if (!floorLastIndices.some((i) => roomOrder[i] === 'entrance')) {
+    return NextResponse.json(
+      { error: 'entrance must be the rightmost room on its floor' },
+      { status: 400 },
+    )
+  }
+
   try {
     const result = await saveCustomLayout(
       name,

@@ -136,6 +136,7 @@ function buildInteriorWalls(
   group: THREE.Group,
   floor: 1 | 2 | 3,
   wallXPositions: number[],
+  stairXStart: number,
 ): void {
   const baseY = floorY(floor)
   const hd = HOUSE_DEPTH
@@ -145,10 +146,10 @@ function buildInteriorWalls(
   const wallZCenter = (hd - 1) / 2  // 3.5
   const wallZSize = hd - 1           // 7
 
-  // Staircase divider wall (shared by all floors, always at x=27)
+  // Staircase divider wall for this floor
   group.add(
     makeVoxel(
-      { x: STAIR_X_START + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
+      { x: stairXStart + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
       PALETTE.WALL_INTERIOR,
       { x: wt, y: wallH, z: wallZSize },
       true,
@@ -536,22 +537,24 @@ function buildStorageFurniture(
 }
 
 // ---------------------------------------------------------------------------
-// Staircase builder (always fixed position)
+// Staircase builder — per-floor independent positioning
 // ---------------------------------------------------------------------------
 
-function buildStaircase(group: THREE.Group): void {
-  // Staircase corridor: x = STAIR_X_START..HOUSE_WIDTH (27..32), 5 wide.
-  // Steps are 3 wide, centered in the corridor.
+function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2 | 3, number>): void {
+  // Each floor's staircase corridor starts at staircaseX[floor].
+  // The corridor is 5 wide; steps are 3 wide, centered in the corridor.
   // 8 steps per floor (one step per voxel of FLOOR_HEIGHT).
   // Steps rise in Y and advance in Z (front→back).
 
   const stairSteps = FLOOR_HEIGHT
-  const stepCenterX = STAIR_X_START + 2.5  // = 29.5
   const stepWidth = 3
   const startZ = 0.5
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
-    const baseY = floorY(f as 1 | 2 | 3)
+    const floor = f as 1 | 2 | 3
+    const stairXStart = staircaseX[floor]
+    const stepCenterX = stairXStart + 2.5
+    const baseY = floorY(floor)
 
     for (let step = 0; step < stairSteps; step++) {
       const stepTopY = baseY + 1 + (step + 1)
@@ -593,11 +596,17 @@ export function getRooms(layout?: HouseLayout): Room[] {
         max: { x: slot.xMax, y: floorY(slot.floor) + FLOOR_HEIGHT, z: HOUSE_DEPTH - 1 },
       },
     }))
+    // Staircase bounds: cover from the leftmost staircaseX across all floors
+    const minStairX = Math.min(
+      layout.staircaseX[1],
+      layout.staircaseX[2],
+      layout.staircaseX[3],
+    )
     rooms.push({
       id: 'staircase',
       floor: 1,
       bounds: {
-        min: { x: STAIR_X_START, y: 0, z: 1 },
+        min: { x: minStairX, y: 0, z: 1 },
         max: { x: HOUSE_WIDTH - 1, y: FLOOR_HEIGHT * FLOOR_COUNT, z: HOUSE_DEPTH - 1 },
       },
     })
@@ -786,12 +795,12 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     buildFloorShell(house, floor)
   }
 
-  // Interior walls from layout
+  // Interior walls from layout (per-floor staircase divider)
   for (const floor of [1, 2, 3] as const) {
     const floorWalls = layout.walls
       .filter((w) => w.floor === floor)
       .map((w) => w.x)
-    buildInteriorWalls(house, floor, floorWalls)
+    buildInteriorWalls(house, floor, floorWalls, layout.staircaseX[floor])
   }
 
   // Build furniture for each room slot
@@ -800,8 +809,8 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     builder(house, slot.xMin, slot.xMax, slot.floor)
   }
 
-  // Staircase (always fixed)
-  buildStaircase(house)
+  // Staircase (per-floor independent positioning)
+  buildStaircase(house, layout.staircaseX)
 
   // Bathroom door — positioned from layout
   const bathroomSlot = layout.slotMap.bathroom

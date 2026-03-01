@@ -47,6 +47,8 @@ export interface HouseLayout {
   walls: WallPosition[]
   /** O(1) lookup by roomId */
   slotMap: Readonly<Record<LayoutRoomId, RoomSlot>>
+  /** Left edge x-coordinate of the staircase column per floor */
+  staircaseX: Record<1 | 2 | 3, number>
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +60,7 @@ interface RoomSizePrefs {
   preferred: number
 }
 
-const ROOM_SIZES: Readonly<Record<LayoutRoomId, RoomSizePrefs>> = {
+export const ROOM_SIZES: Readonly<Record<LayoutRoomId, RoomSizePrefs>> = {
   entrance: { min: 3, preferred: 4 },
   living_room: { min: 6, preferred: 12 },
   kitchen: { min: 6, preferred: 11 },
@@ -81,8 +83,8 @@ export const ALL_ROOMS: readonly LayoutRoomId[] = [
   'storage',
 ]
 
-/** Total room space per floor (x=1 to x=27, excluding exterior walls and staircase) */
-const FLOOR_ROOM_WIDTH = 26
+/** Default staircase x position (left edge) per floor */
+const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3: 27 }
 
 // ---------------------------------------------------------------------------
 // Layout generation
@@ -91,9 +93,13 @@ const FLOOR_ROOM_WIDTH = 26
 /**
  * Builds a HouseLayout from a specific room ordering (8 rooms: 3+3+2 floor
  * distribution). The first 3 go to floor 1, next 3 to floor 2, last 2 to
- * floor 3. Room widths are computed proportionally from preferred sizes.
+ * floor 3. Room widths are computed proportionally from preferred sizes,
+ * scaled to fit the available width on each floor (staircaseX[floor] - 1).
  */
-export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
+export function layoutFromOrder(
+  rooms: LayoutRoomId[],
+  staircaseX: Record<1 | 2 | 3, number> = DEFAULT_STAIRCASE_X,
+): HouseLayout {
   // Assign to floors: first 3 → floor 1, next 3 → floor 2, last 2 → floor 3
   const floorAssignments: LayoutRoomId[][] = [
     rooms.slice(0, 3),
@@ -107,13 +113,15 @@ export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
   for (let f = 0; f < 3; f++) {
     const floor = (f + 1) as 1 | 2 | 3
     const floorRooms = floorAssignments[f]
+    const floorStairX = staircaseX[floor]
+    const floorRoomWidth = floorStairX - 1  // available room width for this floor
 
     // Calculate proportional widths
     const totalPreferred = floorRooms.reduce(
       (sum, r) => sum + ROOM_SIZES[r].preferred,
       0,
     )
-    const scale = FLOOR_ROOM_WIDTH / totalPreferred
+    const scale = floorRoomWidth / totalPreferred
 
     let currentX = 1 // room space starts at x=1 (after left exterior wall)
 
@@ -123,7 +131,7 @@ export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
 
       if (i === floorRooms.length - 1) {
         // Last room gets remainder to ensure exact fit
-        width = 27 - currentX
+        width = floorStairX - currentX
       } else {
         // Proportional width, respecting minimum
         width = Math.max(
@@ -136,7 +144,7 @@ export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
           (sum, r) => sum + ROOM_SIZES[r].min,
           0,
         )
-        const maxWidth = 27 - currentX - remainingMinWidth
+        const maxWidth = floorStairX - currentX - remainingMinWidth
         width = Math.min(width, maxWidth)
       }
 
@@ -164,7 +172,22 @@ export function layoutFromOrder(rooms: LayoutRoomId[]): HouseLayout {
     slots.map((s) => [s.roomId, s]),
   ) as Record<LayoutRoomId, RoomSlot>
 
-  return { slots, walls, slotMap }
+  return { slots, walls, slotMap, staircaseX }
+}
+
+/**
+ * Returns the valid [min, max] range for staircaseX on a given floor.
+ * min = sum of all rooms' minimum widths + 1 (leftmost start)
+ * max = 27 (HOUSE_WIDTH - staircase_width: leaves 5 voxels for the staircase)
+ */
+export function getStaircaseXBounds(
+  floor: 1 | 2 | 3,
+  layout: HouseLayout,
+): { min: number; max: number } {
+  const minStairX = layout.slots
+    .filter((s) => s.floor === floor)
+    .reduce((sum, s) => sum + ROOM_SIZES[s.roomId].min, 1)
+  return { min: minStairX, max: 27 }
 }
 
 /**
@@ -181,7 +204,14 @@ export function generateLayout(characterName: string): HouseLayout {
     ;[rooms[i], rooms[j]] = [rooms[j], rooms[i]]
   }
 
-  return layoutFromOrder(rooms)
+  // Pin entrance to rightmost slot on its floor (floor 1: idx 2, floor 2: idx 5, floor 3: idx 7)
+  const entranceIdx = rooms.indexOf('entrance')
+  const floorLastIdx = entranceIdx <= 2 ? 2 : entranceIdx <= 5 ? 5 : 7
+  if (entranceIdx !== floorLastIdx) {
+    ;[rooms[entranceIdx], rooms[floorLastIdx]] = [rooms[floorLastIdx], rooms[entranceIdx]]
+  }
+
+  return layoutFromOrder(rooms, DEFAULT_STAIRCASE_X)
 }
 
 /**
@@ -208,10 +238,11 @@ export function roomOrderFromLayout(layout: HouseLayout): LayoutRoomId[] {
  * Useful for backward compatibility and tests.
  */
 export function getDefaultLayout(): HouseLayout {
+  // Floor 1: entrance is rightmost (xMax = 27 = staircaseX[1])
   const slots: RoomSlot[] = [
-    { roomId: 'entrance', floor: 1, xMin: 1, xMax: 4, centerX: 2.5 },
-    { roomId: 'living_room', floor: 1, xMin: 4, xMax: 16, centerX: 10 },
-    { roomId: 'kitchen', floor: 1, xMin: 16, xMax: 27, centerX: 21.5 },
+    { roomId: 'living_room', floor: 1, xMin: 1, xMax: 13, centerX: 7 },
+    { roomId: 'kitchen', floor: 1, xMin: 13, xMax: 24, centerX: 18.5 },
+    { roomId: 'entrance', floor: 1, xMin: 24, xMax: 27, centerX: 25.5 },
     { roomId: 'bedroom', floor: 2, xMin: 1, xMax: 14, centerX: 7.5 },
     { roomId: 'bathroom', floor: 2, xMin: 14, xMax: 20, centerX: 17 },
     { roomId: 'study', floor: 2, xMin: 20, xMax: 27, centerX: 23.5 },
@@ -220,8 +251,8 @@ export function getDefaultLayout(): HouseLayout {
   ]
 
   const walls: WallPosition[] = [
-    { floor: 1, x: 4 },
-    { floor: 1, x: 16 },
+    { floor: 1, x: 13 },
+    { floor: 1, x: 24 },
     { floor: 2, x: 14 },
     { floor: 2, x: 20 },
     { floor: 3, x: 16 },
@@ -231,5 +262,5 @@ export function getDefaultLayout(): HouseLayout {
     slots.map((s) => [s.roomId, s]),
   ) as Record<LayoutRoomId, RoomSlot>
 
-  return { slots, walls, slotMap }
+  return { slots, walls, slotMap, staircaseX: { 1: 27, 2: 27, 3: 27 } }
 }

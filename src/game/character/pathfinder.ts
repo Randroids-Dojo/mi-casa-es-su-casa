@@ -198,9 +198,10 @@ export function approachStaircasePosition(
   fromCenter: THREE.Vector3,
   ascending: boolean,
   progress: number,
+  stairX = STAIR_X,
 ): THREE.Vector3 {
   const entryZ = ascending ? STAIR_Z_BOTTOM : STAIR_Z_TOP
-  const entry = new THREE.Vector3(STAIR_X, fromCenter.y, entryZ)
+  const entry = new THREE.Vector3(stairX, fromCenter.y, entryZ)
   return new THREE.Vector3().lerpVectors(fromCenter, entry, progress)
 }
 
@@ -217,6 +218,8 @@ export function climbStaircasePosition(
   prevFloor: 1 | 2 | 3,
   toFloor: 1 | 2 | 3,
   progress: number,
+  fromStairX = STAIR_X,
+  toStairX = STAIR_X,
 ): THREE.Vector3 {
   const ascending = toFloor > prevFloor
   const numFlights = Math.abs(toFloor - prevFloor)
@@ -232,7 +235,7 @@ export function climbStaircasePosition(
     : [STAIR_Z_TOP, STAIR_Z_BOTTOM]
 
   return new THREE.Vector3(
-    STAIR_X,
+    THREE.MathUtils.lerp(fromStairX, toStairX, progress),
     THREE.MathUtils.lerp(
       getFloorCenterY(flightFromFloor),
       getFloorCenterY(flightToFloor),
@@ -251,9 +254,10 @@ export function exitStaircasePosition(
   destCenter: THREE.Vector3,
   ascending: boolean,
   progress: number,
+  stairX = STAIR_X,
 ): THREE.Vector3 {
   const exitZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
-  const exit = new THREE.Vector3(STAIR_X, destCenter.y, exitZ)
+  const exit = new THREE.Vector3(stairX, destCenter.y, exitZ)
   return new THREE.Vector3().lerpVectors(exit, destCenter, progress)
 }
 
@@ -275,6 +279,7 @@ export function getPositionAlongPath(
   legIndex: number,
   legProgress: number,
   roomMap: Readonly<Record<RoomId, Room>> = ROOM_MAP,
+  stairXPerFloor?: Partial<Record<1 | 2 | 3, number>>,
 ): THREE.Vector3 {
   if (path.length === 0) {
     return new THREE.Vector3(0, 0, 0)
@@ -291,13 +296,17 @@ export function getPositionAlongPath(
   const fromRoomId = path[fromIdx]
   const toRoomId = path[toIdx]
 
+  function stairX(floor: 1 | 2 | 3): number {
+    return stairXPerFloor?.[floor] ?? STAIR_X
+  }
+
   // ---- Leg toward the staircase ----
   if (toRoomId === 'staircase') {
     const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
     const fromFloor = roomMap[fromRoomId].floor
     const nextFloor = nextRoomId ? roomMap[nextRoomId].floor : fromFloor
     const ascending = nextFloor > fromFloor
-    return approachStaircasePosition(roomMap[fromRoomId].center, ascending, legProgress)
+    return approachStaircasePosition(roomMap[fromRoomId].center, ascending, legProgress, stairX(fromFloor))
   }
 
   // ---- Leg away from the staircase ----
@@ -310,11 +319,11 @@ export function getPositionAlongPath(
     // Phase 2 (progress > 0.5): horizontal walk from stair exit to room center
     if (legProgress > 0.5) {
       const ascending = toFloor > prevFloor
-      return exitStaircasePosition(destCenter, ascending, (legProgress - 0.5) / 0.5)
+      return exitStaircasePosition(destCenter, ascending, (legProgress - 0.5) / 0.5, stairX(toFloor))
     }
 
     // Phase 1 (progress 0–0.5): climb / descend the staircase
-    return climbStaircasePosition(prevFloor, toFloor, legProgress / 0.5)
+    return climbStaircasePosition(prevFloor, toFloor, legProgress / 0.5, stairX(prevFloor), stairX(toFloor))
   }
 
   // ---- Normal leg between two non-staircase rooms ----
@@ -325,9 +334,16 @@ export function getPositionAlongPath(
  * Returns the world-space position of the staircase entry/exit at a given floor.
  * Used during floor transitions to position the character correctly.
  */
-export function getStaircasePosition(floor: 1 | 2 | 3): THREE.Vector3 {
-  // Staircase corridor center: x≈29.5, z≈4 (right column, x=27–32)
-  return new THREE.Vector3(29.5, getFloorCenterY(floor), 4)
+export function getStaircasePosition(floor: 1 | 2 | 3, stairX = STAIR_X): THREE.Vector3 {
+  return new THREE.Vector3(stairX, getFloorCenterY(floor), 4)
+}
+
+/**
+ * Returns the world-space X center of the staircase column for a given floor.
+ * stairXStart is the left edge of the staircase column (layout.staircaseX[floor]).
+ */
+export function getStairCenterX(floor: 1 | 2 | 3, stairXStart: number): number {
+  return stairXStart + 2.5
 }
 
 /**

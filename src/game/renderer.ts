@@ -7,7 +7,7 @@ import type { CharacterState as SchemaCharacterState } from '@/lib/characterSche
 import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
 import { buildRooms } from './rooms'
-import { generateLayout, layoutFromOrder } from '@/lib/layout'
+import { generateLayout, layoutFromOrder, roomOrderFromLayout } from '@/lib/layout'
 import type { LayoutRoomId, HouseLayout } from '@/lib/layout'
 import { LayoutEditor } from './layoutEditor'
 
@@ -272,7 +272,8 @@ export function initGame(
     canvas,
     layout: currentLayout,
     onSwap(newRoomOrder: LayoutRoomId[]) {
-      const newLayout = layoutFromOrder(newRoomOrder)
+      // Preserve current staircaseX when rooms are swapped
+      const newLayout = layoutFromOrder(newRoomOrder, currentLayout.staircaseX)
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
 
@@ -280,6 +281,13 @@ export function initGame(
       if (externalSwapCallback) {
         externalSwapCallback(newRoomOrder)
       }
+    },
+    onStaircaseMove(floor: 1 | 2 | 3, newX: number) {
+      const newStaircaseX = { ...currentLayout.staircaseX, [floor]: newX }
+      const roomOrder = roomOrderFromLayout(currentLayout)
+      const newLayout = layoutFromOrder(roomOrder, newStaircaseX)
+      rebuildHouse(newLayout)
+      layoutEditor.setLayout(newLayout)
     },
   })
 
@@ -432,7 +440,8 @@ export function initGame(
     },
     onLayoutSwap: null,
     applyExternalLayout(roomOrder: LayoutRoomId[]) {
-      const newLayout = layoutFromOrder(roomOrder)
+      // Preserve current staircaseX when applying external layout
+      const newLayout = layoutFromOrder(roomOrder, currentLayout.staircaseX)
       rebuildHouse(newLayout)
       layoutEditor.setLayout(newLayout)
     },

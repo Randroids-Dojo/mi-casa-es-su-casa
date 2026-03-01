@@ -15,8 +15,8 @@
 
 import * as THREE from 'three'
 import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
-import { roomOrderFromLayout } from '@/lib/layout'
-import { FLOOR_HEIGHT, buildRoomFurnitureGroup } from './house'
+import { roomOrderFromLayout, getStaircaseXBounds } from '@/lib/layout'
+import { FLOOR_HEIGHT, HOUSE_WIDTH, buildRoomFurnitureGroup } from './house'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -32,6 +32,8 @@ const GHOST_Z = -0.3
 // Colors
 const COLOR_SELECTED = 0x4488ff
 const COLOR_FLASH = 0xffffff
+const COLOR_INVALID_BG = 0xff2222
+const COLOR_INVALID_X = 0xff0000
 
 // Ghost opacities
 const DRAG_GHOST_OPACITY = 0.65
@@ -109,6 +111,90 @@ function disposeGroup(group: THREE.Group): void {
   })
 }
 
+/**
+ * Returns true if swapping source and target rooms preserves the invariant
+ * that entrance is always the rightmost room on its floor.
+ */
+function isSwapValid(source: RoomSlot, target: RoomSlot, layout: HouseLayout): boolean {
+  if (source.roomId === 'entrance') {
+    // Entrance can only move to a slot that is rightmost on the target's floor
+    return target.xMax === layout.staircaseX[target.floor]
+  }
+  if (target.roomId === 'entrance') {
+    // Entrance will end up at source's slot — source must be rightmost on its floor
+    return source.xMax === layout.staircaseX[source.floor]
+  }
+  return true
+}
+
+/** Build a red semi-transparent "invalid" overlay (background + X bars) for a slot */
+function makeInvalidOverlay(slot: RoomSlot): THREE.Group {
+  const group = new THREE.Group()
+  const width = slot.xMax - slot.xMin
+  const height = FLOOR_HEIGHT - 1
+  const cx = slot.centerX
+  const cy = floorY(slot.floor) + FLOOR_HEIGHT / 2 + 0.5
+
+  // Red semi-transparent background
+  const bgGeo = new THREE.BoxGeometry(width, height, 0.1)
+  const bgMat = new THREE.MeshBasicMaterial({
+    color: COLOR_INVALID_BG,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  const bg = new THREE.Mesh(bgGeo, bgMat)
+  bg.position.set(cx, cy, OVERLAY_Z)
+  bg.renderOrder = 999
+  group.add(bg)
+
+  // X bars — two diagonal bars crossing the slot
+  const barLen = Math.sqrt(width * width + height * height) * 0.9
+  const barH = 0.4
+  const angle = Math.atan2(height, width)
+  const barMat = new THREE.MeshBasicMaterial({
+    color: COLOR_INVALID_X,
+    depthWrite: false,
+  })
+
+  const bar1Geo = new THREE.BoxGeometry(barLen, barH, 0.1)
+  const bar1 = new THREE.Mesh(bar1Geo, barMat)
+  bar1.position.set(cx, cy, OVERLAY_Z - 0.01)
+  bar1.rotation.z = angle
+  bar1.renderOrder = 1000
+  group.add(bar1)
+
+  const bar2Geo = new THREE.BoxGeometry(barLen, barH, 0.1)
+  const bar2 = new THREE.Mesh(bar2Geo, barMat)
+  bar2.position.set(cx, cy, OVERLAY_Z - 0.01)
+  bar2.rotation.z = -angle
+  bar2.renderOrder = 1000
+  group.add(bar2)
+
+  return group
+}
+
+/**
+ * Given a world-space point, returns the floor whose staircase column contains it,
+ * or null if outside all staircase columns.
+ */
+function staircaseFloorAtWorld(
+  worldX: number,
+  worldY: number,
+  layout: HouseLayout,
+): 1 | 2 | 3 | null {
+  for (const floor of [1, 2, 3] as const) {
+    const yMin = floorY(floor)
+    const yMax = yMin + FLOOR_HEIGHT
+    const xMin = layout.staircaseX[floor]
+    if (worldX >= xMin && worldX <= HOUSE_WIDTH && worldY >= yMin && worldY <= yMax) {
+      return floor
+    }
+  }
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // Hit-testing
 // ---------------------------------------------------------------------------
@@ -145,6 +231,12 @@ type EditorState =
       cursorWorldX: number
       cursorWorldY: number
     }
+  | {
+      kind: 'dragging_staircase'
+      floor: 1 | 2 | 3
+      startWorldX: number
+      startStairX: number
+    }
   | { kind: 'flash'; elapsed: number }
 
 export class LayoutEditor {
@@ -153,6 +245,7 @@ export class LayoutEditor {
   private canvas: HTMLCanvasElement
   private layout: HouseLayout
   private onSwap: (newRoomOrder: LayoutRoomId[]) => void
+  private onStaircaseMove: ((floor: 1 | 2 | 3, newX: number) => void) | null
 
   private overlayGroup: THREE.Group
   private selectedOverlay: THREE.Mesh | null = null
@@ -162,6 +255,9 @@ export class LayoutEditor {
   private hoverGhostMaterials: THREE.MeshLambertMaterial[] = []
   private flashOverlayA: THREE.Mesh | null = null
   private flashOverlayB: THREE.Mesh | null = null
+  private invalidOverlay: THREE.Group | null = null
+  /** Tracks the last hovered target to avoid redundant ghost rebuilds */
+  private lastHoverTargetId: LayoutRoomId | null = null
 
   private state: EditorState = { kind: 'idle' }
 
@@ -174,12 +270,14 @@ export class LayoutEditor {
     canvas: HTMLCanvasElement
     layout: HouseLayout
     onSwap: (newRoomOrder: LayoutRoomId[]) => void
+    onStaircaseMove?: (floor: 1 | 2 | 3, newX: number) => void
   }) {
     this.scene = params.scene
     this.camera = params.camera
     this.canvas = params.canvas
     this.layout = params.layout
     this.onSwap = params.onSwap
+    this.onStaircaseMove = params.onStaircaseMove ?? null
 
     this.overlayGroup = new THREE.Group()
     this.overlayGroup.renderOrder = 999
@@ -191,11 +289,25 @@ export class LayoutEditor {
   // -----------------------------------------------------------------------
 
   get isActive(): boolean {
-    return this.state.kind === 'dragging'
+    return this.state.kind === 'dragging' || this.state.kind === 'dragging_staircase'
   }
 
   onPointerDown(screenX: number, screenY: number): void {
     const world = this.screenToWorld(screenX, screenY)
+
+    // Check staircase column first — initiates staircase drag
+    const stairFloor = staircaseFloorAtWorld(world.x, world.y, this.layout)
+    if (stairFloor !== null && this.onStaircaseMove) {
+      this.state = {
+        kind: 'dragging_staircase',
+        floor: stairFloor,
+        startWorldX: world.x,
+        startStairX: this.layout.staircaseX[stairFloor],
+      }
+      return
+    }
+
+    // Check room slot
     const slot = slotAtWorld(world.x, world.y, this.layout)
     if (!slot) return
 
@@ -211,6 +323,18 @@ export class LayoutEditor {
   }
 
   onPointerMove(screenX: number, screenY: number): void {
+    if (this.state.kind === 'dragging_staircase') {
+      const world = this.screenToWorld(screenX, screenY)
+      const delta = world.x - this.state.startWorldX
+      const rawX = Math.round(this.state.startStairX + delta)
+      const { min, max } = getStaircaseXBounds(this.state.floor, this.layout)
+      const clampedX = Math.max(min, Math.min(max, rawX))
+      if (clampedX !== this.layout.staircaseX[this.state.floor]) {
+        this.onStaircaseMove!(this.state.floor, clampedX)
+      }
+      return
+    }
+
     if (this.state.kind !== 'dragging') return
 
     const world = this.screenToWorld(screenX, screenY)
@@ -223,21 +347,37 @@ export class LayoutEditor {
     const hovered = slotAtWorld(world.x, world.y, this.layout)
 
     if (hovered && hovered.roomId !== this.state.sourceSlot.roomId) {
-      if (!this.state.hoverSlot || this.state.hoverSlot.roomId !== hovered.roomId) {
-        // New hover target — show ghost preview at target
-        this.state.hoverSlot = hovered
-        this.showHoverGhost(this.state.sourceSlot, hovered)
+      if (hovered.roomId !== this.lastHoverTargetId) {
+        this.lastHoverTargetId = hovered.roomId
+        this.clearHoverGhost()
+        this.clearInvalidOverlay()
+
+        if (isSwapValid(this.state.sourceSlot, hovered, this.layout)) {
+          // Valid swap — show hover ghost preview
+          this.state.hoverSlot = hovered
+          this.showHoverGhost(this.state.sourceSlot, hovered)
+        } else {
+          // Invalid swap — show red X overlay, block the swap
+          this.state.hoverSlot = null
+          this.showInvalidOverlay(hovered)
+        }
       }
     } else {
-      // Hovering over source slot or empty space — clear hover
-      if (this.state.hoverSlot) {
+      if (this.lastHoverTargetId !== null) {
+        this.lastHoverTargetId = null
         this.state.hoverSlot = null
         this.clearHoverGhost()
+        this.clearInvalidOverlay()
       }
     }
   }
 
   onPointerUp(): void {
+    if (this.state.kind === 'dragging_staircase') {
+      this.state = { kind: 'idle' }
+      return
+    }
+
     if (this.state.kind === 'dragging') {
       if (this.state.hoverSlot) {
         this.executeSwap(this.state.sourceSlot, this.state.hoverSlot)
@@ -259,11 +399,11 @@ export class LayoutEditor {
     }
   }
 
-  /** Replace layout after external update (e.g. conflict resolution) */
+  /** Replace layout after external update (e.g. conflict resolution or staircase move) */
   setLayout(layout: HouseLayout): void {
     this.layout = layout
-    // If mid-interaction, cancel it since the layout changed under us
-    if (this.state.kind !== 'idle') {
+    // If mid-interaction (other than staircase drag), cancel it since the layout changed under us
+    if (this.state.kind !== 'idle' && this.state.kind !== 'dragging_staircase') {
       this.state = { kind: 'idle' }
       this.clearAllOverlays()
     }
@@ -392,10 +532,26 @@ export class LayoutEditor {
     }
   }
 
+  private showInvalidOverlay(slot: RoomSlot): void {
+    this.clearInvalidOverlay()
+    this.invalidOverlay = makeInvalidOverlay(slot)
+    this.overlayGroup.add(this.invalidOverlay)
+  }
+
+  private clearInvalidOverlay(): void {
+    if (this.invalidOverlay) {
+      this.overlayGroup.remove(this.invalidOverlay)
+      disposeGroup(this.invalidOverlay)
+      this.invalidOverlay = null
+    }
+  }
+
   private clearAllOverlays(): void {
     this.clearSelectedOverlay()
     this.clearDragGhost()
     this.clearHoverGhost()
+    this.clearInvalidOverlay()
+    this.lastHoverTargetId = null
 
     if (this.flashOverlayA) {
       this.overlayGroup.remove(this.flashOverlayA)
