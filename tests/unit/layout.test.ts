@@ -173,6 +173,14 @@ describe('layout validity', () => {
       assert.strictEqual(f3.length, 2, `Floor 3 should have 2 rooms, got ${f3.length}`)
     })
 
+    test(`${name}: entrance is leftmost room on its floor (xMin=1, rightmost on screen)`, () => {
+      const layout = generateLayout(name)
+      const entranceSlot = layout.slotMap.entrance
+
+      // entrance must be the first room on its floor (xMin=1)
+      assert.strictEqual(entranceSlot.xMin, 1, `entrance xMin should be 1, got ${entranceSlot.xMin}`)
+    })
+
     test(`${name}: centerX is midpoint of xMin and xMax`, () => {
       const layout = generateLayout(name)
 
@@ -201,18 +209,19 @@ describe('layout validity', () => {
 // ---------------------------------------------------------------------------
 
 describe('default layout', () => {
-  test('entrance is rightmost on floor 1', () => {
+  test('entrance is leftmost on floor 1 (rightmost on screen)', () => {
     const layout = getDefaultLayout()
 
-    // Floor 1: living_room | kitchen | entrance (rightmost)
-    assert.strictEqual(layout.slotMap.living_room.xMin, 1)
-    assert.strictEqual(layout.slotMap.living_room.xMax, 13)
-    assert.strictEqual(layout.slotMap.kitchen.xMin, 13)
-    assert.strictEqual(layout.slotMap.kitchen.xMax, 24)
-    assert.strictEqual(layout.slotMap.entrance.xMin, 24)
-    assert.strictEqual(layout.slotMap.entrance.xMax, 27)
-    // Entrance is rightmost (xMax = staircaseX[1])
-    assert.strictEqual(layout.slotMap.entrance.xMax, layout.staircaseX[1])
+    // Floor 1: entrance (leftmost) | living_room | kitchen
+    // The camera renders x-inverted, so xMin=1 appears on the right of screen.
+    assert.strictEqual(layout.slotMap.entrance.xMin, 1)
+    assert.strictEqual(layout.slotMap.entrance.xMax, 5)
+    assert.strictEqual(layout.slotMap.living_room.xMin, 5)
+    assert.strictEqual(layout.slotMap.living_room.xMax, 17)
+    assert.strictEqual(layout.slotMap.kitchen.xMin, 17)
+    assert.strictEqual(layout.slotMap.kitchen.xMax, 27)
+    // Entrance is leftmost (xMin = 1)
+    assert.strictEqual(layout.slotMap.entrance.xMin, 1)
     // Other floors unchanged
     assert.strictEqual(layout.slotMap.bedroom.xMin, 1)
     assert.strictEqual(layout.slotMap.bedroom.xMax, 14)
@@ -241,10 +250,10 @@ describe('buildLayoutRoomData', () => {
     const layout = getDefaultLayout()
     const data = buildLayoutRoomData(layout)
 
-    // New default: living_room(1–13), kitchen(13–24), entrance(24–27) rightmost
-    assert.strictEqual(data.centers.living_room.x, 7)
-    assert.strictEqual(data.centers.kitchen.x, 18.5)
-    assert.strictEqual(data.centers.entrance.x, 25.5)
+    // Default: entrance(1–5), living_room(5–17), kitchen(17–27)
+    assert.strictEqual(data.centers.entrance.x, 3)
+    assert.strictEqual(data.centers.living_room.x, 11)
+    assert.strictEqual(data.centers.kitchen.x, 22)
   })
 
   test('staircase center is always at x=29.5', () => {

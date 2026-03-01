@@ -84,7 +84,7 @@ export const ALL_ROOMS: readonly LayoutRoomId[] = [
 ]
 
 /** Default staircase x position (left edge) per floor */
-const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3: 27 }
+export const DEFAULT_STAIRCASE_X: Record<1 | 2 | 3, number> = { 1: 27, 2: 27, 3: 27 }
 
 // ---------------------------------------------------------------------------
 // Layout generation
@@ -204,11 +204,12 @@ export function generateLayout(characterName: string): HouseLayout {
     ;[rooms[i], rooms[j]] = [rooms[j], rooms[i]]
   }
 
-  // Pin entrance to rightmost slot on its floor (floor 1: idx 2, floor 2: idx 5, floor 3: idx 7)
+  // Pin entrance to leftmost slot on its floor (floor 1: idx 0, floor 2: idx 3, floor 3: idx 6)
+  // The camera renders with x-axis inverted, so the leftmost slot (x=1) appears on the right of screen.
   const entranceIdx = rooms.indexOf('entrance')
-  const floorLastIdx = entranceIdx <= 2 ? 2 : entranceIdx <= 5 ? 5 : 7
-  if (entranceIdx !== floorLastIdx) {
-    ;[rooms[entranceIdx], rooms[floorLastIdx]] = [rooms[floorLastIdx], rooms[entranceIdx]]
+  const floorFirstIdx = entranceIdx <= 2 ? 0 : entranceIdx <= 5 ? 3 : 6
+  if (entranceIdx !== floorFirstIdx) {
+    ;[rooms[entranceIdx], rooms[floorFirstIdx]] = [rooms[floorFirstIdx], rooms[entranceIdx]]
   }
 
   return layoutFromOrder(rooms, DEFAULT_STAIRCASE_X)
@@ -234,34 +235,13 @@ export function roomOrderFromLayout(layout: HouseLayout): LayoutRoomId[] {
 }
 
 /**
- * Returns the default layout that matches the original hardcoded room positions.
- * Useful for backward compatibility and tests.
+ * Returns the default layout with entrance as the leftmost room on floor 1
+ * (leftmost slot = rightmost on screen due to camera x-axis inversion).
  */
 export function getDefaultLayout(): HouseLayout {
-  // Floor 1: entrance is rightmost (xMax = 27 = staircaseX[1])
-  const rawSlots: Omit<RoomSlot, 'centerX'>[] = [
-    { roomId: 'living_room', floor: 1, xMin: 1, xMax: 13 },
-    { roomId: 'kitchen', floor: 1, xMin: 13, xMax: 24 },
-    { roomId: 'entrance', floor: 1, xMin: 24, xMax: 27 },
-    { roomId: 'bedroom', floor: 2, xMin: 1, xMax: 14 },
-    { roomId: 'bathroom', floor: 2, xMin: 14, xMax: 20 },
-    { roomId: 'study', floor: 2, xMin: 20, xMax: 27 },
-    { roomId: 'hobby_room', floor: 3, xMin: 1, xMax: 16 },
-    { roomId: 'storage', floor: 3, xMin: 16, xMax: 27 },
-  ]
-  const slots: RoomSlot[] = rawSlots.map((s) => ({ ...s, centerX: (s.xMin + s.xMax) / 2 }))
-
-  const walls: WallPosition[] = [
-    { floor: 1, x: 13 },
-    { floor: 1, x: 24 },
-    { floor: 2, x: 14 },
-    { floor: 2, x: 20 },
-    { floor: 3, x: 16 },
-  ]
-
-  const slotMap = Object.fromEntries(
-    slots.map((s) => [s.roomId, s]),
-  ) as Record<LayoutRoomId, RoomSlot>
-
-  return { slots, walls, slotMap, staircaseX: { 1: 27, 2: 27, 3: 27 } }
+  // Floor 1: entrance(leftmost) | living_room | kitchen
+  return layoutFromOrder(
+    ['entrance', 'living_room', 'kitchen', 'bedroom', 'bathroom', 'study', 'hobby_room', 'storage'],
+    DEFAULT_STAIRCASE_X,
+  )
 }

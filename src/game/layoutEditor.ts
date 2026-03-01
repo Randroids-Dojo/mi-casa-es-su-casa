@@ -115,14 +115,14 @@ function disposeGroup(group: THREE.Group): void {
  * Returns true if swapping source and target rooms preserves the invariant
  * that entrance is always the rightmost room on its floor.
  */
-function isSwapValid(source: RoomSlot, target: RoomSlot, layout: HouseLayout): boolean {
+function isSwapValid(source: RoomSlot, target: RoomSlot, _layout: HouseLayout): boolean {
   if (source.roomId === 'entrance') {
-    // Entrance can only move to a slot that is rightmost on the target's floor
-    return target.xMax === layout.staircaseX[target.floor]
+    // Entrance can only move to the leftmost slot on the target's floor (xMin=1 = rightmost on screen)
+    return target.xMin === 1
   }
   if (target.roomId === 'entrance') {
-    // Entrance will end up at source's slot — source must be rightmost on its floor
-    return source.xMax === layout.staircaseX[source.floor]
+    // Entrance will end up at source's slot — source must be leftmost on its floor
+    return source.xMin === 1
   }
   return true
 }
@@ -246,6 +246,7 @@ export class LayoutEditor {
   private layout: HouseLayout
   private onSwap: (newRoomOrder: LayoutRoomId[]) => void
   private onStaircaseMove: ((floor: 1 | 2 | 3, newX: number) => void) | null
+  private onStaircaseDragEnd: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null
 
   private overlayGroup: THREE.Group
   private selectedOverlay: THREE.Mesh | null = null
@@ -271,6 +272,7 @@ export class LayoutEditor {
     layout: HouseLayout
     onSwap: (newRoomOrder: LayoutRoomId[]) => void
     onStaircaseMove?: (floor: 1 | 2 | 3, newX: number) => void
+    onStaircaseDragEnd?: (staircaseX: Record<1 | 2 | 3, number>) => void
   }) {
     this.scene = params.scene
     this.camera = params.camera
@@ -278,6 +280,7 @@ export class LayoutEditor {
     this.layout = params.layout
     this.onSwap = params.onSwap
     this.onStaircaseMove = params.onStaircaseMove ?? null
+    this.onStaircaseDragEnd = params.onStaircaseDragEnd ?? null
 
     this.overlayGroup = new THREE.Group()
     this.overlayGroup.renderOrder = 999
@@ -374,6 +377,7 @@ export class LayoutEditor {
 
   onPointerUp(): void {
     if (this.state.kind === 'dragging_staircase') {
+      this.onStaircaseDragEnd?.(this.layout.staircaseX)
       this.state = { kind: 'idle' }
       return
     }

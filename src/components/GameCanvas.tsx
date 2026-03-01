@@ -22,8 +22,12 @@ interface GameCanvasProps {
   onGameReady?: (actions: GameActions) => void
   /** Initial room ordering for custom layout */
   initialRoomOrder?: LayoutRoomId[]
+  /** Initial staircase x positions per floor */
+  initialStaircaseX?: Record<1 | 2 | 3, number>
   /** Called when the layout editor swaps two rooms (for persistence) */
   onLayoutSwap?: (roomOrder: LayoutRoomId[]) => void
+  /** Called when the staircase drag ends (for persistence) */
+  onStaircaseSave?: (staircaseX: Record<1 | 2 | 3, number>) => void
   /** Apply an externally-resolved layout (e.g. after conflict resolution) */
   externalRoomOrder?: LayoutRoomId[] | null
 }
@@ -44,7 +48,9 @@ export function GameCanvas({
   initialState,
   onGameReady,
   initialRoomOrder,
+  initialStaircaseX,
   onLayoutSwap,
+  onStaircaseSave,
   externalRoomOrder,
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -75,9 +81,11 @@ export function GameCanvas({
     triggered: boolean
   }>({ timer: null, startX: 0, startY: 0, triggered: false })
 
-  // Keep onLayoutSwap callback ref current
+  // Keep callback refs current
   const onLayoutSwapRef = useRef(onLayoutSwap)
   onLayoutSwapRef.current = onLayoutSwap
+  const onStaircaseSaveRef = useRef(onStaircaseSave)
+  onStaircaseSaveRef.current = onStaircaseSave
 
   // ----- Long press helpers (stable functions, no React state dependency) -----
 
@@ -110,12 +118,17 @@ export function GameCanvas({
   useEffect(() => {
     if (!canvasRef.current) return
 
-    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder)
+    const game = initGame(canvasRef.current, characterName, initialState, initialRoomOrder, initialStaircaseX)
     gameRef.current = game
 
     // Wire layout swap callback
     game.onLayoutSwap = (roomOrder: LayoutRoomId[]) => {
       onLayoutSwapRef.current?.(roomOrder)
+    }
+
+    // Wire staircase save callback
+    game.onStaircaseSave = (staircaseX: Record<1 | 2 | 3, number>) => {
+      onStaircaseSaveRef.current?.(staircaseX)
     }
 
     if (onGameReady) {
@@ -142,7 +155,7 @@ export function GameCanvas({
       gameRef.current = null
       game.dispose()
     }
-  }, [characterName, initialState, onGameReady, initialRoomOrder])
+  }, [characterName, initialState, onGameReady, initialRoomOrder, initialStaircaseX])
 
   // Apply externally-resolved layout (e.g. after conflict)
   useEffect(() => {

@@ -13,6 +13,8 @@ const LayoutRoomIdSchema = z.enum([
 
 export const CustomLayoutSchema = z.object({
   roomOrder: z.array(LayoutRoomIdSchema).length(8),
+  /** Staircase left-edge x per floor [floor1, floor2, floor3] */
+  staircaseX: z.tuple([z.number().int(), z.number().int(), z.number().int()]).optional(),
   version: z.number().int().min(1),
   updatedAt: z.string().datetime(),
 })

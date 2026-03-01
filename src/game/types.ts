@@ -91,6 +91,8 @@ export interface GameInstance {
   isLayoutEditActive(): boolean
   /** Called by the persistence hook when a swap completes. */
   onLayoutSwap: ((roomOrder: LayoutRoomId[]) => void) | null
+  /** Called when a staircase drag ends (for persistence). */
+  onStaircaseSave: ((staircaseX: Record<1 | 2 | 3, number>) => void) | null
   /** Replace the current layout externally (e.g. after conflict resolution). */
   applyExternalLayout(roomOrder: LayoutRoomId[]): void
 }

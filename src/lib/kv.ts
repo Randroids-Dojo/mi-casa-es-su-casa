@@ -1,7 +1,7 @@
 import { kv } from '@vercel/kv'
 import { CharacterState, CharacterStateSchema } from './characterSchema'
 import { VisitorLog, VisitorLogSchema, VisitorMessage } from './visitorSchema'
-import { generateLayout, layoutFromOrder } from './layout'
+import { generateLayout, layoutFromOrder, DEFAULT_STAIRCASE_X } from './layout'
 import type { LayoutRoomId } from './layout'
 import { buildLayoutRoomData } from './roomDataBuilder'
 import { CustomLayoutSchema } from './layoutSchema'
@@ -127,7 +127,7 @@ export async function getCustomLayout(name: string): Promise<CustomLayout | null
 }
 
 /**
- * Saves a custom room ordering with optimistic concurrency.
+ * Saves a custom room ordering (and optional staircase positions) with optimistic concurrency.
  * Pass expectedVersion=0 for first save (no existing layout).
  * Returns { ok: true, layout } on success, { ok: false, current } on conflict.
  */
@@ -135,6 +135,7 @@ export async function saveCustomLayout(
   name: string,
   roomOrder: LayoutRoomId[],
   expectedVersion: number,
+  staircaseX?: [number, number, number],
 ): Promise<{ ok: true; layout: CustomLayout } | { ok: false; current: CustomLayout }> {
   const existing = await getCustomLayout(name)
   const currentVersion = existing?.version ?? 0
@@ -156,8 +157,12 @@ export async function saveCustomLayout(
     }
   }
 
+  // Preserve existing staircaseX if not provided in this save
+  const resolvedStaircaseX = staircaseX ?? existing?.staircaseX
+
   const newLayout: CustomLayout = {
     roomOrder,
+    ...(resolvedStaircaseX ? { staircaseX: resolvedStaircaseX } : {}),
     version: currentVersion + 1,
     updatedAt: new Date().toISOString(),
   }
@@ -173,7 +178,10 @@ export async function saveCustomLayout(
 export async function resolveLayout(name: string) {
   const custom = await getCustomLayout(name)
   if (custom) {
-    return { layout: layoutFromOrder(custom.roomOrder), version: custom.version }
+    const staircaseX = custom.staircaseX
+      ? { 1: custom.staircaseX[0], 2: custom.staircaseX[1], 3: custom.staircaseX[2] }
+      : DEFAULT_STAIRCASE_X
+    return { layout: layoutFromOrder(custom.roomOrder, staircaseX), version: custom.version }
   }
   return { layout: generateLayout(name), version: 0 }
 }
