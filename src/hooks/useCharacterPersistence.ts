@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react'
 import { CharacterState } from '@/lib/characterSchema'
 import { PERSISTENCE_VERSION } from '@/lib/persistenceVersion'
 
+/** App version baked into this JS bundle at build time. */
+const CLIENT_APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? ''
+
 /**
  * Persists character state every 30 s and on page unload.
  *
- * Returns `true` when the server rejects a save with 409 (version mismatch),
- * indicating that a newer version of the app has been deployed and this
- * client's JS bundle is stale.
+ * Returns `true` when the server indicates this client's JS bundle is stale,
+ * either via a 409 (persistence version mismatch) or via an X-App-Version
+ * response header that differs from the client's baked-in version.
  */
 export function useCharacterPersistence(
   name: string,
@@ -34,8 +37,16 @@ export function useCharacterPersistence(
           body: JSON.stringify(state),
         })
         if (res.status === 409) {
+          // Persistence schema mismatch — stop saving to avoid data corruption.
           setVersionStale(true)
           clearInterval(interval)
+        } else if (res.ok) {
+          // Even when persistence versions match, a hotfix deploy may have
+          // changed the app version. Show the banner so users refresh.
+          const serverVersion = res.headers.get('X-App-Version')
+          if (serverVersion && serverVersion !== CLIENT_APP_VERSION) {
+            setVersionStale(true)
+          }
         }
       } catch {
         // Network error — silently skip this cycle

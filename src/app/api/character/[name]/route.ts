@@ -93,7 +93,10 @@ export async function POST(req: NextRequest, { params }: RouteParams): Promise<N
   try {
     const withTimestamp = { ...state, lastActiveAt: new Date().toISOString() }
     await saveCharacter(withTimestamp)
-    return NextResponse.json(withTimestamp, { status: 200 })
+    return NextResponse.json(withTimestamp, {
+      status: 200,
+      headers: { 'X-App-Version': process.env.NEXT_PUBLIC_APP_VERSION ?? '' },
+    })
   } catch {
     return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
   }
