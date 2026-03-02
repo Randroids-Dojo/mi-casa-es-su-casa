@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameCanvas } from './GameCanvas'
 import type { GameActions } from './GameCanvas'
-import { DoorbellButton } from './DoorbellButton'
 import { TamagotchiBar } from './TamagotchiBar'
 import { VisitorPanel } from './VisitorPanel'
 import { UpdateBanner } from './UpdateBanner'
@@ -134,9 +133,6 @@ export function CharacterView({ name }: CharacterViewProps) {
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100dvh' }}>
       <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
         {versionStale && <UpdateBanner />}
-        {gameActions && (
-          <DoorbellButton onRing={() => gameActionsRef.current?.ringDoorbell()} />
-        )}
         <GameCanvas
           characterName={name}
           initialState={initialState}
@@ -154,6 +150,7 @@ export function CharacterView({ name }: CharacterViewProps) {
         characterName={name}
         gameActions={gameActions}
         onInteraction={handleTamagotchiInteraction}
+        onRing={() => gameActionsRef.current?.ringDoorbell()}
       />
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
     </div>
