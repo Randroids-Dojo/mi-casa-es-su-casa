@@ -387,6 +387,34 @@ export class Character {
 
   private _queued: { activity: ActivityType; durationHours: number } | null = null
 
+  /**
+   * Returns the best room to start pathfinding from when interrupting movement.
+   *
+   * While moving, this.currentRoom still holds the origin room (only updated
+   * on arrival). This method reads the active path state to find the last
+   * real (non-staircase) room the character has fully passed through, or the
+   * destination of the current leg when the character is exiting the staircase.
+   */
+  private _getEffectiveCurrentRoom(): RoomId {
+    const state = this.fsm.state
+    if (state.kind !== 'active/moving') return this.currentRoom
+
+    const { path, pathIndex } = state
+    const fromRoom = path[pathIndex - 1]
+    const toRoom = path[pathIndex]
+
+    // Coming off the staircase: character is already on the destination floor.
+    // Use the destination room so the new path starts on the correct floor.
+    if (fromRoom === 'staircase') return toRoom
+
+    // Heading toward the staircase: character hasn't reached it yet.
+    // Use the from-room (last real room passed through).
+    if (toRoom === 'staircase') return fromRoom
+
+    // Normal leg between two real rooms: pick whichever end is closer.
+    return state.legProgress >= 0.5 ? toRoom : fromRoom
+  }
+
   private _getQueuedActivity(): { activity: ActivityType; durationHours: number } {
     if (this._queued) {
       const q = this._queued
@@ -633,11 +661,14 @@ export class Character {
     this._injectedThought = responsePhrases[0] ?? null
     this._thoughtQueue = responsePhrases.slice(1)
 
-    if (this.currentRoom === room) {
+    const effectiveRoom = this._getEffectiveCurrentRoom()
+    this.currentRoom = effectiveRoom
+
+    if (effectiveRoom === room) {
       this._startPerforming(activity, durationHours)
     } else {
       const path = findPath(
-        this.currentRoom,
+        effectiveRoom,
         room,
         `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
         this.roomMap,
@@ -662,11 +693,14 @@ export class Character {
     this._injectedThought = reactionPhrase
     this._thoughtQueue = [entrancePhrase]
 
-    if (this.currentRoom === 'entrance') {
+    const effectiveRoom = this._getEffectiveCurrentRoom()
+    this.currentRoom = effectiveRoom
+
+    if (effectiveRoom === 'entrance') {
       this._startPerforming('idle', 1)
     } else {
       const path = findPath(
-        this.currentRoom,
+        effectiveRoom,
         'entrance',
         `${this.name}:doorbell:${this.clock.day}:${Math.floor(this.clock.hour)}`,
         this.roomMap,
@@ -686,11 +720,14 @@ export class Character {
     if (this._accessories.includes(item)) return
     this._clothingQueue = item
 
-    if (this.currentRoom === 'bedroom') {
+    const effectiveRoom = this._getEffectiveCurrentRoom()
+    this.currentRoom = effectiveRoom
+
+    if (effectiveRoom === 'bedroom') {
       this._startPerforming('dress', 0.15)
     } else {
       const path = findPath(
-        this.currentRoom,
+        effectiveRoom,
         'bedroom',
         `${this.name}:dress:${this.clock.day}:${Math.floor(this.clock.hour)}`,
         this.roomMap,
