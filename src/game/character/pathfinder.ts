@@ -179,9 +179,10 @@ export const STAIR_Z_BOTTOM = 0
 
 /**
  * Z coordinate near the top step (toward back wall).
- * Using 7 rather than 8 keeps the character clear of the back wall geometry.
+ * Matches the compressed stair geometry: last step center at Z ≈ 6.1,
+ * landing at Z ≈ 6.9.  Keeps the character clear of the back wall (z=7.0).
  */
-export const STAIR_Z_TOP = 7
+export const STAIR_Z_TOP = 6.5
 
 // ---------------------------------------------------------------------------
 // Segment interpolation functions

@@ -190,8 +190,8 @@ function buildEntranceRoom(
   const cx = (xMin + xMax) / 2
 
   addVoxels(group, [
-    // Front door frame on back wall — centered
-    { position: { x: cx, y: ft + 2, z: 7.5 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
+    // Front door frame on back wall — centered (z=7.2 so front face at 6.95, clear of wall at 7.0)
+    { position: { x: cx, y: ft + 2, z: 7.2 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
     // Coat rack — left side
     { position: { x: xMin + 0.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
     // Coat rack hooks
@@ -199,11 +199,11 @@ function buildEntranceRoom(
     { position: { x: xMin + 0.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
     // Entry rug — centered
     { position: { x: cx, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
-    // Wall sconce pole — right side of door
-    { position: { x: cx + 1.8, y: ft + 3, z: 7.4 }, color: PALETTE.CHROME, size: { x: 0.2, y: 1.5, z: 0.2 } },
+    // Wall sconce pole — right side of door (z=6.9 so front face at 6.8, visible in front of wall)
+    { position: { x: cx + 1.8, y: ft + 3, z: 6.9 }, color: PALETTE.CHROME, size: { x: 0.2, y: 1.5, z: 0.2 } },
   ])
   // Sconce shade
-  addLamp(group, 'entrance', { x: cx + 1.8, y: ft + 3.8, z: 7.2 }, { x: 0.6, y: 0.3, z: 0.6 }, lamps)
+  addLamp(group, 'entrance', { x: cx + 1.8, y: ft + 3.8, z: 6.8 }, { x: 0.6, y: 0.3, z: 0.6 }, lamps)
 }
 
 function buildLivingRoomFurniture(
@@ -230,12 +230,12 @@ function buildLivingRoomFurniture(
     { position: { x: cx, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
     // Coffee table — centered
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Bookshelf — left side, back wall
-    { position: { x: xMin + 1.5, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
-    // Books on shelf (z=7.2 keeps front face at 7.05, clear of shelf front at 7.25)
-    { position: { x: xMin + 1, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 3, z: 7.2 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    // Bookshelf — left side, back wall (z=7.2 so front face at 6.95, clear of wall at 7.0)
+    { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
+    // Books on shelf (z=6.9 so front face at 6.75, visible in front of shelf)
+    { position: { x: xMin + 1, y: ft + 1, z: 6.9 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 1.5, y: ft + 2, z: 6.9 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
+    { position: { x: xMin + 2, y: ft + 3, z: 6.9 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
     // Lamp pole — left side
     { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
   ]
@@ -246,7 +246,8 @@ function buildLivingRoomFurniture(
       // Fireplace
       { position: { x: xMax - 1.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
       { position: { x: xMax - 1.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
-      { position: { x: xMax - 1.5, y: ft + 0.5, z: 7.3 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
+      // Fire — z=6.8 so front face (6.55) is clearly in front of fireplace (front at 7.0)
+      { position: { x: xMax - 1.5, y: ft + 0.5, z: 6.8 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
       // Armchair
       { position: { x: cx + 2, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
       { position: { x: cx + 2, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1.5, z: 0.5 } },
@@ -273,8 +274,8 @@ function buildKitchenFurniture(
   const specs: VoxelSpec[] = [
     // Counter along back wall — centered
     { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: counterW, y: 1, z: 1 } },
-    // Counter backsplash
-    { position: { x: cx, y: ft + 2, z: 7.8 }, color: 0xd0e8e8, size: { x: counterW, y: 2, z: 0.3 } },
+    // Counter backsplash (z=7.1 so front face at 6.95, visible above counter)
+    { position: { x: cx, y: ft + 2, z: 7.1 }, color: 0xd0e8e8, size: { x: counterW, y: 2, z: 0.3 } },
     // Stove — left side of counter
     { position: { x: xMin + 2.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
     // Stove top burners
@@ -284,8 +285,8 @@ function buildKitchenFurniture(
     { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
     // Fridge — right side
     { position: { x: xMax - 1.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
-    // Fridge handle
-    { position: { x: xMax - 2.1, y: ft + 2, z: 7 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
+    // Fridge handle — z=6.1 so it sits visibly on the front face of the fridge (front face at z=6.25)
+    { position: { x: xMax - 2.1, y: ft + 2, z: 6.1 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
     // Dining table — centered
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
     // Table legs
@@ -299,7 +300,8 @@ function buildKitchenFurniture(
   // Upper cabinet (only if wide enough)
   if (w >= 8) {
     specs.push(
-      { position: { x: xMin + 4, y: ft + 4.5, z: 7.6 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
+      // Upper cabinet (z=7.3 so front face at 6.95, visible in front of wall)
+      { position: { x: xMin + 4, y: ft + 4.5, z: 7.3 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
     )
   }
 
@@ -332,8 +334,8 @@ function buildBedroomFurniture(
     // Pillows — raised to sit on top of bed (y=ft+1) to avoid embedded geometry z-fighting
     { position: { x: cx - 1.5, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
     { position: { x: cx + 1, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Headboard — centered, back wall
-    { position: { x: cx, y: ft + 2, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
+    // Headboard — centered, back wall (z=7.2 so front face at 6.95, clear of wall)
+    { position: { x: cx, y: ft + 2, z: 7.2 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
     // Rug — centered
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: Math.min(7, w - 2), y: 0.1, z: 3 } },
   ]
@@ -346,12 +348,13 @@ function buildBedroomFurniture(
     )
   }
 
-  // Wardrobe (left side, back wall; door panels at z=7.0 for clear separation from wardrobe front at 7.1)
+  // Wardrobe (left side, back wall; z=7.35 so front face at 6.95, clear of wall)
   if (w >= 8) {
     specs.push(
-      { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMin + 1, y: ft + 2.5, z: 7.0 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-      { position: { x: xMin + 2, y: ft + 2.5, z: 7.0 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.35 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
+      // Door panels at z=6.8 for clear separation from wardrobe front at 6.95
+      { position: { x: xMin + 1, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      { position: { x: xMin + 2, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
     )
   }
 
@@ -405,12 +408,12 @@ function buildBathroomFurniture(
     // Toilet — right, front
     { position: { x: xMax - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: xMax - 1.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Mirror above sink — back wall
-    { position: { x: xMin + 1.5, y: ft + 3, z: 7.6 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
-    // Towel rail — right side, back wall
-    { position: { x: xMax - 2, y: ft + 2.5, z: 7.6 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
-    // Towel
-    { position: { x: xMax - 2, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
+    // Mirror above sink — back wall (z=6.95 so front face at 6.8, visible in front of wall)
+    { position: { x: xMin + 1.5, y: ft + 3, z: 6.95 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
+    // Towel rail — right side, back wall (z=6.95 so front face at 6.8, visible)
+    { position: { x: xMax - 2, y: ft + 2.5, z: 6.95 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
+    // Towel (z=6.85 so front face at 6.7, in front of towel rail)
+    { position: { x: xMax - 2, y: ft + 1.5, z: 6.85 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
     // Ceiling light fixture cord
     { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
   ])
@@ -511,22 +514,22 @@ function buildStudyFurniture(
     { position: { x: cx, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
     // Desk side return — left
     { position: { x: xMin + 1, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
-    // Computer monitor
-    { position: { x: cx - 1, y: ft + 1.75, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
+    // Computer monitor — z=6.8 so front face (6.65) is visible in front of desk back (z=8.0)
+    { position: { x: cx - 1, y: ft + 1.75, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
     // Keyboard
     { position: { x: cx - 1, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
     // Desk chair
     { position: { x: cx, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
     // Left bookshelf
-    ...makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.5, 7.0),
+    ...makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.35, 6.9),
     // Desk lamp pole
     { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
   ]
 
   // Right bookshelf (only if wide enough)
   if (w >= 7) {
-    specs.push(...makeBookshelfVoxels(xMax - 1.5, ft, 2, 5, 7.5, 7.0))
+    specs.push(...makeBookshelfVoxels(xMax - 1.5, ft, 2, 5, 7.35, 6.9))
   }
 
   addVoxels(group, specs)
@@ -569,7 +572,8 @@ function buildHobbyRoomFurniture(
   if (cabinetX + 1.5 <= xMax - 0.5) {
     specs.push(
       { position: { x: cabinetX, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
-      { position: { x: cabinetX, y: ft + 1.5, z: 7.3 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+      // Record player screen — z=6.8 so front face (6.55) is in front of cabinet (front at 7.0)
+      { position: { x: cabinetX, y: ft + 1.5, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
     )
   }
 
@@ -610,7 +614,7 @@ function buildStorageFurniture(
 
   const specs: VoxelSpec[] = [
     // Center bookshelf — back wall
-    ...makeBookshelfVoxels(cx, ft, 3, 5, 7.5, 7.0),
+    ...makeBookshelfVoxels(cx, ft, 3, 5, 7.35, 6.9),
     // Reading armchair — left-center
     { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
     { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
@@ -623,12 +627,12 @@ function buildStorageFurniture(
 
   // Left bookshelf (if wide enough for 2+)
   if (w >= 8) {
-    specs.push(...makeBookshelfVoxels(xMin + 2, ft, 3, 5, 7.5, 7.0))
+    specs.push(...makeBookshelfVoxels(xMin + 2, ft, 3, 5, 7.35, 6.9))
   }
 
   // Right bookshelf (if wide enough for 3)
   if (w >= 10) {
-    specs.push(...makeBookshelfVoxels(xMax - 2, ft, 3, 5, 7.5, 7.0))
+    specs.push(...makeBookshelfVoxels(xMax - 2, ft, 3, 5, 7.35, 6.9))
   }
 
   // Writing desk (right side, if wide enough)
@@ -657,7 +661,7 @@ function buildLandingFurniture(
 
   const specs: VoxelSpec[] = [
     // Tall bookshelf against back wall
-    ...makeBookshelfVoxels(cx, ft, Math.min(w - 1, 3), 5, 7.5, 7.0),
+    ...makeBookshelfVoxels(cx, ft, Math.min(w - 1, 3), 5, 7.35, 6.9),
     // Small armchair
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
@@ -674,15 +678,21 @@ function buildLandingFurniture(
 // Staircase builder — per-floor independent positioning
 // ---------------------------------------------------------------------------
 
+/** Z depth of each stair step — compressed so all 8 steps + landing fit within the house depth. */
+export const STAIR_STEP_DEPTH = 0.75
+/** Z position where the first step starts */
+export const STAIR_START_Z = 0.5
+
 function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2, number>): void {
   // Each floor's staircase corridor starts at staircaseX[floor].
   // The corridor is 5 wide; steps are 3 wide, centered in the corridor.
   // 8 steps per floor (one step per voxel of FLOOR_HEIGHT).
   // Steps rise in Y and advance in Z (front→back).
+  // Step depth is compressed to 0.75 so all geometry stays clear of the
+  // back wall (inner face at z=7.0).
 
   const stairSteps = FLOOR_HEIGHT
   const stepWidth = 3
-  const startZ = 0.5
 
   for (let f = 1; f <= FLOOR_COUNT - 1; f++) {
     const floor = f as 1 | 2
@@ -693,24 +703,25 @@ function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2, number>): 
     for (let step = 0; step < stairSteps; step++) {
       const stepTopY = baseY + 1 + (step + 1)
       const stepCenterY = stepTopY - 0.5
-      const stepCenterZ = startZ + step + 0.5
+      const stepCenterZ = STAIR_START_Z + step * STAIR_STEP_DEPTH + STAIR_STEP_DEPTH / 2
 
       group.add(
         makeVoxel(
           { x: stepCenterX, y: stepCenterY, z: stepCenterZ },
           PALETTE.STAIRCASE,
-          { x: stepWidth, y: 1, z: 1 },
+          { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
         ),
       )
     }
 
-    // Landing platform at the top
+    // Landing platform at the top — sits just past the last step
     const landingTopY = baseY + FLOOR_HEIGHT + 1
+    const landingZ = STAIR_START_Z + stairSteps * STAIR_STEP_DEPTH + STAIR_STEP_DEPTH / 2
     group.add(
       makeVoxel(
-        { x: stepCenterX, y: landingTopY - 0.5, z: startZ + stairSteps + 0.5 },
+        { x: stepCenterX, y: landingTopY - 0.5, z: landingZ },
         PALETTE.STAIRCASE,
-        { x: stepWidth, y: 1, z: 1 },
+        { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
       ),
     )
   }
@@ -1038,25 +1049,25 @@ export function buildStaircaseGhostGroup(floor: 1 | 2, stairXStart: number): THR
   const group = new THREE.Group()
   const stairSteps = FLOOR_HEIGHT
   const stepWidth = 3
-  const startZ = 0.5
   const stepCenterX = stairXStart + 2.5
   const baseY = floorY(floor)
   for (let step = 0; step < stairSteps; step++) {
     const stepTopY = baseY + 1 + (step + 1)
     group.add(
       makeVoxel(
-        { x: stepCenterX, y: stepTopY - 0.5, z: startZ + step + 0.5 },
+        { x: stepCenterX, y: stepTopY - 0.5, z: STAIR_START_Z + step * STAIR_STEP_DEPTH + STAIR_STEP_DEPTH / 2 },
         PALETTE.STAIRCASE,
-        { x: stepWidth, y: 1, z: 1 },
+        { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
       ),
     )
   }
   // Landing platform
+  const landingZ = STAIR_START_Z + stairSteps * STAIR_STEP_DEPTH + STAIR_STEP_DEPTH / 2
   group.add(
     makeVoxel(
-      { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: startZ + stairSteps + 0.5 },
+      { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: landingZ },
       PALETTE.STAIRCASE,
-      { x: stepWidth, y: 1, z: 1 },
+      { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
     ),
   )
   return group

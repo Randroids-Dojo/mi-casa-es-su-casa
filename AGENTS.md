@@ -103,6 +103,49 @@ overwriting state after a deploy.
 
 A mismatch shows an "update available" banner with a refresh button.
 
+## Z-Fighting & Depth Prevention (house.ts)
+
+The house uses an orthographic camera at z ≈ −26 looking in +Z. Lower Z values
+are **closer to camera** and render in front. The back wall inner face is at
+**z = 7.0** (HOUSE_DEPTH − WALL_THICKNESS). All visible furniture must have its
+camera-facing front face at **z ≤ 7.0**. Items behind z = 7.0 are occluded by
+the back wall and invisible to the player.
+
+### Rules for agents
+
+- **Front-face rule:** For any `makeVoxel` or `VoxelSpec` near the back wall,
+  verify that `position.z − size.z / 2 ≤ 7.0`. If the front face is > 7.0,
+  the item is hidden behind the wall.
+- **Detail items** (handles, screens, fires, buttons) must have front faces
+  **in front of** their parent object. Compute: parent front =
+  `parent.z − parent.size.z / 2`, detail front = `detail.z − detail.size.z / 2`.
+  Detail front must be < parent front.
+- **Structural elements** (walls, floors) use `structural = true` for
+  `polygonOffset`. This only resolves coplanar surfaces (front face exactly at
+  z = 7.0). It does **not** help items genuinely behind the wall (z > 7.0).
+- **Staircase steps** use compressed depth (`STAIR_STEP_DEPTH = 0.75`) to fit
+  all 8 steps + landing within z = 0.5–6.875. Never increase step depth beyond
+  what fits inside the house depth without hitting the back wall.
+- **Character Z positions** (e.g. `SLEEP_FEET_Z`, `STAIR_Z_TOP`) must stay at
+  **z ≤ 6.5** to keep the character visually in front of back-wall furniture.
+- **When adding new furniture against the back wall**, use this formula for the
+  center Z position:
+  ```
+  centerZ = 6.95 + sizeZ / 2   // gives front face at z = 6.95
+  ```
+  For size z = 1.0 → center z = 7.45; for size z = 0.5 → center z = 7.2;
+  for size z = 0.3 → center z = 7.1.
+
+### Quick self-check after geometry changes
+
+Run `npm run test:unit` — pathfinder tests verify the character stays on the
+floor and doesn't teleport. Also visually verify in the browser that:
+
+1. All furniture details (handles, screens, buttons) are visible from the
+   camera's front view.
+2. The character does not clip through the back wall on stairs or while sleeping.
+3. No z-fighting flicker is visible on any surface.
+
 ## TypeScript
 
 Always run `npx tsc --noEmit` after code changes. All code must compile with zero errors — strict mode is on.
