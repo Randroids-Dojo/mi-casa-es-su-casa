@@ -24,6 +24,9 @@ export type PhraseCategory =
   | 'sleeping'
   | 'hobby'
   | 'bathroom_break'
+  | 'doorbell_reaction'
+  | 'doorbell_entrance'
+  | 'doorbell_sleeping'
 
 // ---------------------------------------------------------------------------
 // Phrase lists
@@ -129,6 +132,32 @@ export const PHRASES: Readonly<Record<PhraseCategory, readonly string[]>> = {
     "This might take a while...",
     "La la la... 🎵",
     "Nobody look.",
+  ],
+  doorbell_reaction: [
+    "Oh! The doorbell!",
+    "Someone's at the door!",
+    "I wonder who that could be...",
+    "A visitor?",
+    "Coming, coming!",
+    "Who could that be?",
+    "Ooh, company!",
+  ],
+  doorbell_entrance: [
+    "Hello? Anyone?",
+    "Hmm, nobody here.",
+    "Must be the wind.",
+    "I could've sworn...",
+    "Was someone there?",
+    "Huh.",
+    "...nobody.",
+    "Must be kids.",
+  ],
+  doorbell_sleeping: [
+    "Zzz... huh? The door?",
+    "*yawn* ...who rings a bell at this hour?",
+    "Five more... wait, was that the doorbell?",
+    "Wha...? Someone at the door?",
+    "...mmmf. Coming...",
   ],
 }
 

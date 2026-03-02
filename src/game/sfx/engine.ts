@@ -92,6 +92,43 @@ export class SfxEngine {
   }
 
   // -------------------------------------------------------------------------
+  // Doorbell — two-tone "ding-dong"
+  // -------------------------------------------------------------------------
+
+  playDoorbell(): void {
+    if (!this.ctx || !this.masterGain) return
+    const ctx = this.ctx
+    const now = ctx.currentTime
+
+    // --- Ding: C5 (523 Hz), bright sine with quick decay ---
+    const ding = ctx.createOscillator()
+    ding.type = 'sine'
+    ding.frequency.setValueAtTime(523, now)
+
+    const dingGain = ctx.createGain()
+    dingGain.gain.setValueAtTime(0.5, now)
+    dingGain.gain.exponentialRampToValueAtTime(0.01, now + 0.35)
+
+    ding.connect(dingGain).connect(this.masterGain)
+    ding.start(now)
+    ding.stop(now + 0.35)
+
+    // --- Dong: G4 (392 Hz), slightly delayed, longer sustain ---
+    const dong = ctx.createOscillator()
+    dong.type = 'sine'
+    dong.frequency.setValueAtTime(392, now + 0.25)
+
+    const dongGain = ctx.createGain()
+    dongGain.gain.setValueAtTime(0.001, now)
+    dongGain.gain.setValueAtTime(0.45, now + 0.25)
+    dongGain.gain.exponentialRampToValueAtTime(0.01, now + 0.7)
+
+    dong.connect(dongGain).connect(this.masterGain)
+    dong.start(now + 0.25)
+    dong.stop(now + 0.7)
+  }
+
+  // -------------------------------------------------------------------------
   // Randomization helper
   // -------------------------------------------------------------------------
 

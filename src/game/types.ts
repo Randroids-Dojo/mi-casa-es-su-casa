@@ -61,6 +61,11 @@ export interface GameInstance {
    */
   injectThought(text: string): void
   /**
+   * Rings the doorbell: plays a ding-dong sound and sends the character to
+   * the entrance hall to investigate. No-op if audio is unavailable.
+   */
+  ringDoorbell(): void
+  /**
    * Walks the character to the wardrobe and puts on the given clothing item.
    * The item persists in the character's saved state.
    */

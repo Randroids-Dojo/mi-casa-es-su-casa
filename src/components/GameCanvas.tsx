@@ -8,6 +8,7 @@ import { ThoughtBubble } from './ThoughtBubble'
 
 export interface GameActions {
   injectThought: (text: string) => void
+  ringDoorbell: () => void
   putOnClothes: (item: string) => void
   goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => void
   getState: () => CharacterState | null
@@ -140,6 +141,7 @@ export function GameCanvas({
     if (onGameReady) {
       onGameReady({
         injectThought: (text: string) => { gameRef.current?.injectThought(text) },
+        ringDoorbell: () => { gameRef.current?.ringDoorbell() },
         putOnClothes: (item: string) => { gameRef.current?.putOnClothes(item) },
         goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => {
           gameRef.current?.goToRoom(room, activity, durationHours, responsePhrases)

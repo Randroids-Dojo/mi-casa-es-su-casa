@@ -78,6 +78,7 @@ export function initGame(
       applyPanDeltaPixels() {},
       applyZoomScale() {},
       injectThought() {},
+      ringDoorbell() {},
       putOnClothes() {},
       goToRoom() {},
       getCharacterState() { return null },
@@ -427,6 +428,11 @@ export function initGame(
     },
     injectThought(text: string) {
       character.injectThought(text)
+    },
+    ringDoorbell() {
+      sfxEngine.unlock() // idempotent — ensures AudioContext is ready on first click
+      sfxEngine.playDoorbell()
+      character.ringDoorbell()
     },
     putOnClothes(item: string) {
       character.putOnClothes(item as ClothingItem)
