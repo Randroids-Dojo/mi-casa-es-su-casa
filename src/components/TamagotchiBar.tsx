@@ -13,6 +13,7 @@ import { seedFromName } from '@/game/character/seeder'
 const CRT_GREEN = '#33ff33'
 const CRT_DIM = 'rgba(51,255,51,0.55)'
 const FONT = '"Share Tech Mono", "Courier New", Courier, monospace'
+const DOORBELL_COOLDOWN_MS = 15_000
 
 // ---------------------------------------------------------------------------
 // Need bar config
@@ -68,19 +69,21 @@ interface TamagotchiBarProps {
   characterName: string
   gameActions: GameActions | null
   onInteraction: (action: TamagotchiAction, phrases: string[]) => void
+  onRing: () => void
 }
 
-export function TamagotchiBar({ characterName, gameActions, onInteraction }: TamagotchiBarProps) {
+export function TamagotchiBar({ characterName, gameActions, onInteraction, onRing }: TamagotchiBarProps) {
   const [needs, setNeeds] = useState<Record<string, number>>({
     hunger: 0,
     sleep: 0,
     hygiene: 0,
     entertainment: 0,
   })
-  const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId, number>>({
+  const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId | 'doorbell', number>>({
     feed: 0,
     play: 0,
     clean: 0,
+    doorbell: 0,
   })
   const phraseSeedRef = useRef(0)
 
@@ -111,7 +114,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction }: Tam
       setCooldowns((prev) => {
         const now = Date.now()
         const allExpired = Object.values(prev).every((t) => t <= now)
-        if (allExpired) return { feed: 0, play: 0, clean: 0 }
+        if (allExpired) return { feed: 0, play: 0, clean: 0, doorbell: 0 }
         // Return same object to skip re-render if nothing changed
         return { ...prev }
       })
@@ -142,6 +145,13 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction }: Tam
     },
     [gameActions, cooldowns, onInteraction],
   )
+
+  const handleDoorbell = useCallback(() => {
+    const now = Date.now()
+    if (cooldowns.doorbell > now) return
+    onRing()
+    setCooldowns((prev) => ({ ...prev, doorbell: now + DOORBELL_COOLDOWN_MS }))
+  }, [cooldowns, onRing])
 
   const now = Date.now()
 
@@ -249,6 +259,40 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction }: Tam
             </button>
           )
         })}
+
+        {/* Doorbell */}
+        {(() => {
+          const bellCooldown = cooldowns.doorbell > now
+          const bellRemainingMs = bellCooldown ? cooldowns.doorbell - now : 0
+          return (
+            <button
+              onClick={handleDoorbell}
+              disabled={bellCooldown || !gameActions}
+              aria-label={bellCooldown ? `Doorbell on cooldown, ${Math.ceil(bellRemainingMs / 1000)} seconds remaining` : 'Ring the doorbell'}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                padding: '4px 10px',
+                background: bellCooldown ? '#1a1a1a' : '#0f1f0f',
+                border: `1px solid ${bellCooldown ? 'rgba(51,255,51,0.2)' : CRT_DIM}`,
+                borderRadius: 3,
+                color: bellCooldown ? 'rgba(51,255,51,0.3)' : CRT_GREEN,
+                fontFamily: FONT,
+                fontSize: 10,
+                cursor: bellCooldown ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
+                minWidth: 52,
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>🔔</span>
+              <span style={{ fontWeight: 'bold', letterSpacing: 1 }}>
+                {bellCooldown ? formatCooldown(bellRemainingMs) : 'BELL'}
+              </span>
+            </button>
+          )
+        })()}
       </div>
     </div>
   )

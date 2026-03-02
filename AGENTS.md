@@ -39,6 +39,10 @@ npm run test:e2e
 
 ### Rules for agents
 
+- **Skip E2E tests on cloud/CI servers** where `node_modules` is not installed
+  (e.g. `next` binary missing). Check for this before attempting to start the
+  dev server — if `npx next --version` fails or `node_modules` doesn't exist,
+  skip E2E and note it in the commit/PR message.
 - **Always run `npm run test:e2e` after any change to:**
   - `src/game/` (house geometry, renderer, character, palette)
   - `src/components/GameCanvas.tsx` or `ThoughtBubble.tsx`
