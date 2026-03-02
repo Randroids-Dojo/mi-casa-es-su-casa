@@ -13,6 +13,9 @@ export interface GameActions {
   goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => void
   wakeUp: (responsePhrases: string[]) => void
   getState: () => CharacterState | null
+  getLightStates: () => Record<string, boolean>
+  startLightSequence: (turnOn: boolean) => void
+  isLightSequenceActive: () => boolean
 }
 
 interface GameCanvasProps {
@@ -149,6 +152,9 @@ export function GameCanvas({
         },
         wakeUp: (responsePhrases: string[]) => { gameRef.current?.wakeUp(responsePhrases) },
         getState: () => gameRef.current?.getCharacterState() ?? null,
+        getLightStates: () => gameRef.current?.getLightStates() ?? {},
+        startLightSequence: (turnOn: boolean) => { gameRef.current?.startLightSequence(turnOn) },
+        isLightSequenceActive: () => gameRef.current?.isLightSequenceActive() ?? false,
       })
     }
 
