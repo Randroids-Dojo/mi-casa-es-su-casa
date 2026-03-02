@@ -27,7 +27,7 @@ const SUFFIXES: { label: string; display: string; slug: string }[] = [
 // ─── Boot lines ───────────────────────────────────────────────────────────────
 
 const BOOT_LINES: string[] = [
-  'MI CASA ES SU CASA v0.4.38',
+  'MI CASA ES SU CASA v0.4.39',
   '',
   '',
   'LOADING HOUSE SUBSYSTEM.......... OK',

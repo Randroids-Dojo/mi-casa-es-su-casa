@@ -237,8 +237,10 @@ function buildLivingRoomFurniture(
     { position: { x: xMin + 1, y: ft + 1, z: 6.9 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 1.5, y: ft + 2, z: 6.9 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 2, y: ft + 3, z: 6.9 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Lamp pole — left side
-    { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
+    // Floor lamp pole — left side (tall, from floor to near shade)
+    { position: { x: xMin + 2, y: ft + 2, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 4, z: 0.3 } },
+    // Floor lamp base
+    { position: { x: xMin + 2, y: ft + 0.1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 0.2, z: 1 } },
   ]
 
   // Fireplace + armchair — right side (only if room is wide enough)
@@ -256,8 +258,8 @@ function buildLivingRoomFurniture(
   }
 
   addVoxels(group, specs)
-  // Lamp shade — tracked for toggling
-  addLamp(group, 'living_room', { x: xMin + 2, y: ft + 2.3, z: 4.5 }, { x: 0.8, y: 0.4, z: 0.8 }, lamps)
+  // Floor lamp shade — large shade at top of pole, tracked for toggling
+  addLamp(group, 'living_room', { x: xMin + 2, y: ft + 4.3, z: 4.5 }, { x: 1.2, y: 0.5, z: 1.2 }, lamps)
   // Big fern plant — right side, front area
   buildFernPlant(group, xMax - 2, ft, 2.5, plant)
 }
