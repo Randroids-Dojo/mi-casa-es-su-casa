@@ -966,13 +966,13 @@ export interface LampRecord {
 /** Warm lamp color */
 const LAMP_COLOR = 0xffe0a0
 /** PointLight intensity when on (candelas — Three.js v0.171+ physically correct) */
-const LAMP_INTENSITY = 120
+const LAMP_INTENSITY = 30
 /** PointLight distance (cutoff radius) */
-const LAMP_DISTANCE = 30
+const LAMP_DISTANCE = 25
 /** Spill light intensity (above/below shade, candelas) */
-const LAMP_SPILL_INTENSITY = 60
+const LAMP_SPILL_INTENSITY = 15
 /** Spill light distance */
-const LAMP_SPILL_DISTANCE = 20
+const LAMP_SPILL_DISTANCE = 15
 /** Light decay: 1 = linear falloff (spreads further than physically correct quadratic) */
 const LAMP_DECAY = 1
 /** Lamp shade color when OFF (static cream) */

@@ -721,6 +721,7 @@ export class Character {
     activity: ActivityType,
     durationHours: number,
     responsePhrases: string[],
+    deterministic?: boolean,
   ): void {
     this._injectedThought = responsePhrases[0] ?? null
     this._thoughtQueue = responsePhrases.slice(1)
@@ -733,10 +734,13 @@ export class Character {
       this._startPerforming(activity, durationHours)
     } else {
       this._capturePosition(effectiveRoom)
+      const seed = deterministic
+        ? undefined
+        : `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`
       const path = findPath(
         effectiveRoom,
         room,
-        `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        seed,
         this.roomMap,
       )
       this._queued = { activity, durationHours }

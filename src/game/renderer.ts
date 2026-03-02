@@ -454,6 +454,7 @@ export function initGame(
       'idle',
       0.1,
       [phrase],
+      true, // deterministic shortest path for light sequence
     )
   }
 
