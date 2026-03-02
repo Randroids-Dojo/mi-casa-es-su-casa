@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameCanvas } from './GameCanvas'
 import type { GameActions } from './GameCanvas'
 import { DoorbellButton } from './DoorbellButton'
+import { TamagotchiBar } from './TamagotchiBar'
 import { VisitorPanel } from './VisitorPanel'
 import { UpdateBanner } from './UpdateBanner'
 import { useCharacterPersistence } from '@/hooks/useCharacterPersistence'
@@ -12,6 +13,7 @@ import type { CharacterState } from '@/lib/characterSchema'
 import type { LayoutRoomId } from '@/lib/layout'
 import { DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
+import type { TamagotchiAction } from '@/game/character/tamagotchiReactions'
 
 interface CharacterViewProps {
   name: string
@@ -114,6 +116,18 @@ export function CharacterView({ name }: CharacterViewProps) {
     [],
   )
 
+  const handleTamagotchiInteraction = useCallback(
+    (action: TamagotchiAction, phrases: string[]) => {
+      gameActionsRef.current?.goToRoom(
+        action.room,
+        action.activity,
+        action.durationHours,
+        phrases,
+      )
+    },
+    [],
+  )
+
   if (!stateLoaded) return null
 
   return (
@@ -136,6 +150,11 @@ export function CharacterView({ name }: CharacterViewProps) {
           externalStaircaseIndex={conflictStaircaseIndex}
         />
       </div>
+      <TamagotchiBar
+        characterName={name}
+        gameActions={gameActions}
+        onInteraction={handleTamagotchiInteraction}
+      />
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
     </div>
   )
