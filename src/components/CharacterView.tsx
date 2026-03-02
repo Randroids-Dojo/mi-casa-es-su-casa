@@ -117,12 +117,16 @@ export function CharacterView({ name }: CharacterViewProps) {
 
   const handleTamagotchiInteraction = useCallback(
     (action: TamagotchiAction, phrases: string[]) => {
-      gameActionsRef.current?.goToRoom(
-        action.room,
-        action.activity,
-        action.durationHours,
-        phrases,
-      )
+      if (action.id === 'wake') {
+        gameActionsRef.current?.wakeUp(phrases)
+      } else {
+        gameActionsRef.current?.goToRoom(
+          action.room,
+          action.activity,
+          action.durationHours,
+          phrases,
+        )
+      }
     },
     [],
   )

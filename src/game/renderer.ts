@@ -124,6 +124,7 @@ export function initGame(
       ringDoorbell() {},
       putOnClothes() {},
       goToRoom() {},
+      wakeUp() {},
       getCharacterState() { return null },
       unlockAudio() {},
       onLayoutPointerDown() {},
@@ -488,6 +489,9 @@ export function initGame(
         durationHours,
         responsePhrases,
       )
+    },
+    wakeUp(responsePhrases: string[]) {
+      character.wakeUp(responsePhrases)
     },
     getCharacterState(): SchemaCharacterState | null {
       const s = character.getState()

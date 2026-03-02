@@ -596,6 +596,29 @@ export class Character {
   }
 
   /**
+   * Wakes the character from sleep. Partially resets the sleep need so the
+   * scheduler doesn't immediately choose to sleep again, then starts a brief
+   * idle in the bedroom before the next scheduled activity.
+   * No-op if the character is not currently sleeping.
+   */
+  wakeUp(responsePhrases: string[]): void {
+    if (!this.fsm.isSleeping) return
+
+    this._injectedThought = responsePhrases[0] ?? null
+    this._thoughtQueue = responsePhrases.slice(1)
+
+    // Partially satisfy sleep need so the critical-need check and schedule
+    // don't force an immediate return to sleep.
+    this.needs = { ...this.needs, sleep: Math.min(this.needs.sleep, 0.2) }
+
+    // Stand the character up and idle for 2 game hours before the scheduler runs.
+    const room = this.roomMap[this.currentRoom]
+    this.mesh.group.position.copy(room.center)
+    this.mesh.group.rotation.x = 0
+    this._startPerforming('idle', 2)
+  }
+
+  /**
    * Interrupts the current activity and sends the character to a specific room
    * to perform the given activity.  The first response phrase is shown on
    * arrival; any additional phrases are queued and shown with short gaps

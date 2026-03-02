@@ -11,6 +11,7 @@ export interface GameActions {
   ringDoorbell: () => void
   putOnClothes: (item: string) => void
   goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => void
+  wakeUp: (responsePhrases: string[]) => void
   getState: () => CharacterState | null
 }
 
@@ -146,6 +147,7 @@ export function GameCanvas({
         goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => {
           gameRef.current?.goToRoom(room, activity, durationHours, responsePhrases)
         },
+        wakeUp: (responsePhrases: string[]) => { gameRef.current?.wakeUp(responsePhrases) },
         getState: () => gameRef.current?.getCharacterState() ?? null,
       })
     }

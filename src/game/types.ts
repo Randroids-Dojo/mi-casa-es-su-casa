@@ -76,6 +76,11 @@ export interface GameInstance {
    */
   goToRoom(room: string, activity: string, durationHours: number, responsePhrases: string[]): void
   /**
+   * Wakes the character from sleep. Resets sleep need and starts a brief idle.
+   * No-op if the character is not sleeping.
+   */
+  wakeUp(responsePhrases: string[]): void
+  /**
    * Returns the current character state snapshot for persistence.
    */
   getCharacterState(): SchemaCharacterState | null
