@@ -30,10 +30,10 @@ const LIGHTING_KEYFRAMES = [
 function updateClockHands(hour: number, clockHands: ClockHands): void {
   const h12 = hour % 12
   const minutes = (hour % 1) * 60
-  // Positive Z rotation is CCW from the camera's perspective, so negate for
-  // clockwise movement.
-  clockHands.hourHand.rotation.z   = -(h12 / 12) * Math.PI * 2
-  clockHands.minuteHand.rotation.z = -(minutes / 60) * Math.PI * 2
+  // Camera looks in +Z direction, so positive rotation.z appears clockwise
+  // on screen (opposite of the standard -Z-looking convention).
+  clockHands.hourHand.rotation.z   = (h12 / 12) * Math.PI * 2
+  clockHands.minuteHand.rotation.z = (minutes / 60) * Math.PI * 2
 }
 
 function updateDayNightLighting(
