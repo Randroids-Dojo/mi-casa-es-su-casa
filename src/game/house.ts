@@ -957,28 +957,38 @@ export interface LampRecord {
   shade: THREE.Mesh
   /** The PointLight sitting at the shade position */
   light: THREE.PointLight
+  /** Spill lights above and below the shade for directional glow */
+  spillLights: THREE.PointLight[]
 }
 
 /** Warm lamp color */
 const LAMP_COLOR = 0xffe0a0
 /** PointLight intensity when on */
-const LAMP_INTENSITY = 1.8
+const LAMP_INTENSITY = 5.0
 /** PointLight distance (radius of influence) */
-const LAMP_DISTANCE = 12
+const LAMP_DISTANCE = 18
+/** Spill light intensity (above/below shade) */
+const LAMP_SPILL_INTENSITY = 3.0
+/** Spill light distance */
+const LAMP_SPILL_DISTANCE = 10
 /** Lamp shade color when OFF (static cream) */
 const LAMP_SHADE_OFF = 0xfff4c0
 /** Lamp shade emissive color when ON */
 const LAMP_SHADE_EMISSIVE = 0xffe0a0
 
 /**
- * Turns a lamp ON or OFF: toggles the PointLight intensity and shade emissive.
+ * Turns a lamp ON or OFF: toggles the PointLight intensity, spill lights,
+ * and shade emissive.
  */
 export function setLampOn(lamp: LampRecord, on: boolean): void {
   lamp.light.intensity = on ? LAMP_INTENSITY : 0
+  for (const spill of lamp.spillLights) {
+    spill.intensity = on ? LAMP_SPILL_INTENSITY : 0
+  }
   const mat = lamp.shade.material as THREE.MeshLambertMaterial
   if (on) {
     mat.emissive.setHex(LAMP_SHADE_EMISSIVE)
-    mat.emissiveIntensity = 0.8
+    mat.emissiveIntensity = 1.0
   } else {
     mat.emissive.setHex(0x000000)
     mat.emissiveIntensity = 0
@@ -988,6 +998,9 @@ export function setLampOn(lamp: LampRecord, on: boolean): void {
 /**
  * Creates a lamp shade mesh + PointLight at the given position and registers
  * it in the lamps array.  The lamp starts OFF.
+ *
+ * Two spill lights are added above and below the shade to simulate light
+ * escaping from the top and bottom of the lamp shade.
  */
 function addLamp(
   group: THREE.Group,
@@ -1003,8 +1016,17 @@ function addLamp(
   light.position.set(position.x, position.y, position.z)
   group.add(light)
 
+  // Spill lights above and below the shade
+  const spillTop = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE)
+  spillTop.position.set(position.x, position.y + size.y / 2 + 0.3, position.z)
+  group.add(spillTop)
+
+  const spillBottom = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE)
+  spillBottom.position.set(position.x, position.y - size.y / 2 - 0.3, position.z)
+  group.add(spillBottom)
+
   if (lamps) {
-    lamps.push({ roomId, shade, light })
+    lamps.push({ roomId, shade, light, spillLights: [spillTop, spillBottom] })
   }
   return shade
 }

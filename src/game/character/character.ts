@@ -152,6 +152,17 @@ export class Character {
    * instead of snapping to a room center.
    */
   private _moveFromPosition: THREE.Vector3 | null = null
+
+  /**
+   * Captures the character's current world position for smooth first-leg lerp.
+   * Snaps Y to the effective room's floor level so the lerp stays horizontal
+   * when the character was interrupted mid-staircase (prevents floating
+   * diagonally through the air or dropping below the floor).
+   */
+  private _capturePosition(effectiveRoom: RoomId): void {
+    this._moveFromPosition = this.mesh.group.position.clone()
+    this._moveFromPosition.y = this.roomMap[effectiveRoom].center.y
+  }
   /** Plant health [0–1]: 1 = lush green, 0 = dead brown */
   private _plantHealth = 1.0
 
@@ -721,7 +732,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming(activity, durationHours)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         room,
@@ -755,7 +766,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('idle', 1)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'entrance',
@@ -784,7 +795,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('dress', 0.15)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'bedroom',
@@ -824,7 +835,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('water_plant', 0.5)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'living_room',
