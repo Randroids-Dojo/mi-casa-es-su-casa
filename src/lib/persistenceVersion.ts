@@ -7,4 +7,4 @@
  * bundle will have their save requests rejected (409) by the server,
  * preventing stale state from overwriting current data.
  */
-export const PERSISTENCE_VERSION = 3
+export const PERSISTENCE_VERSION = 4

@@ -212,6 +212,7 @@ function buildLivingRoomFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  plant?: PlantRecord,
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -257,6 +258,8 @@ function buildLivingRoomFurniture(
   addVoxels(group, specs)
   // Lamp shade — tracked for toggling
   addLamp(group, 'living_room', { x: xMin + 2, y: ft + 2.3, z: 4.5 }, { x: 0.8, y: 0.4, z: 0.8 }, lamps)
+  // Big fern plant — right side, front area
+  buildFernPlant(group, xMax - 2, ft, 2.5, plant)
 }
 
 function buildKitchenFurniture(
@@ -1006,18 +1009,117 @@ function addLamp(
   return shade
 }
 
+// ---------------------------------------------------------------------------
+// Plant — big fern with health-dependent coloring
+// ---------------------------------------------------------------------------
+
+/** Healthy fern leaf color (lush green) */
+export const PLANT_COLOR_HEALTHY = 0x2d8a1e
+/** Dead fern leaf color (dark brown) */
+export const PLANT_COLOR_DEAD = 0x4a3520
+/** Terracotta pot color */
+const PLANT_POT_COLOR = 0xb85c2a
+/** Soil color */
+const PLANT_SOIL_COLOR = 0x3a2510
+
+/**
+ * Builds a large potted fern. Returns the frond meshes so the renderer can
+ * update their color each frame based on plant health.
+ *
+ * @param cx  world x center of the plant
+ * @param ft  floor top y (bottom of pot)
+ * @param z   world z center of the plant
+ */
+function buildFernPlant(
+  group: THREE.Group,
+  cx: number,
+  ft: number,
+  z: number,
+  plant?: PlantRecord,
+): void {
+  // Pot body
+  group.add(makeVoxel({ x: cx, y: ft + 0.6, z }, PLANT_POT_COLOR, { x: 1.5, y: 1.2, z: 1.5 }))
+  // Pot rim
+  group.add(makeVoxel({ x: cx, y: ft + 1.25, z }, 0xc06930, { x: 1.7, y: 0.2, z: 1.7 }))
+  // Soil
+  group.add(makeVoxel({ x: cx, y: ft + 1.4, z }, PLANT_SOIL_COLOR, { x: 1.2, y: 0.1, z: 1.2 }))
+
+  // Frond leaves — radiating outward from center
+  const frondColor = PLANT_COLOR_HEALTHY
+  const fronds: THREE.Mesh[] = []
+
+  function addFrond(pos: Vec3, size: Vec3): void {
+    const mesh = makeVoxel(pos, frondColor, size)
+    group.add(mesh)
+    fronds.push(mesh)
+  }
+
+  // Center tall fronds
+  addFrond({ x: cx, y: ft + 2.8, z }, { x: 0.4, y: 2.2, z: 0.3 })
+  addFrond({ x: cx + 0.3, y: ft + 2.6, z: z - 0.1 }, { x: 0.3, y: 1.8, z: 0.25 })
+  addFrond({ x: cx - 0.3, y: ft + 2.6, z: z + 0.1 }, { x: 0.3, y: 1.8, z: 0.25 })
+
+  // Side-spreading fronds
+  addFrond({ x: cx + 0.9, y: ft + 2.2, z }, { x: 0.4, y: 1.5, z: 0.3 })
+  addFrond({ x: cx - 0.9, y: ft + 2.2, z }, { x: 0.4, y: 1.5, z: 0.3 })
+  addFrond({ x: cx, y: ft + 2.1, z: z + 0.7 }, { x: 0.3, y: 1.3, z: 0.4 })
+  addFrond({ x: cx, y: ft + 2.1, z: z - 0.7 }, { x: 0.3, y: 1.3, z: 0.4 })
+
+  // Lower drooping fronds
+  addFrond({ x: cx + 1.1, y: ft + 1.8, z: z + 0.4 }, { x: 0.35, y: 0.9, z: 0.3 })
+  addFrond({ x: cx - 1.1, y: ft + 1.8, z: z - 0.4 }, { x: 0.35, y: 0.9, z: 0.3 })
+  addFrond({ x: cx + 0.6, y: ft + 1.7, z: z - 0.8 }, { x: 0.3, y: 0.8, z: 0.3 })
+  addFrond({ x: cx - 0.6, y: ft + 1.7, z: z + 0.8 }, { x: 0.3, y: 0.8, z: 0.3 })
+
+  // Leafy tips at the edges (wider look)
+  addFrond({ x: cx + 1.3, y: ft + 2.5, z: z - 0.3 }, { x: 0.25, y: 1.0, z: 0.2 })
+  addFrond({ x: cx - 1.3, y: ft + 2.5, z: z + 0.3 }, { x: 0.25, y: 1.0, z: 0.2 })
+
+  if (plant) {
+    plant.fronds.push(...fronds)
+    plant.position = { x: cx, y: ft + 2.5, z }
+  }
+}
+
+/**
+ * Updates all fern frond meshes to reflect the current plant health.
+ * health 1 = lush green, health 0 = dead brown.
+ */
+export function updatePlantColor(plant: PlantRecord, health: number): void {
+  const healthy = new THREE.Color(PLANT_COLOR_HEALTHY)
+  const dead = new THREE.Color(PLANT_COLOR_DEAD)
+  const color = dead.clone().lerp(healthy, Math.max(0, Math.min(1, health)))
+
+  for (const frond of plant.fronds) {
+    const mat = frond.material as THREE.MeshLambertMaterial
+    mat.color.copy(color)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Plant tracking — fern frond meshes whose color changes with plant health
+// ---------------------------------------------------------------------------
+
+export interface PlantRecord {
+  /** All frond meshes whose color changes with plant health */
+  fronds: THREE.Mesh[]
+  /** World-space position of the plant (center, above pot) for water particles */
+  position: Vec3
+}
+
 export interface HouseResult {
   group: THREE.Group
   bathroomDoor: THREE.Group
   clockHands: ClockHands
   lamps: LampRecord[]
+  plant: PlantRecord
 }
 
 // ---------------------------------------------------------------------------
 // Room builder dispatch table
 // ---------------------------------------------------------------------------
 
-type RoomBuilder = (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3, lamps?: LampRecord[]) => void
+type RoomBuilder = (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3, lamps?: LampRecord[], plant?: PlantRecord) => void
 
 const ROOM_BUILDERS: Readonly<Record<LayoutRoomId, RoomBuilder>> = {
   entrance: buildEntranceRoom,
@@ -1111,11 +1213,12 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     buildInteriorWalls(house, floor, floorWalls, stairBoundsForFloor)
   }
 
-  // Build furniture for each room slot (collecting lamp records)
+  // Build furniture for each room slot (collecting lamp records and plant fronds)
   const lamps: LampRecord[] = []
+  const plant: PlantRecord = { fronds: [], position: { x: 0, y: 0, z: 0 } }
   for (const slot of layout.slots) {
     const builder = ROOM_BUILDERS[slot.roomId]
-    builder(house, slot.xMin, slot.xMax, slot.floor, lamps)
+    builder(house, slot.xMin, slot.xMax, slot.floor, lamps, slot.roomId === 'living_room' ? plant : undefined)
   }
 
   // Staircase (per-floor independent positioning)
@@ -1132,5 +1235,5 @@ export function buildHouse(layout: HouseLayout): HouseResult {
   const clockCy = floorY(livingSlot.floor) + 1 + 4.5
   const clockHands = buildWallClock(house, clockCx, clockCy)
 
-  return { group: house, bathroomDoor, clockHands, lamps }
+  return { group: house, bathroomDoor, clockHands, lamps, plant }
 }

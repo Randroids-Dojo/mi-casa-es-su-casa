@@ -40,7 +40,7 @@ export interface LayoutRoomData {
 
 const ROOM_ACTIVITY_MAP: Readonly<Record<LayoutRoomId, readonly string[]>> = {
   entrance: ['idle'],
-  living_room: ['relax', 'watch_tv', 'read', 'idle'],
+  living_room: ['relax', 'watch_tv', 'read', 'water_plant', 'idle'],
   kitchen: ['cook', 'eat', 'idle'],
   bedroom: ['sleep', 'dress', 'idle'],
   study: ['work', 'type', 'read', 'idle'],

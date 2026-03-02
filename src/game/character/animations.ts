@@ -34,6 +34,7 @@ export type AnimationName =
   | 'groom'
   | 'dress'
   | 'rummage'
+  | 'water_plant'
 
 export interface AnimationState {
   name: AnimationName
@@ -63,6 +64,7 @@ const ANIMATION_SPEED: Readonly<Record<AnimationName, number>> = {
   groom: 0.5,
   dress: 0.4,
   rummage: 0.7,
+  water_plant: 0.4, // slow pouring motion
 }
 
 // ---------------------------------------------------------------------------
@@ -405,6 +407,30 @@ function applyRummage(parts: CharacterMeshParts, progress: number): void {
   parts.rightLeg.rotation.x = 0
 }
 
+/**
+ * Water plant: right arm raised holding watering can, tilted forward to pour.
+ * Left arm at side. Body leaning slightly toward the plant.
+ */
+function applyWaterPlant(parts: CharacterMeshParts, progress: number): void {
+  // Right arm raised and tilted, pouring from watering can
+  parts.rightArm.rotation.x = -(Math.PI / 3) + oscillate(progress, 0, 0.08)
+  parts.rightArm.rotation.z = -0.2
+
+  // Left arm hangs at side
+  parts.leftArm.rotation.x = -0.1
+  parts.leftArm.rotation.z = 0.15
+
+  // Slight forward lean toward plant
+  parts.body.rotation.x = 0.15
+
+  // Head looking down at plant
+  parts.head.rotation.x = 0.2
+  parts.head.rotation.z = oscillate(progress, 0, 0.02)
+
+  parts.leftLeg.rotation.x = 0
+  parts.rightLeg.rotation.x = 0
+}
+
 // ---------------------------------------------------------------------------
 // Reset helper
 // ---------------------------------------------------------------------------
@@ -510,6 +536,9 @@ export function applyAnimation(
     case 'rummage':
       applyRummage(parts, progress)
       break
+    case 'water_plant':
+      applyWaterPlant(parts, progress)
+      break
     default:
       applyIdle(parts, progress)
   }
@@ -538,6 +567,7 @@ export function activityToAnimation(
     tinker: 'tinker',
     rummage: 'rummage',
     use_bathroom: 'sit',
+    water_plant: 'water_plant',
     idle: 'idle',
   }
   return map[activity] ?? 'idle'

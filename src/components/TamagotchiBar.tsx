@@ -15,6 +15,7 @@ const CRT_DIM = 'rgba(51,255,51,0.55)'
 const FONT = '"Share Tech Mono", "Courier New", Courier, monospace'
 const DOORBELL_COOLDOWN_MS = 15_000
 const LIGHTS_COOLDOWN_MS = 5_000
+const WATER_COOLDOWN_MS = 10_000
 
 // ---------------------------------------------------------------------------
 // Need bar config
@@ -152,9 +153,10 @@ interface TamagotchiBarProps {
   gameActions: GameActions | null
   onInteraction: (action: TamagotchiAction, phrases: string[]) => void
   onRing: () => void
+  onWaterPlant: () => void
 }
 
-export function TamagotchiBar({ characterName, gameActions, onInteraction, onRing }: TamagotchiBarProps) {
+export function TamagotchiBar({ characterName, gameActions, onInteraction, onRing, onWaterPlant }: TamagotchiBarProps) {
   const [needs, setNeeds] = useState<Record<string, number>>({
     hunger: 0,
     sleep: 0,
@@ -163,7 +165,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
   })
   const [isSleeping, setIsSleeping] = useState(false)
   const [allLightsOn, setAllLightsOn] = useState(false)
-  const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId | 'doorbell' | 'lights', number>>({
+  const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId | 'doorbell' | 'lights' | 'water', number>>({
     feed: 0,
     play: 0,
     clean: 0,
@@ -171,6 +173,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
     wake: 0,
     doorbell: 0,
     lights: 0,
+    water: 0,
   })
   const phraseSeedRef = useRef(0)
 
@@ -205,7 +208,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
       setCooldowns((prev) => {
         const now = Date.now()
         const allExpired = (Object.values(prev) as number[]).every((t) => t <= now)
-        if (allExpired) return { feed: 0, play: 0, clean: 0, sleep: 0, wake: 0, doorbell: 0, lights: 0 }
+        if (allExpired) return { feed: 0, play: 0, clean: 0, sleep: 0, wake: 0, doorbell: 0, lights: 0, water: 0 }
         return { ...prev }
       })
     }, 1000)
@@ -252,6 +255,14 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
     gameActions.startLightSequence(!allLightsOn)
     setCooldowns((prev) => ({ ...prev, lights: now + LIGHTS_COOLDOWN_MS }))
   }, [gameActions, cooldowns, allLightsOn])
+
+  const handleWaterPlant = useCallback(() => {
+    if (!gameActions) return
+    const now = Date.now()
+    if (cooldowns.water > now) return
+    onWaterPlant()
+    setCooldowns((prev) => ({ ...prev, water: now + WATER_COOLDOWN_MS }))
+  }, [gameActions, cooldowns, onWaterPlant])
 
   const now = Date.now()
 
@@ -415,6 +426,25 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
                       : allLightsOn
                         ? 'LT OFF'
                         : 'LT ON'}
+                </span>
+              </button>
+            )
+          })()}
+
+          {/* Water plant */}
+          {(() => {
+            const waterCooldown = cooldowns.water > now
+            const waterRemainingMs = waterCooldown ? cooldowns.water - now : 0
+            return (
+              <button
+                onClick={handleWaterPlant}
+                disabled={waterCooldown || !gameActions}
+                aria-label={waterCooldown ? `Water plant on cooldown, ${Math.ceil(waterRemainingMs / 1000)} seconds remaining` : 'Water the fern plant'}
+                style={btnStyle(waterCooldown)}
+              >
+                <span style={{ fontSize: 16, lineHeight: 1 }}>🌿</span>
+                <span style={{ fontWeight: 'bold', letterSpacing: 1 }}>
+                  {waterCooldown ? formatCooldown(waterRemainingMs) : 'WATER'}
                 </span>
               </button>
             )

@@ -37,7 +37,7 @@ export const ROOM_CENTERS: Readonly<Record<string, RoomPosition>> = {
 /** Activities available in each room (mirrors rooms.ts) */
 export const ROOM_ACTIVITIES: Readonly<Record<string, readonly string[]>> = {
   entrance: ['idle'],
-  living_room: ['relax', 'watch_tv', 'read', 'idle'],
+  living_room: ['relax', 'watch_tv', 'read', 'water_plant', 'idle'],
   kitchen: ['cook', 'eat', 'idle'],
   bedroom: ['sleep', 'dress', 'idle'],
   study: ['work', 'type', 'read', 'idle'],

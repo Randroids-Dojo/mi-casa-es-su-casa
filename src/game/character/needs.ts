@@ -65,6 +65,7 @@ const ACTIVITY_EFFECT_RATE: Readonly<
   idle: {}, // idle does nothing beneficial
   rummage: { entertainment: -0.08 },
   dress: { hygiene: -0.05 },
+  water_plant: {}, // plant watering has no need effects
 }
 
 /** Threshold above which a need is considered critical (overrides schedule) */

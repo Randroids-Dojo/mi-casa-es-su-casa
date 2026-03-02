@@ -155,6 +155,14 @@ export function CharacterView({ name }: CharacterViewProps) {
         gameActions={gameActions}
         onInteraction={handleTamagotchiInteraction}
         onRing={() => gameActionsRef.current?.ringDoorbell()}
+        onWaterPlant={() => {
+          const phrases = [
+            'Time to water the fern!',
+            'There you go, little plant!',
+            'Drink up!',
+          ]
+          gameActionsRef.current?.waterPlant(phrases)
+        }}
       />
       <VisitorPanel characterName={name} onMessagePosted={handleMessagePosted} />
     </div>
