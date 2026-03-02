@@ -161,44 +161,82 @@ export function layoutFromOrder(
     const availableRoomSpace = floor === 3 ? FLOOR3_ROOM_SPACE : ROOM_SPACE
     const stairIdx = hasStaircase ? staircaseIndex[floor as 1 | 2] : -1
 
-    // Custom walls only apply when staircase is at the last position (or floor 3)
-    const useCustomWalls = !hasStaircase || stairIdx === nRooms
-    const customFloorWalls = useCustomWalls ? customWallPositions?.[floor] : undefined
+    // Step 1: Compute proportional room widths as baseline
+    const totalPreferred = floorRooms.reduce((sum, r) => sum + ROOM_SIZES[r].preferred, 0)
+    const scale = availableRoomSpace / totalPreferred
+    const roomWidths: number[] = []
+    let usedWidth = 0
 
-    // Compute proportional room widths (total must equal availableRoomSpace)
-    let roomWidths: number[]
-
-    if (customFloorWalls && customFloorWalls.length === nRooms - 1) {
-      // Derive widths from explicit wall positions
-      roomWidths = []
-      let prevX = 1
-      for (let i = 0; i < nRooms; i++) {
-        const nextX = i < customFloorWalls.length ? customFloorWalls[i] : 1 + availableRoomSpace
-        roomWidths.push(nextX - prevX)
-        prevX = nextX
+    for (let i = 0; i < nRooms; i++) {
+      let width: number
+      if (i === nRooms - 1) {
+        width = availableRoomSpace - usedWidth
+      } else {
+        width = Math.max(
+          ROOM_SIZES[floorRooms[i]].min,
+          Math.round(ROOM_SIZES[floorRooms[i]].preferred * scale),
+        )
+        const remainingRooms = floorRooms.slice(i + 1)
+        const remainingMinWidth = remainingRooms.reduce((sum, r) => sum + ROOM_SIZES[r].min, 0)
+        width = Math.min(width, availableRoomSpace - usedWidth - remainingMinWidth)
       }
-    } else {
-      // Proportional widths from preferred sizes
-      const totalPreferred = floorRooms.reduce((sum, r) => sum + ROOM_SIZES[r].preferred, 0)
-      const scale = availableRoomSpace / totalPreferred
-      roomWidths = []
-      let usedWidth = 0
+      roomWidths.push(width)
+      usedWidth += width
+    }
 
-      for (let i = 0; i < nRooms; i++) {
-        let width: number
-        if (i === nRooms - 1) {
-          width = availableRoomSpace - usedWidth
-        } else {
-          width = Math.max(
-            ROOM_SIZES[floorRooms[i]].min,
-            Math.round(ROOM_SIZES[floorRooms[i]].preferred * scale),
-          )
-          const remainingRooms = floorRooms.slice(i + 1)
-          const remainingMinWidth = remainingRooms.reduce((sum, r) => sum + ROOM_SIZES[r].min, 0)
-          width = Math.min(width, availableRoomSpace - usedWidth - remainingMinWidth)
+    // Step 2: Apply custom wall positions (if provided).
+    // Custom walls work for any staircase position — the staircase may split
+    // rooms into multiple contiguous groups, each with its own walls.
+    const customFloorWalls = customWallPositions?.[floor]
+    if (customFloorWalls) {
+      // Compute expected number of room-to-room walls for this layout
+      const loopMaxTmp = hasStaircase ? nRooms : nRooms - 1
+      let expectedWalls = 0
+      {
+        let prevIsRoom = false
+        for (let p = 0; p <= loopMaxTmp; p++) {
+          const isRoom = !(hasStaircase && p === stairIdx)
+          if (isRoom && prevIsRoom) expectedWalls++
+          prevIsRoom = isRoom
         }
-        roomWidths.push(width)
-        usedWidth += width
+      }
+
+      if (customFloorWalls.length === expectedWalls) {
+        // Build room groups: contiguous rooms not separated by the staircase.
+        // Each group has a startX/endX derived from proportional widths.
+        interface RoomGroup { roomIndices: number[]; startX: number; endX: number }
+        const groups: RoomGroup[] = []
+        let curGroup: RoomGroup | null = null
+        let tmpX = 1
+        let tmpRI = 0
+        for (let p = 0; p <= loopMaxTmp; p++) {
+          if (hasStaircase && p === stairIdx) {
+            if (curGroup) { curGroup.endX = tmpX; groups.push(curGroup); curGroup = null }
+            tmpX += STAIRCASE_WIDTH
+          } else {
+            if (!curGroup) curGroup = { roomIndices: [], startX: tmpX, endX: 0 }
+            curGroup.roomIndices.push(tmpRI)
+            tmpX += roomWidths[tmpRI]
+            tmpRI++
+          }
+        }
+        if (curGroup) { curGroup.endX = tmpX; groups.push(curGroup) }
+
+        // For each group with walls, derive room widths from custom positions
+        let wIdx = 0
+        for (const grp of groups) {
+          const nGrpRooms = grp.roomIndices.length
+          const nGrpWalls = nGrpRooms - 1
+          if (nGrpWalls > 0) {
+            let prevX = grp.startX
+            for (let gi = 0; gi < nGrpRooms; gi++) {
+              const ri = grp.roomIndices[gi]
+              const nextX = gi < nGrpWalls ? customFloorWalls[wIdx++] : grp.endX
+              roomWidths[ri] = nextX - prevX
+              prevX = nextX
+            }
+          }
+        }
       }
     }
 
@@ -258,8 +296,13 @@ export function getWallBounds(
   const floorSlots = layout.slots
     .filter((s) => s.floor === floor)
     .sort((a, b) => a.xMin - b.xMin)
-  const leftSlot = floorSlots[wallIndex]
-  const rightSlot = floorSlots[wallIndex + 1]
+  const floorWalls = layout.walls.filter((w) => w.floor === floor)
+  const wallX = floorWalls[wallIndex].x
+
+  // Find the rooms adjacent to this wall by matching x-positions.
+  // Index-based lookup breaks when the staircase splits the room sequence.
+  const leftSlot = floorSlots.find((s) => s.xMax === wallX)!
+  const rightSlot = floorSlots.find((s) => s.xMin === wallX)!
   return {
     min: leftSlot.xMin + ROOM_SIZES[leftSlot.roomId].min,
     max: rightSlot.xMax - ROOM_SIZES[rightSlot.roomId].min,
