@@ -69,6 +69,11 @@ export const REAL_SECONDS_PER_GAME_MINUTE = 1 / 10
 /** Movement speed: how many path-leg progress units per real second */
 const MOVEMENT_SPEED = 0.2
 
+/** Y offset above floor so character's back rests on the duvet surface */
+const SLEEP_Y_ABOVE_FLOOR = 1.45
+/** Z position of feet near headboard when sleeping */
+const SLEEP_FEET_Z = 8.0
+
 /** Staircase traversal speed: progress units per real second */
 const STAIRCASE_SPEED = 0.3
 
@@ -252,6 +257,11 @@ export class Character {
         break
     }
 
+    // Restore upright rotation when not sleeping
+    if (state.kind !== 'sleeping') {
+      this.mesh.group.rotation.x = 0
+    }
+
     // --- 4. Apply animation ---
     this.animationState = advanceAnimation(this.animationState, deltaTime)
     applyAnimation(this.mesh.parts, this.animationState)
@@ -281,6 +291,10 @@ export class Character {
   // -------------------------------------------------------------------------
 
   private _updateSleeping(deltaGameHours: number): void {
+    const room = this.roomMap[this.currentRoom]
+    this.mesh.group.position.set(room.center.x, room.center.y + SLEEP_Y_ABOVE_FLOOR, SLEEP_FEET_Z)
+    this.mesh.group.rotation.x = -Math.PI / 2
+
     this.fsm.advanceSleep(deltaGameHours)
 
     // Wake up after 6am or when sleep need drops below 0.1
@@ -533,6 +547,14 @@ export class Character {
   // -------------------------------------------------------------------------
   // Public API
   // -------------------------------------------------------------------------
+
+  /**
+   * Returns the current in-game hour (0–24, fractional).
+   * Used by the renderer for day/night lighting.
+   */
+  get hour(): number {
+    return this.clock.hour
+  }
 
   /**
    * Returns the current thought bubble text, or null if none is showing.
