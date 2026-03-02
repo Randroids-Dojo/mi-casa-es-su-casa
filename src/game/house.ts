@@ -963,14 +963,16 @@ export interface LampRecord {
 
 /** Warm lamp color */
 const LAMP_COLOR = 0xffe0a0
-/** PointLight intensity when on */
-const LAMP_INTENSITY = 5.0
-/** PointLight distance (radius of influence) */
-const LAMP_DISTANCE = 18
-/** Spill light intensity (above/below shade) */
-const LAMP_SPILL_INTENSITY = 3.0
+/** PointLight intensity when on (candelas — Three.js v0.171+ physically correct) */
+const LAMP_INTENSITY = 120
+/** PointLight distance (cutoff radius) */
+const LAMP_DISTANCE = 30
+/** Spill light intensity (above/below shade, candelas) */
+const LAMP_SPILL_INTENSITY = 60
 /** Spill light distance */
-const LAMP_SPILL_DISTANCE = 10
+const LAMP_SPILL_DISTANCE = 20
+/** Light decay: 1 = linear falloff (spreads further than physically correct quadratic) */
+const LAMP_DECAY = 1
 /** Lamp shade color when OFF (static cream) */
 const LAMP_SHADE_OFF = 0xfff4c0
 /** Lamp shade emissive color when ON */
@@ -1012,16 +1014,16 @@ function addLamp(
   const shade = makeVoxel(position, LAMP_SHADE_OFF, size)
   group.add(shade)
 
-  const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE)
+  const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE, LAMP_DECAY)
   light.position.set(position.x, position.y, position.z)
   group.add(light)
 
   // Spill lights above and below the shade
-  const spillTop = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE)
+  const spillTop = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE, LAMP_DECAY)
   spillTop.position.set(position.x, position.y + size.y / 2 + 0.3, position.z)
   group.add(spillTop)
 
-  const spillBottom = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE)
+  const spillBottom = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE, LAMP_DECAY)
   spillBottom.position.set(position.x, position.y - size.y / 2 - 0.3, position.z)
   group.add(spillBottom)
 

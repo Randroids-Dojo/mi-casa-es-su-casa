@@ -352,6 +352,16 @@ export function getPositionAlongPath(
     const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
     const fromFloor = roomMap[fromRoomId].floor
     const nextFloor = nextRoomId ? roomMap[nextRoomId].floor : fromFloor
+
+    // Same-floor staircase traversal: walk horizontally to staircase area
+    // at the current floor level (no climbing needed).
+    if (fromFloor === nextFloor) {
+      const fromCenter = roomMap[fromRoomId].center
+      const stairX = resolveStairX(fromFloor, stairXPerFloor)
+      const target = new THREE.Vector3(stairX, fromCenter.y, fromCenter.z)
+      return new THREE.Vector3().lerpVectors(fromCenter, target, legProgress)
+    }
+
     const ascending = nextFloor > fromFloor
     // For ascending, the staircase column starts at fromFloor.
     // For descending, the staircase column that connects fromFloor to fromFloor-1
@@ -368,6 +378,15 @@ export function getPositionAlongPath(
     const prevFloor = prevRoomId ? roomMap[prevRoomId].floor : roomMap[toRoomId].floor
     const toFloor = roomMap[toRoomId].floor
     const destCenter = roomMap[toRoomId].center
+
+    // Same-floor staircase traversal: walk horizontally from staircase area
+    // to destination (no climbing needed).
+    if (prevFloor === toFloor) {
+      const stairX = resolveStairX(toFloor, stairXPerFloor)
+      const start = new THREE.Vector3(stairX, destCenter.y, destCenter.z)
+      return new THREE.Vector3().lerpVectors(start, destCenter, legProgress)
+    }
+
     const ascending = toFloor > prevFloor
 
     // Phase 3 (2/3–1): walk horizontally from the staircase exit to the room center
