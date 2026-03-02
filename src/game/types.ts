@@ -85,6 +85,25 @@ export interface GameInstance {
    */
   getCharacterState(): SchemaCharacterState | null
   /**
+   * Toggles the lamp in the given room on or off.
+   */
+  toggleRoomLight(roomId: string, on: boolean): void
+  /**
+   * Returns a record of roomId → boolean for every room that has a lamp.
+   * True = light is on.
+   */
+  getLightStates(): Record<string, boolean>
+  /**
+   * Starts a room-by-room light toggle sequence. The character walks to each
+   * room with a lamp, idles briefly, and the lamp is toggled. `turnOn` true
+   * turns all lights on; false turns them all off.
+   */
+  startLightSequence(turnOn: boolean): void
+  /**
+   * Returns true if a light toggle sequence is currently in progress.
+   */
+  isLightSequenceActive(): boolean
+  /**
    * Unlock audio playback. Must be called from a user gesture handler
    * (touchstart, mousedown, click) to satisfy browser AudioContext policy.
    * Idempotent — safe to call repeatedly.

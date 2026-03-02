@@ -730,8 +730,14 @@ export class LayoutEditor {
     const floorSlots = this.layout.slots
       .filter((s) => s.floor === floor)
       .sort((a, b) => a.xMin - b.xMin)
-    const leftSlot = floorSlots[wallIndex]
-    const rightSlot = floorSlots[wallIndex + 1]
+    const floorWalls = this.layout.walls.filter((w) => w.floor === floor)
+    const wallX = floorWalls[wallIndex]?.x
+    if (wallX == null) return
+
+    // Find adjacent rooms by wall x-position instead of index.
+    // Index-based lookup breaks when the staircase splits the room sequence.
+    const leftSlot = floorSlots.find((s) => s.xMax === wallX)
+    const rightSlot = floorSlots.find((s) => s.xMin === wallX)
     if (!leftSlot || !rightSlot) return
     this.wallDragOverlayLeft = makeOverlay(leftSlot, COLOR_WALL_DRAG, 0.18)
     this.wallDragOverlayRight = makeOverlay(rightSlot, COLOR_WALL_DRAG, 0.18)

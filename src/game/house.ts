@@ -184,6 +184,7 @@ function buildEntranceRoom(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -198,7 +199,11 @@ function buildEntranceRoom(
     { position: { x: xMin + 0.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
     // Entry rug — centered
     { position: { x: cx, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
+    // Wall sconce pole — right side of door
+    { position: { x: cx + 1.8, y: ft + 3, z: 7.4 }, color: PALETTE.CHROME, size: { x: 0.2, y: 1.5, z: 0.2 } },
   ])
+  // Sconce shade
+  addLamp(group, 'entrance', { x: cx + 1.8, y: ft + 3.8, z: 7.2 }, { x: 0.6, y: 0.3, z: 0.6 }, lamps)
 }
 
 function buildLivingRoomFurniture(
@@ -206,6 +211,7 @@ function buildLivingRoomFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -230,9 +236,8 @@ function buildLivingRoomFurniture(
     { position: { x: xMin + 1, y: ft + 1, z: 7.2 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 2, y: ft + 3, z: 7.2 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Lamp — left side (shade at ft+2.3 clears pole top face at ft+2)
+    // Lamp pole — left side
     { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 2.3, z: 4.5 }, color: 0xfff4c0, size: { x: 0.8, y: 0.4, z: 0.8 } },
   ]
 
   // Fireplace + armchair — right side (only if room is wide enough)
@@ -249,6 +254,8 @@ function buildLivingRoomFurniture(
   }
 
   addVoxels(group, specs)
+  // Lamp shade — tracked for toggling
+  addLamp(group, 'living_room', { x: xMin + 2, y: ft + 2.3, z: 4.5 }, { x: 0.8, y: 0.4, z: 0.8 }, lamps)
 }
 
 function buildKitchenFurniture(
@@ -256,6 +263,7 @@ function buildKitchenFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -295,7 +303,14 @@ function buildKitchenFurniture(
     )
   }
 
+  // Pendant light cord above dining table
+  specs.push(
+    { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+  )
+
   addVoxels(group, specs)
+  // Pendant shade
+  addLamp(group, 'kitchen', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 1.0, y: 0.4, z: 1.0 }, lamps)
 }
 
 function buildBedroomFurniture(
@@ -303,6 +318,7 @@ function buildBedroomFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -327,7 +343,6 @@ function buildBedroomFurniture(
     specs.push(
       { position: { x: xMin + 0.75, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.0, y: 1, z: 1.5 } },
       { position: { x: xMin + 0.75, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
-      { position: { x: xMin + 0.75, y: ft + 2.1, z: 6.5 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
     )
   }
 
@@ -351,6 +366,17 @@ function buildBedroomFurniture(
   }
 
   addVoxels(group, specs)
+  // Nightstand lamp shade — tracked for toggling (always present; pole/nightstand conditional above)
+  if (w >= 8) {
+    addLamp(group, 'bedroom', { x: xMin + 0.75, y: ft + 2.1, z: 6.5 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
+  } else {
+    // Narrow bedroom: ceiling pendant instead
+    specs.length // no-op — add pendant
+    addVoxels(group, [
+      { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+    ])
+    addLamp(group, 'bedroom', { x: cx, y: ft + 4.5, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
+  }
 }
 
 function buildBathroomFurniture(
@@ -358,6 +384,7 @@ function buildBathroomFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -384,7 +411,11 @@ function buildBathroomFurniture(
     { position: { x: xMax - 2, y: ft + 2.5, z: 7.6 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
     // Towel
     { position: { x: xMax - 2, y: ft + 1.5, z: 7.3 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
+    // Ceiling light fixture cord
+    { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
   ])
+  // Ceiling light shade
+  addLamp(group, 'bathroom', { x: cx, y: ft + 4.5, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
 }
 
 /**
@@ -469,6 +500,7 @@ function buildStudyFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -488,9 +520,8 @@ function buildStudyFurniture(
     { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
     // Left bookshelf
     ...makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.5, 7.0),
-    // Desk lamp (shade at ft+2.3 clears pole top face at ft+2)
+    // Desk lamp pole
     { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    { position: { x: cx + 1.5, y: ft + 2.3, z: 6.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
   ]
 
   // Right bookshelf (only if wide enough)
@@ -499,6 +530,8 @@ function buildStudyFurniture(
   }
 
   addVoxels(group, specs)
+  // Desk lamp shade
+  addLamp(group, 'study', { x: cx + 1.5, y: ft + 2.3, z: 6.3 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
 }
 
 function buildHobbyRoomFurniture(
@@ -506,6 +539,7 @@ function buildHobbyRoomFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -555,7 +589,12 @@ function buildHobbyRoomFurniture(
     )
   }
 
+  // Ceiling pendant light
+  specs.push(
+    { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+  )
   addVoxels(group, specs)
+  addLamp(group, 'hobby_room', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 0.9, y: 0.3, z: 0.9 }, lamps)
 }
 
 function buildStorageFurniture(
@@ -563,6 +602,7 @@ function buildStorageFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -574,10 +614,9 @@ function buildStorageFurniture(
     // Reading armchair — left-center
     { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
     { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
-    // Side table with lamp
+    // Side table with lamp pole
     { position: { x: cx - 0.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
     { position: { x: cx - 0.5, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    { position: { x: cx - 0.5, y: ft + 2.1, z: 4 }, color: 0xfff4c0, size: { x: 0.8, y: 0.3, z: 0.8 } },
     // Rug
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: Math.min(8, w - 2), y: 0.1, z: 5 } },
   ]
@@ -601,6 +640,8 @@ function buildStorageFurniture(
   }
 
   addVoxels(group, specs)
+  // Side table lamp shade
+  addLamp(group, 'storage', { x: cx - 0.5, y: ft + 2.1, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
 }
 
 function buildLandingFurniture(
@@ -608,6 +649,7 @@ function buildLandingFurniture(
   xMin: number,
   xMax: number,
   floor: 1 | 2 | 3,
+  lamps?: LampRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
@@ -619,12 +661,13 @@ function buildLandingFurniture(
     // Small armchair
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
-    // Floor lamp
+    // Floor lamp pole
     { position: { x: xMin + 1, y: ft + 1.5, z: 5.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 3, z: 0.2 } },
-    { position: { x: xMin + 1, y: ft + 3.2, z: 5.3 }, color: 0xfff4c0, size: { x: 0.7, y: 0.3, z: 0.7 } },
   ]
 
   addVoxels(group, specs)
+  // Floor lamp shade
+  addLamp(group, 'landing', { x: xMin + 1, y: ft + 3.2, z: 5.3 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
 }
 
 // ---------------------------------------------------------------------------
@@ -890,19 +933,82 @@ function buildWallClock(
 // House result type
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Lamp tracking — each room can have a toggleable lamp with a PointLight
+// ---------------------------------------------------------------------------
+
+export interface LampRecord {
+  roomId: LayoutRoomId
+  /** The shade mesh whose emissive we toggle */
+  shade: THREE.Mesh
+  /** The PointLight sitting at the shade position */
+  light: THREE.PointLight
+}
+
+/** Warm lamp color */
+const LAMP_COLOR = 0xffe0a0
+/** PointLight intensity when on */
+const LAMP_INTENSITY = 1.8
+/** PointLight distance (radius of influence) */
+const LAMP_DISTANCE = 12
+/** Lamp shade color when OFF (static cream) */
+const LAMP_SHADE_OFF = 0xfff4c0
+/** Lamp shade emissive color when ON */
+const LAMP_SHADE_EMISSIVE = 0xffe0a0
+
+/**
+ * Turns a lamp ON or OFF: toggles the PointLight intensity and shade emissive.
+ */
+export function setLampOn(lamp: LampRecord, on: boolean): void {
+  lamp.light.intensity = on ? LAMP_INTENSITY : 0
+  const mat = lamp.shade.material as THREE.MeshLambertMaterial
+  if (on) {
+    mat.emissive.setHex(LAMP_SHADE_EMISSIVE)
+    mat.emissiveIntensity = 0.8
+  } else {
+    mat.emissive.setHex(0x000000)
+    mat.emissiveIntensity = 0
+  }
+}
+
+/**
+ * Creates a lamp shade mesh + PointLight at the given position and registers
+ * it in the lamps array.  The lamp starts OFF.
+ */
+function addLamp(
+  group: THREE.Group,
+  roomId: LayoutRoomId,
+  position: Vec3,
+  size: Vec3,
+  lamps: LampRecord[] | undefined,
+): THREE.Mesh {
+  const shade = makeVoxel(position, LAMP_SHADE_OFF, size)
+  group.add(shade)
+
+  const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE)
+  light.position.set(position.x, position.y, position.z)
+  group.add(light)
+
+  if (lamps) {
+    lamps.push({ roomId, shade, light })
+  }
+  return shade
+}
+
 export interface HouseResult {
   group: THREE.Group
   bathroomDoor: THREE.Group
   clockHands: ClockHands
+  lamps: LampRecord[]
 }
 
 // ---------------------------------------------------------------------------
 // Room builder dispatch table
 // ---------------------------------------------------------------------------
 
-const ROOM_BUILDERS: Readonly<
-  Record<LayoutRoomId, (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3) => void>
-> = {
+type RoomBuilder = (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3, lamps?: LampRecord[]) => void
+
+const ROOM_BUILDERS: Readonly<Record<LayoutRoomId, RoomBuilder>> = {
   entrance: buildEntranceRoom,
   living_room: buildLivingRoomFurniture,
   kitchen: buildKitchenFurniture,
@@ -994,10 +1100,11 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     buildInteriorWalls(house, floor, floorWalls, stairBoundsForFloor)
   }
 
-  // Build furniture for each room slot
+  // Build furniture for each room slot (collecting lamp records)
+  const lamps: LampRecord[] = []
   for (const slot of layout.slots) {
     const builder = ROOM_BUILDERS[slot.roomId]
-    builder(house, slot.xMin, slot.xMax, slot.floor)
+    builder(house, slot.xMin, slot.xMax, slot.floor, lamps)
   }
 
   // Staircase (per-floor independent positioning)
@@ -1014,5 +1121,5 @@ export function buildHouse(layout: HouseLayout): HouseResult {
   const clockCy = floorY(livingSlot.floor) + 1 + 4.5
   const clockHands = buildWallClock(house, clockCx, clockCy)
 
-  return { group: house, bathroomDoor, clockHands }
+  return { group: house, bathroomDoor, clockHands, lamps }
 }
