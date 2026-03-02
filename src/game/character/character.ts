@@ -283,9 +283,13 @@ export class Character {
       }
     }
 
-    // Rotate character to face movement direction if moving
+    // Rotate character to face movement direction if moving, or face the
+    // camera (rotation.y = 0 → front face on -Z side) when stationary so
+    // the face features are visible in the dollhouse view.
     if (state.kind === 'active/moving' || state.kind === 'transitioning') {
       this.mesh.group.rotation.y = this._getFacingAngleToRoom(this.currentRoom)
+    } else if (state.kind !== 'sleeping') {
+      this.mesh.group.rotation.y = 0
     }
 
     // --- 5. Update thought bubble ---

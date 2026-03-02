@@ -140,6 +140,28 @@ export function buildCharacterMesh(
   group.add(head)
 
   // ------------------------------------------------------------------
+  // Face features — small boxes on the front (-Z) face of the head
+  // ------------------------------------------------------------------
+  const FACE_COLOR = 0x1a1a2e
+
+  // Eyes: two small dark squares
+  const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.04)
+  const eyeMat = new THREE.MeshLambertMaterial({ color: FACE_COLOR })
+  const leftEye = new THREE.Mesh(eyeGeo, eyeMat)
+  leftEye.position.set(-0.18, 0.1, -0.51)
+  head.add(leftEye)
+  const rightEye = new THREE.Mesh(eyeGeo, eyeMat)
+  rightEye.position.set(0.18, 0.1, -0.51)
+  head.add(rightEye)
+
+  // Mouth: small dark line below the eyes
+  const mouthGeo = new THREE.BoxGeometry(0.22, 0.06, 0.04)
+  const mouthMat = new THREE.MeshLambertMaterial({ color: FACE_COLOR })
+  const mouth = new THREE.Mesh(mouthGeo, mouthMat)
+  mouth.position.set(0, -0.18, -0.51)
+  head.add(mouth)
+
+  // ------------------------------------------------------------------
   // Accessories — attach to head so they move with the character
   // ------------------------------------------------------------------
   for (const item of accessories) {
