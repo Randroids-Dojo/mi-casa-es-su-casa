@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GameActions } from './GameCanvas'
 import type { TamagotchiAction, TamagotchiActionId } from '@/game/character/tamagotchiReactions'
-import { getTamagotchiActions, pickTamagotchiPhrases } from '@/game/character/tamagotchiReactions'
+import { getTamagotchiActions, pickTamagotchiPhrases, WAKE_ACTION } from '@/game/character/tamagotchiReactions'
 import { seedFromName } from '@/game/character/seeder'
 
 // ---------------------------------------------------------------------------
@@ -41,6 +41,7 @@ const ACTION_ICONS: Record<TamagotchiActionId, string> = {
   play: '🎲',
   clean: '🛁',
   sleep: '🛏️',
+  wake: '☀️',
 }
 
 // ---------------------------------------------------------------------------
@@ -80,11 +81,13 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
     hygiene: 0,
     entertainment: 0,
   })
+  const [isSleeping, setIsSleeping] = useState(false)
   const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId | 'doorbell', number>>({
     feed: 0,
     play: 0,
     clean: 0,
     sleep: 0,
+    wake: 0,
     doorbell: 0,
   })
   const phraseSeedRef = useRef(0)
@@ -93,18 +96,22 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
   const appearance = seedFromName(characterName)
   const actions = getTamagotchiActions(appearance.hobbyType)
 
-  // Poll game state for needs every 2s
+  // Poll game state for needs and sleeping status every 2s
   useEffect(() => {
     if (!gameActions) return
     const poll = setInterval(() => {
       const state = gameActions.getState()
       if (state) {
         setNeeds(state.needs)
+        setIsSleeping(state.currentActivity === 'sleep')
       }
     }, 2000)
     // Initial read
     const state = gameActions.getState()
-    if (state) setNeeds(state.needs)
+    if (state) {
+      setNeeds(state.needs)
+      setIsSleeping(state.currentActivity === 'sleep')
+    }
     return () => clearInterval(poll)
   }, [gameActions])
 
@@ -116,7 +123,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
       setCooldowns((prev) => {
         const now = Date.now()
         const allExpired = Object.values(prev).every((t) => t <= now)
-        if (allExpired) return { feed: 0, play: 0, clean: 0, sleep: 0, doorbell: 0 }
+        if (allExpired) return { feed: 0, play: 0, clean: 0, sleep: 0, wake: 0, doorbell: 0 }
         // Return same object to skip re-render if nothing changed
         return { ...prev }
       })
@@ -226,7 +233,8 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: 8 }}>
-        {actions.map((action) => {
+        {actions.map((baseAction) => {
+          const action = baseAction.id === 'sleep' && isSleeping ? WAKE_ACTION : baseAction
           const onCooldown = cooldowns[action.id] > now
           const remainingMs = onCooldown ? cooldowns[action.id] - now : 0
 

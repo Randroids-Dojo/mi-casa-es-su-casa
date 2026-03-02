@@ -10,7 +10,7 @@ import { seededRngFromKey } from './seeder'
 // Types
 // ---------------------------------------------------------------------------
 
-export type TamagotchiActionId = 'feed' | 'play' | 'clean' | 'sleep'
+export type TamagotchiActionId = 'feed' | 'play' | 'clean' | 'sleep' | 'wake'
 
 export interface TamagotchiAction {
   id: TamagotchiActionId
@@ -113,6 +113,25 @@ const SLEEP_ACTION: TamagotchiAction = {
     'You had me at sleep.',
     'Goodnight, world.',
     'My bed is calling my name.',
+  ],
+}
+
+export const WAKE_ACTION: TamagotchiAction = {
+  id: 'wake',
+  label: 'WAKE',
+  room: 'bedroom',
+  activity: 'idle',
+  durationHours: 0,
+  cooldownMs: 30_000,
+  responsePhrases: [
+    'Okay okay, I\'m up!',
+    'Five more minutes... fine.',
+    'Ugh, already?',
+    'Rise and shine, I guess.',
+    'Who dares wake me?!',
+    'I was having such a good dream...',
+    'Morning. Coffee first.',
+    'Stretching... yawning... okay.',
   ],
 }
 
