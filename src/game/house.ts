@@ -844,12 +844,16 @@ function buildWallClock(
   cx: number,
   cy: number,
 ): ClockHands {
-  const z = 7.52  // Sits just in front of the back wall (z=7.5)
+  // Frame centre z — back face rests at z≈7.0 (interior face of back wall).
+  // Camera is at z≈−26 looking in +z, so smaller z = closer to camera = renders
+  // on top. Offsets below use z − delta so face/ticks/hands appear in front of
+  // the frame as expected.
+  const z = 6.87
 
-  // Frame (dark wood)
+  // Frame (dark wood) — rearmost layer, visible only at the border
   group.add(makeVoxel({ x: cx, y: cy, z: z },            0x3d200a, { x: 3.3, y: 3.3, z: 0.13 }))
-  // Face (cream)
-  group.add(makeVoxel({ x: cx, y: cy, z: z + 0.07 },     0xfff8e8, { x: 2.9, y: 2.9, z: 0.10 }))
+  // Face (cream) — in front of frame, fills the interior
+  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.07 },     0xfff8e8, { x: 2.9, y: 2.9, z: 0.10 }))
 
   // 12 hour tick marks positioned around the face at radius 1.18
   const TICK_RADIUS = 1.18
@@ -859,25 +863,25 @@ function buildWallClock(
     const ty = cy + Math.cos(angle) * TICK_RADIUS
     const isQuarter = i % 3 === 0
     const tw = isQuarter ? 0.28 : 0.17
-    group.add(makeVoxel({ x: tx, y: ty, z: z + 0.14 }, 0x2a1506, { x: tw, y: tw, z: 0.07 }))
+    group.add(makeVoxel({ x: tx, y: ty, z: z - 0.14 }, 0x2a1506, { x: tw, y: tw, z: 0.07 }))
   }
 
   // Hour hand — pivot at clock centre, hand extends upward
   const hourPivot = new THREE.Group()
-  hourPivot.position.set(cx, cy, z + 0.18)
+  hourPivot.position.set(cx, cy, z - 0.18)
   const hourMesh = makeVoxel({ x: 0, y: 0.22, z: 0 }, 0x111111, { x: 0.22, y: 0.60, z: 0.09 })
   hourPivot.add(hourMesh)
   group.add(hourPivot)
 
   // Minute hand — slightly thinner & longer
   const minutePivot = new THREE.Group()
-  minutePivot.position.set(cx, cy, z + 0.20)
+  minutePivot.position.set(cx, cy, z - 0.20)
   const minuteMesh = makeVoxel({ x: 0, y: 0.35, z: 0 }, 0x111111, { x: 0.15, y: 0.88, z: 0.07 })
   minutePivot.add(minuteMesh)
   group.add(minutePivot)
 
-  // Centre pin (on top of everything)
-  group.add(makeVoxel({ x: cx, y: cy, z: z + 0.23 }, 0x111111, { x: 0.20, y: 0.20, z: 0.10 }))
+  // Centre pin (closest to camera — renders on top of everything)
+  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.23 }, 0x111111, { x: 0.20, y: 0.20, z: 0.10 }))
 
   return { hourHand: hourPivot, minuteHand: minutePivot }
 }
