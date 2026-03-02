@@ -139,6 +139,12 @@ export class Character {
   private sfx: SfxEngine | null = null
   /** Tracks animation progress to detect foot-down moments */
   private footstepDetector: FootstepDetectorState = createFootstepDetectorState()
+  /**
+   * When a command interrupts mid-movement, stores the character's exact world
+   * position so the first leg of the new path can lerp smoothly from there
+   * instead of snapping to a room center.
+   */
+  private _moveFromPosition: THREE.Vector3 | null = null
 
   constructor(
     name: string,
@@ -322,20 +328,42 @@ export class Character {
   }
 
   private _updateMoving(deltaTime: number): void {
-    const movingState = this.fsm.movingState
+    const movingState = this.fsm.movingState  // snapshot before advancement
     if (!movingState) return
 
     const arrived = this.fsm.advanceMovement(deltaTime * MOVEMENT_SPEED)
 
-    // Update mesh position
-    const pos = getPositionAlongPath(
-      movingState.path,
-      movingState.pathIndex,
-      movingState.legProgress,
-      this.roomMap,
-      this.stairXPerFloor,
-    )
+    // Update mesh position — for the first leg of an interrupted path, lerp
+    // from the actual world position captured at interrupt time so there is no
+    // snap to a room center.
+    let pos: THREE.Vector3
+    if (this._moveFromPosition !== null && movingState.pathIndex === 1) {
+      // Target = wherever leg 1 ends (staircase entry point, or next room center)
+      const legEnd = getPositionAlongPath(
+        movingState.path, 1, 1.0,
+        this.roomMap, this.stairXPerFloor,
+      )
+      pos = new THREE.Vector3().lerpVectors(
+        this._moveFromPosition, legEnd, movingState.legProgress,
+      )
+    } else {
+      pos = getPositionAlongPath(
+        movingState.path,
+        movingState.pathIndex,
+        movingState.legProgress,
+        this.roomMap,
+        this.stairXPerFloor,
+      )
+    }
     this.mesh.group.position.copy(pos)
+
+    // Clear override once the first leg is complete (check post-advance state)
+    if (this._moveFromPosition !== null && !arrived) {
+      const postAdvance = this.fsm.movingState!
+      if (postAdvance.pathIndex > 1) {
+        this._moveFromPosition = null
+      }
+    }
 
     // Use climb_stairs animation when moving to or from the staircase room
     const destRoom = movingState.path[movingState.pathIndex]
@@ -352,6 +380,7 @@ export class Character {
     }
 
     if (arrived) {
+      this._moveFromPosition = null
       // Arrived at destination room
       const destRoom = movingState.path[movingState.path.length - 1]
       this.currentRoom = destRoom
@@ -663,8 +692,10 @@ export class Character {
     this.currentRoom = effectiveRoom
 
     if (effectiveRoom === room) {
+      this._moveFromPosition = null
       this._startPerforming(activity, durationHours)
     } else {
+      this._moveFromPosition = this.mesh.group.position.clone()
       const path = findPath(
         effectiveRoom,
         room,
@@ -695,8 +726,10 @@ export class Character {
     this.currentRoom = effectiveRoom
 
     if (effectiveRoom === 'entrance') {
+      this._moveFromPosition = null
       this._startPerforming('idle', 1)
     } else {
+      this._moveFromPosition = this.mesh.group.position.clone()
       const path = findPath(
         effectiveRoom,
         'entrance',
@@ -722,8 +755,10 @@ export class Character {
     this.currentRoom = effectiveRoom
 
     if (effectiveRoom === 'bedroom') {
+      this._moveFromPosition = null
       this._startPerforming('dress', 0.15)
     } else {
+      this._moveFromPosition = this.mesh.group.position.clone()
       const path = findPath(
         effectiveRoom,
         'bedroom',
