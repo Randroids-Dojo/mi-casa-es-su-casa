@@ -407,12 +407,10 @@ export class Character {
     // Use the destination room so the new path starts on the correct floor.
     if (fromRoom === 'staircase') return toRoom
 
-    // Heading toward the staircase: character hasn't reached it yet.
-    // Use the from-room (last real room passed through).
-    if (toRoom === 'staircase') return fromRoom
-
-    // Normal leg between two real rooms: pick whichever end is closer.
-    return state.legProgress >= 0.5 ? toRoom : fromRoom
+    // All other cases (heading toward staircase, or same-floor leg at any
+    // progress): snap back to fromRoom. Using toRoom here would jump the
+    // character forward to a room center they haven't reached yet.
+    return fromRoom
   }
 
   private _getQueuedActivity(): { activity: ActivityType; durationHours: number } {
