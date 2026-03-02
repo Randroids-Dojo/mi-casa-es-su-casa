@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH } from './house'
-import type { ClockHands } from './house'
+import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLampOn } from './house'
+import type { ClockHands, LampRecord } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
 import { SfxEngine } from './sfx/engine'
@@ -136,6 +136,10 @@ export function initGame(
       goToRoom() {},
       wakeUp() {},
       getCharacterState() { return null },
+      toggleRoomLight() {},
+      getLightStates() { return {} },
+      startLightSequence() {},
+      isLightSequenceActive() { return false },
       unlockAudio() {},
       onLayoutPointerDown() {},
       onLayoutPointerMove() {},
@@ -276,6 +280,12 @@ export function initGame(
   scene.add(houseResult.group)
   let bathroomDoor = houseResult.bathroomDoor
   let clockHands = houseResult.clockHands
+  let currentLamps = houseResult.lamps
+  /** Per-room light on/off state — survives house rebuilds */
+  const lightStates: Record<string, boolean> = {}
+  for (const lamp of currentLamps) {
+    lightStates[lamp.roomId] = false
+  }
 
   // ------------------------------------------------------------------
   // Character
@@ -342,6 +352,13 @@ export function initGame(
     scene.add(houseResult.group)
     bathroomDoor = houseResult.bathroomDoor
     clockHands = houseResult.clockHands
+    currentLamps = houseResult.lamps
+    // Re-apply persisted light states to new lamp meshes
+    for (const lamp of currentLamps) {
+      if (lightStates[lamp.roomId]) {
+        setLampOn(lamp, true)
+      }
+    }
 
     // Update character to use new room positions and staircase X
     character.updateRoomMap(currentRoomMap, stairXPerFloorFromLayout(newLayout))
@@ -388,6 +405,54 @@ export function initGame(
   })
 
   // ------------------------------------------------------------------
+  // Light toggle sequence state
+  // ------------------------------------------------------------------
+  let lightSequenceQueue: string[] = []
+  let lightSequenceTurnOn = true
+  /** When the character arrives at this room, toggle its light and advance */
+  let lightSequenceTarget: string | null = null
+  /** Brief idle timer (real seconds) before advancing to the next room */
+  let lightSequenceIdleTimer = 0
+  const LIGHT_TOGGLE_IDLE = 0.4 // seconds idle in room before moving on
+
+  const LIGHT_TOGGLE_PHRASES_ON = [
+    'Let there be light!',
+    'Click!',
+    'That\'s better.',
+    'Lamp on!',
+    'Bright idea!',
+  ]
+
+  const LIGHT_TOGGLE_PHRASES_OFF = [
+    'Lights out!',
+    'Click!',
+    'Saving energy.',
+    'Lamp off!',
+    'Goodnight, lamp.',
+  ]
+
+  let lightPhraseIdx = 0
+
+  function advanceLightSequence(): void {
+    if (lightSequenceQueue.length === 0) {
+      lightSequenceTarget = null
+      return
+    }
+    const nextRoom = lightSequenceQueue.shift()!
+    lightSequenceTarget = nextRoom
+    lightSequenceIdleTimer = 0
+    const phrases = lightSequenceTurnOn ? LIGHT_TOGGLE_PHRASES_ON : LIGHT_TOGGLE_PHRASES_OFF
+    const phrase = phrases[lightPhraseIdx % phrases.length]
+    lightPhraseIdx++
+    character.goToRoom(
+      nextRoom as RoomId,
+      'idle',
+      0.1,
+      [phrase],
+    )
+  }
+
+  // ------------------------------------------------------------------
   // Animation loop
   // ------------------------------------------------------------------
   let animFrameId = 0
@@ -409,6 +474,24 @@ export function initGame(
     updateDayNightLighting(character.hour, ambientLight, dirLight, renderer)
     updateClockHands(character.hour, clockHands)
     layoutEditor.update(deltaTime)
+
+    // Light toggle sequence: check if character arrived at target room
+    if (lightSequenceTarget !== null) {
+      const charState = character.getState()
+      if (charState.currentRoom === lightSequenceTarget && charState.currentActivity === 'idle') {
+        lightSequenceIdleTimer += deltaTime
+        if (lightSequenceIdleTimer >= LIGHT_TOGGLE_IDLE) {
+          // Toggle the light in this room
+          const lamp = currentLamps.find((l) => l.roomId === lightSequenceTarget)
+          if (lamp) {
+            setLampOn(lamp, lightSequenceTurnOn)
+            lightStates[lightSequenceTarget!] = lightSequenceTurnOn
+          }
+          // Advance to next room
+          advanceLightSequence()
+        }
+      }
+    }
 
     // Animate bathroom door: close when character is using the bathroom
     const charState = character.getState()
@@ -526,6 +609,30 @@ export function initGame(
         position: s.position,
         accessories: s.accessories,
       }
+    },
+    toggleRoomLight(roomId: string, on: boolean) {
+      const lamp = currentLamps.find((l) => l.roomId === roomId)
+      if (lamp) {
+        setLampOn(lamp, on)
+        lightStates[roomId] = on
+      }
+    },
+    getLightStates(): Record<string, boolean> {
+      return { ...lightStates }
+    },
+    startLightSequence(turnOn: boolean) {
+      // Build queue of rooms that have lamps and need toggling
+      const roomsToVisit = currentLamps
+        .filter((l) => lightStates[l.roomId] !== turnOn)
+        .map((l) => l.roomId)
+      if (roomsToVisit.length === 0) return
+      lightSequenceTurnOn = turnOn
+      lightSequenceQueue = roomsToVisit
+      lightPhraseIdx = 0
+      advanceLightSequence()
+    },
+    isLightSequenceActive() {
+      return lightSequenceTarget !== null || lightSequenceQueue.length > 0
     },
     unlockAudio() {
       sfxEngine.unlock()
