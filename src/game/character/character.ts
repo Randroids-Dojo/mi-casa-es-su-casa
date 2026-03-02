@@ -46,6 +46,7 @@ import type { RoomId, ActivityType, Room } from '../rooms'
 import { ROOM_MAP } from '../rooms'
 import type { StairXPerFloor } from '@/lib/layout'
 import { pickPhrase, selectPhraseCategory } from './phrases'
+import { deriveMood, applyFaceExpression } from './face'
 import type { SfxEngine } from '../sfx/engine'
 import {
   createFootstepDetectorState,
@@ -292,7 +293,11 @@ export class Character {
       this.mesh.group.rotation.y = 0
     }
 
-    // --- 5. Update thought bubble ---
+    // --- 5. Update face expression based on mood ---
+    const mood = deriveMood(this.needs, this.currentActivity)
+    applyFaceExpression(this.mesh.face, mood)
+
+    // --- 6. Update thought bubble ---
     this._updateThoughtBubble(deltaTime)
   }
 
