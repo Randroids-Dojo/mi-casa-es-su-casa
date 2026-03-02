@@ -326,6 +326,11 @@ export function simulateOffline(
   const center = centers[currentRoom] ?? centers.living_room
   const position = { x: center.x, y: center.y, z: center.z }
 
+  // Decay plant health over elapsed time (same rate as online: 1/96 per game hour)
+  const PLANT_DECAY_RATE = 1.0 / 96
+  const prevPlantHealth = state.plantHealth ?? 1.0
+  const newPlantHealth = Math.max(0, prevPlantHealth - PLANT_DECAY_RATE * hoursToSimulate)
+
   return {
     ...state,
     currentRoom: currentRoom as typeof state.currentRoom,
@@ -333,5 +338,6 @@ export function simulateOffline(
     needs,
     clock,
     position,
+    plantHealth: newPlantHealth,
   }
 }

@@ -385,6 +385,7 @@ export function describeActivity(activity: ActivityType): string {
     tinker: 'tinkering',
     rummage: 'rummaging around',
     use_bathroom: 'using the bathroom',
+    water_plant: 'watering the plant',
     idle: 'standing around',
   }
   return descriptions[activity] ?? activity

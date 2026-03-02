@@ -13,6 +13,8 @@ export interface GameActions {
   goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => void
   wakeUp: (responsePhrases: string[]) => void
   getState: () => CharacterState | null
+  waterPlant: (responsePhrases: string[]) => void
+  getPlantHealth: () => number
   getLightStates: () => Record<string, boolean>
   startLightSequence: (turnOn: boolean) => void
   isLightSequenceActive: () => boolean
@@ -152,6 +154,8 @@ export function GameCanvas({
         },
         wakeUp: (responsePhrases: string[]) => { gameRef.current?.wakeUp(responsePhrases) },
         getState: () => gameRef.current?.getCharacterState() ?? null,
+        waterPlant: (responsePhrases: string[]) => { gameRef.current?.waterPlant(responsePhrases) },
+        getPlantHealth: () => gameRef.current?.getPlantHealth() ?? 1,
         getLightStates: () => gameRef.current?.getLightStates() ?? {},
         startLightSequence: (turnOn: boolean) => { gameRef.current?.startLightSequence(turnOn) },
         isLightSequenceActive: () => gameRef.current?.isLightSequenceActive() ?? false,

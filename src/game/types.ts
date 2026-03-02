@@ -85,6 +85,15 @@ export interface GameInstance {
    */
   getCharacterState(): SchemaCharacterState | null
   /**
+   * Sends the character to the living room to water the fern plant.
+   * The plant restores to full health during the watering activity.
+   */
+  waterPlant(responsePhrases: string[]): void
+  /**
+   * Returns the current plant health [0–1]. 1 = healthy green, 0 = dead brown.
+   */
+  getPlantHealth(): number
+  /**
    * Toggles the lamp in the given room on or off.
    */
   toggleRoomLight(roomId: string, on: boolean): void

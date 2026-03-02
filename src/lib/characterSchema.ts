@@ -46,6 +46,7 @@ export const CharacterStateSchema = z.object({
     'tinker',
     'rummage',
     'use_bathroom',
+    'water_plant',
     'idle',
   ]),
   needs: NeedsSchema,
@@ -57,6 +58,7 @@ export const CharacterStateSchema = z.object({
   }),
   accessories: z.array(ClothingItemSchema).optional(),
   lastActiveAt: z.string().datetime().optional(),
+  plantHealth: z.number().min(0).max(1).optional(),
 })
 
 export type CharacterState = z.infer<typeof CharacterStateSchema>

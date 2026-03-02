@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLampOn } from './house'
-import type { ClockHands, LampRecord } from './house'
+import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLampOn, updatePlantColor } from './house'
+import type { ClockHands, LampRecord, PlantRecord } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
 import { SfxEngine } from './sfx/engine'
@@ -136,6 +136,8 @@ export function initGame(
       goToRoom() {},
       wakeUp() {},
       getCharacterState() { return null },
+      waterPlant() {},
+      getPlantHealth() { return 1 },
       toggleRoomLight() {},
       getLightStates() { return {} },
       startLightSequence() {},
@@ -281,6 +283,7 @@ export function initGame(
   let bathroomDoor = houseResult.bathroomDoor
   let clockHands = houseResult.clockHands
   let currentLamps = houseResult.lamps
+  let currentPlant: PlantRecord = houseResult.plant
   /** Per-room light on/off state — survives house rebuilds */
   const lightStates: Record<string, boolean> = {}
   for (const lamp of currentLamps) {
@@ -299,6 +302,7 @@ export function initGame(
         clock: initialState.clock,
         position: initialState.position,
         accessories: (initialState.accessories ?? []) as ClothingItem[],
+        plantHealth: initialState.plantHealth,
       }
     : undefined
 
@@ -353,6 +357,7 @@ export function initGame(
     bathroomDoor = houseResult.bathroomDoor
     clockHands = houseResult.clockHands
     currentLamps = houseResult.lamps
+    currentPlant = houseResult.plant
     // Re-apply persisted light states to new lamp meshes
     for (const lamp of currentLamps) {
       if (lightStates[lamp.roomId]) {
@@ -453,6 +458,85 @@ export function initGame(
   }
 
   // ------------------------------------------------------------------
+  // Watering can + water particles
+  // ------------------------------------------------------------------
+  let wateringCan: THREE.Group | null = null
+  const waterParticles: THREE.Mesh[] = []
+  const WATER_PARTICLE_COUNT = 14
+  const WATER_COLOR = 0x4488ff
+
+  function buildWateringCan(): THREE.Group {
+    const g = new THREE.Group()
+    const mat = (c: number) => new THREE.MeshLambertMaterial({ color: c })
+    // Body (green)
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.5), mat(0x2a8a2a))
+    g.add(body)
+    // Handle
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), mat(0x2a8a2a))
+    handle.position.set(0, 0.4, 0.15)
+    g.add(handle)
+    // Spout
+    const spout = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.12), mat(0x2a8a2a))
+    spout.position.set(0.55, 0.1, 0)
+    spout.rotation.z = -0.3
+    g.add(spout)
+    // Sprinkle head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.25, 0.25), mat(0x888888))
+    head.position.set(0.85, 0.0, 0)
+    g.add(head)
+    return g
+  }
+
+  function spawnWaterParticles(): void {
+    const pMat = new THREE.MeshLambertMaterial({ color: WATER_COLOR, transparent: true, opacity: 0.7 })
+    const pGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12)
+    for (let i = 0; i < WATER_PARTICLE_COUNT; i++) {
+      const p = new THREE.Mesh(pGeo, pMat)
+      // Scatter initial positions
+      resetWaterParticle(p, i)
+      scene.add(p)
+      waterParticles.push(p)
+    }
+  }
+
+  function resetWaterParticle(p: THREE.Mesh, index: number): void {
+    const plant = currentPlant
+    // Scatter above plant with some randomness
+    p.position.set(
+      plant.position.x + (Math.random() - 0.5) * 1.5,
+      plant.position.y + 1.5 + Math.random() * 0.5,
+      plant.position.z + (Math.random() - 0.5) * 1.0,
+    )
+    // Stagger start with userData
+    p.userData.vy = -1.5 - Math.random() * 1.0
+    p.userData.life = Math.random() // stagger by varying initial life
+    p.visible = true
+  }
+
+  function updateWaterParticles(dt: number): void {
+    const plant = currentPlant
+    for (const p of waterParticles) {
+      p.position.y += p.userData.vy * dt
+      p.position.x += (Math.random() - 0.5) * 0.3 * dt
+      // Reset when particle falls below plant pot level
+      if (p.position.y < plant.position.y - 1.5) {
+        resetWaterParticle(p, 0)
+      }
+    }
+  }
+
+  function removeWaterParticles(): void {
+    for (const p of waterParticles) {
+      scene.remove(p)
+      p.geometry.dispose()
+      ;(p.material as THREE.Material).dispose()
+    }
+    waterParticles.length = 0
+  }
+
+  let wateringActive = false
+
+  // ------------------------------------------------------------------
   // Animation loop
   // ------------------------------------------------------------------
   let animFrameId = 0
@@ -504,6 +588,42 @@ export function initGame(
       bathroomDoor.rotation.y += Math.sign(diff) * Math.min(Math.abs(diff), DOOR_SPEED * deltaTime)
     } else {
       bathroomDoor.rotation.y = targetY
+    }
+
+    // --- Plant health visual ---
+    updatePlantColor(currentPlant, character.plantHealth)
+
+    // --- Watering can & water particle effects ---
+    const isWatering = charState.currentActivity === 'water_plant'
+      && charState.currentRoom === 'living_room'
+    if (isWatering && !wateringActive) {
+      wateringActive = true
+      wateringCan = buildWateringCan()
+      scene.add(wateringCan)
+      spawnWaterParticles()
+    }
+    if (!isWatering && wateringActive) {
+      wateringActive = false
+      if (wateringCan) {
+        scene.remove(wateringCan)
+        wateringCan.traverse((obj) => {
+          if (obj instanceof THREE.Mesh) {
+            obj.geometry.dispose()
+            ;(obj.material as THREE.Material).dispose()
+          }
+        })
+        wateringCan = null
+      }
+      removeWaterParticles()
+    }
+    if (wateringActive) {
+      // Position watering can near character's right hand
+      if (wateringCan) {
+        const charPos = character.getMeshGroup().position
+        wateringCan.position.set(charPos.x + 0.9, charPos.y + 2.8, charPos.z - 0.5)
+        wateringCan.rotation.z = -0.4
+      }
+      updateWaterParticles(deltaTime)
     }
 
     renderer.render(scene, camera)
@@ -608,7 +728,14 @@ export function initGame(
         clock: s.clock,
         position: s.position,
         accessories: s.accessories,
+        plantHealth: s.plantHealth,
       }
+    },
+    waterPlant(responsePhrases: string[]) {
+      character.waterPlant(responsePhrases)
+    },
+    getPlantHealth() {
+      return character.plantHealth
     },
     toggleRoomLight(roomId: string, on: boolean) {
       const lamp = currentLamps.find((l) => l.roomId === roomId)

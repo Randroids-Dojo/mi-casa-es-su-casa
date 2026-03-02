@@ -36,6 +36,7 @@ export type ActivityType =
   | 'tinker'
   | 'rummage'
   | 'use_bathroom'
+  | 'water_plant'
   | 'idle'
 
 // ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ function floorCenterY(floor: 1 | 2 | 3): number {
 
 export const ACTIVITY_MAP: Readonly<Record<LayoutRoomId, readonly ActivityType[]>> = {
   entrance: ['idle'],
-  living_room: ['relax', 'watch_tv', 'read', 'idle'],
+  living_room: ['relax', 'watch_tv', 'read', 'water_plant', 'idle'],
   kitchen: ['cook', 'eat', 'idle'],
   bedroom: ['sleep', 'dress', 'idle'],
   study: ['work', 'type', 'read', 'idle'],

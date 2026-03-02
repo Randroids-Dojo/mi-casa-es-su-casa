@@ -70,6 +70,11 @@ export const REAL_SECONDS_PER_GAME_MINUTE = 1 / 10
 /** Movement speed: how many path-leg progress units per real second */
 const MOVEMENT_SPEED = 0.2
 
+/** Plant health decay rate per game hour (dies in ~96 game hours = 4 game days) */
+const PLANT_DECAY_RATE = 1.0 / 96
+/** Plant health restoration rate per game hour during water_plant activity */
+const PLANT_RESTORE_RATE = 2.0
+
 /** Y offset above floor so character's back rests on the duvet surface */
 const SLEEP_Y_ABOVE_FLOOR = 1.45
 /** Z position of feet near headboard when sleeping (6.5 = bed center, clear of back wall at z=7.0) */
@@ -90,6 +95,7 @@ export interface CharacterState {
   clock: GameClock
   position: { x: number; y: number; z: number }
   accessories: ClothingItem[]
+  plantHealth?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +152,8 @@ export class Character {
    * instead of snapping to a room center.
    */
   private _moveFromPosition: THREE.Vector3 | null = null
+  /** Plant health [0–1]: 1 = lush green, 0 = dead brown */
+  private _plantHealth = 1.0
 
   constructor(
     name: string,
@@ -166,6 +174,7 @@ export class Character {
     // Initialize accessories from saved state (before building mesh so hat appears immediately)
     if (initialState) {
       this._accessories = [...(initialState.accessories ?? [])]
+      this._plantHealth = initialState.plantHealth ?? 1.0
     }
 
     // Build Three.js mesh (passes accessories so they render on first frame)
@@ -243,6 +252,13 @@ export class Character {
       this.needs = applyActivityEffect(this.needs, state.activity, deltaGameHours)
     } else {
       this.needs = advanceNeeds(this.needs, deltaGameHours)
+    }
+
+    // --- 2b. Plant health decay / restoration ---
+    if (state.kind === 'active/performing' && state.activity === 'water_plant') {
+      this._plantHealth = Math.min(1, this._plantHealth + PLANT_RESTORE_RATE * deltaGameHours)
+    } else {
+      this._plantHealth = Math.max(0, this._plantHealth - PLANT_DECAY_RATE * deltaGameHours)
     }
 
     // --- 3. Advance FSM and handle transitions ---
@@ -656,6 +672,7 @@ export class Character {
         z: this.mesh.group.position.z,
       },
       accessories: [...this._accessories],
+      plantHealth: this._plantHealth,
     }
   }
 
@@ -784,6 +801,40 @@ export class Character {
     if (this._accessories.includes(item)) return
     this._accessories.push(item)
     attachClothing(item, this.mesh.parts.head)
+  }
+
+  /**
+   * Returns the current plant health [0–1].
+   */
+  get plantHealth(): number {
+    return this._plantHealth
+  }
+
+  /**
+   * Sends the character to the living room to water the plant.
+   */
+  waterPlant(responsePhrases: string[]): void {
+    this._injectedThought = responsePhrases[0] ?? null
+    this._thoughtQueue = responsePhrases.slice(1)
+
+    const effectiveRoom = this._getEffectiveCurrentRoom()
+    this.currentRoom = effectiveRoom
+
+    if (effectiveRoom === 'living_room') {
+      this._moveFromPosition = null
+      this._startPerforming('water_plant', 0.5)
+    } else {
+      this._moveFromPosition = this.mesh.group.position.clone()
+      const path = findPath(
+        effectiveRoom,
+        'living_room',
+        `${this.name}:water:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        this.roomMap,
+      )
+      this._queued = { activity: 'water_plant', durationHours: 0.5 }
+      this.fsm.transitionToMoving(path)
+      this.animationState = createAnimationState('walk')
+    }
   }
 
   /**
