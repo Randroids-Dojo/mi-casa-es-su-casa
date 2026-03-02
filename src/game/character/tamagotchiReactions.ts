@@ -10,7 +10,7 @@ import { seededRngFromKey } from './seeder'
 // Types
 // ---------------------------------------------------------------------------
 
-export type TamagotchiActionId = 'feed' | 'play' | 'clean'
+export type TamagotchiActionId = 'feed' | 'play' | 'clean' | 'sleep'
 
 export interface TamagotchiAction {
   id: TamagotchiActionId
@@ -97,12 +97,32 @@ const CLEAN_ACTION: TamagotchiAction = {
   ],
 }
 
-/** Returns the three Tamagotchi actions, with PLAY's activity set from the character's hobby. */
+const SLEEP_ACTION: TamagotchiAction = {
+  id: 'sleep',
+  label: 'SLEEP',
+  room: 'bedroom',
+  activity: 'sleep',
+  durationHours: 6,
+  cooldownMs: 120_000,
+  responsePhrases: [
+    'Ahh, naptime. Finally.',
+    'I was literally about to fall asleep standing up.',
+    'Sweet dreams incoming...',
+    'Don\'t disturb me, I\'m busy snoring.',
+    'Zzzz... already.',
+    'You had me at sleep.',
+    'Goodnight, world.',
+    'My bed is calling my name.',
+  ],
+}
+
+/** Returns the four Tamagotchi actions, with PLAY's activity set from the character's hobby. */
 export function getTamagotchiActions(hobbyType: HobbyType): readonly TamagotchiAction[] {
   return [
     FEED_ACTION,
     { ...PLAY_BASE, activity: getPlayActivity(hobbyType) },
     CLEAN_ACTION,
+    SLEEP_ACTION,
   ]
 }
 

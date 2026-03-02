@@ -40,6 +40,7 @@ const ACTION_ICONS: Record<TamagotchiActionId, string> = {
   feed: '🍕',
   play: '🎲',
   clean: '🛁',
+  sleep: '🛏️',
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
     feed: 0,
     play: 0,
     clean: 0,
+    sleep: 0,
     doorbell: 0,
   })
   const phraseSeedRef = useRef(0)
@@ -114,7 +116,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
       setCooldowns((prev) => {
         const now = Date.now()
         const allExpired = Object.values(prev).every((t) => t <= now)
-        if (allExpired) return { feed: 0, play: 0, clean: 0, doorbell: 0 }
+        if (allExpired) return { feed: 0, play: 0, clean: 0, sleep: 0, doorbell: 0 }
         // Return same object to skip re-render if nothing changed
         return { ...prev }
       })
