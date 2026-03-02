@@ -352,6 +352,16 @@ export function getPositionAlongPath(
     const nextRoomId = toIdx < path.length - 1 ? path[toIdx + 1] : null
     const fromFloor = roomMap[fromRoomId].floor
     const nextFloor = nextRoomId ? roomMap[nextRoomId].floor : fromFloor
+
+    // Same-floor staircase traversal: walk horizontally to staircase area
+    // at the current floor level (no climbing needed).
+    if (fromFloor === nextFloor) {
+      const fromCenter = roomMap[fromRoomId].center
+      const stairX = resolveStairX(fromFloor, stairXPerFloor)
+      const target = new THREE.Vector3(stairX, fromCenter.y, fromCenter.z)
+      return new THREE.Vector3().lerpVectors(fromCenter, target, legProgress)
+    }
+
     const ascending = nextFloor > fromFloor
     // For ascending, the staircase column starts at fromFloor.
     // For descending, the staircase column that connects fromFloor to fromFloor-1
@@ -368,41 +378,75 @@ export function getPositionAlongPath(
     const prevFloor = prevRoomId ? roomMap[prevRoomId].floor : roomMap[toRoomId].floor
     const toFloor = roomMap[toRoomId].floor
     const destCenter = roomMap[toRoomId].center
+
+    // Same-floor staircase traversal: walk horizontally from staircase area
+    // to destination (no climbing needed).
+    if (prevFloor === toFloor) {
+      const stairX = resolveStairX(toFloor, stairXPerFloor)
+      const start = new THREE.Vector3(stairX, destCenter.y, destCenter.z)
+      return new THREE.Vector3().lerpVectors(start, destCenter, legProgress)
+    }
+
     const ascending = toFloor > prevFloor
 
-    // Phase 3 (2/3–1): walk horizontally from the staircase exit to the room center
-    if (legProgress > PHASE_LAND_END) {
+    // Determine if a landing walk is needed (different stairX between floors)
+    const lastClimbFromFloor = (ascending ? toFloor - 1 : toFloor) as 1 | 2 | 3
+    const lastClimbX = resolveStairX(lastClimbFromFloor, stairXPerFloor)
+    const exitStairX = resolveStairX(toFloor, stairXPerFloor)
+    const needsLandingWalk = Math.abs(lastClimbX - exitStairX) > 0.01
+
+    // Dynamic phase thresholds: skip the landing walk phase when stairX
+    // is the same on both floors (gives climb and exit walk equal time).
+    const climbEnd = needsLandingWalk ? PHASE_CLIMB_END : 0.5
+    const landEnd = needsLandingWalk ? PHASE_LAND_END : 0.5
+
+    // Phase 3: walk horizontally from the staircase exit to the room center
+    if (legProgress > landEnd) {
       return exitStaircasePosition(
         destCenter,
         ascending,
-        (legProgress - PHASE_LAND_END) / (1 - PHASE_LAND_END),
-        resolveStairX(toFloor, stairXPerFloor),
+        (legProgress - landEnd) / (1 - landEnd),
+        exitStairX,
       )
     }
 
-    // Phase 2 (1/3–2/3): landing walk — move horizontally at destination floor Y
-    // from the top of the last staircase column to the exit of the destination staircase.
-    if (legProgress > PHASE_CLIMB_END) {
-      const landProgress = (legProgress - PHASE_CLIMB_END) / PHASE_LAND_DURATION
-      // The last staircase climbed belongs to the floor just below (or above) the destination
-      // The last flight's column belongs to the lower of its two floors.
-      // Ascending: last flight went from (toFloor-1) to toFloor → lower = toFloor-1.
-      // Descending: last flight went from (toFloor+1) to toFloor → lower = toFloor.
-      const lastClimbFromFloor = (ascending ? toFloor - 1 : toFloor) as 1 | 2 | 3
+    // Phase 2 (only when landing walk is needed): walk at destination floor Y
+    // from the last staircase column to the destination staircase exit.
+    if (needsLandingWalk && legProgress > climbEnd) {
+      const landProgress = (legProgress - climbEnd) / (landEnd - climbEnd)
       const exitZ = ascending ? STAIR_Z_TOP : STAIR_Z_BOTTOM
       return new THREE.Vector3(
-        THREE.MathUtils.lerp(resolveStairX(lastClimbFromFloor, stairXPerFloor), resolveStairX(toFloor, stairXPerFloor), landProgress),
+        THREE.MathUtils.lerp(lastClimbX, exitStairX, landProgress),
         getFloorCenterY(toFloor),
         exitZ,
       )
     }
 
-    // Phase 1 (0–1/3): climb / descend the staircase
-    return climbStaircasePosition(prevFloor, toFloor, legProgress / PHASE_CLIMB_END, stairXPerFloor)
+    // Phase 1: climb / descend the staircase
+    return climbStaircasePosition(prevFloor, toFloor, legProgress / climbEnd, stairXPerFloor)
   }
 
   // ---- Normal leg between two non-staircase rooms ----
   return getPositionAlongLeg(fromRoomId, toRoomId, legProgress, roomMap)
+}
+
+/**
+ * Returns the legProgress value at which the climbing phase ends for an
+ * exit leg (staircase → room). When the landing walk would produce zero
+ * displacement (stairX is the same on both floors), the landing phase is
+ * skipped and the climb gets half the leg instead of one third.
+ */
+export function getClimbPhaseEnd(
+  prevFloor: 1 | 2 | 3,
+  toFloor: 1 | 2 | 3,
+  stairXPerFloor?: StairXPerFloor,
+): number {
+  if (prevFloor === toFloor) return 0
+  const ascending = toFloor > prevFloor
+  const lastClimbFromFloor = (ascending ? toFloor - 1 : toFloor) as 1 | 2 | 3
+  const lastClimbX = resolveStairX(lastClimbFromFloor, stairXPerFloor)
+  const exitX = resolveStairX(toFloor, stairXPerFloor)
+  return Math.abs(lastClimbX - exitX) > 0.01 ? PHASE_CLIMB_END : 0.5
 }
 
 /**

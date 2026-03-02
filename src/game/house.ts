@@ -237,8 +237,10 @@ function buildLivingRoomFurniture(
     { position: { x: xMin + 1, y: ft + 1, z: 6.9 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 1.5, y: ft + 2, z: 6.9 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 2, y: ft + 3, z: 6.9 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Lamp pole — left side
-    { position: { x: xMin + 2, y: ft + 1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 2, z: 0.3 } },
+    // Floor lamp pole — left side (tall, from floor to near shade)
+    { position: { x: xMin + 2, y: ft + 2, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 4, z: 0.3 } },
+    // Floor lamp base
+    { position: { x: xMin + 2, y: ft + 0.1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 0.2, z: 1 } },
   ]
 
   // Fireplace + armchair — right side (only if room is wide enough)
@@ -256,8 +258,8 @@ function buildLivingRoomFurniture(
   }
 
   addVoxels(group, specs)
-  // Lamp shade — tracked for toggling
-  addLamp(group, 'living_room', { x: xMin + 2, y: ft + 2.3, z: 4.5 }, { x: 0.8, y: 0.4, z: 0.8 }, lamps)
+  // Floor lamp shade — large shade at top of pole, tracked for toggling
+  addLamp(group, 'living_room', { x: xMin + 2, y: ft + 4.3, z: 4.5 }, { x: 1.2, y: 0.5, z: 1.2 }, lamps)
   // Big fern plant — right side, front area
   buildFernPlant(group, xMax - 2, ft, 2.5, plant)
 }
@@ -957,28 +959,40 @@ export interface LampRecord {
   shade: THREE.Mesh
   /** The PointLight sitting at the shade position */
   light: THREE.PointLight
+  /** Spill lights above and below the shade for directional glow */
+  spillLights: THREE.PointLight[]
 }
 
 /** Warm lamp color */
 const LAMP_COLOR = 0xffe0a0
-/** PointLight intensity when on */
-const LAMP_INTENSITY = 1.8
-/** PointLight distance (radius of influence) */
-const LAMP_DISTANCE = 12
+/** PointLight intensity when on (candelas — Three.js v0.171+ physically correct) */
+const LAMP_INTENSITY = 20
+/** PointLight distance (cutoff radius) */
+const LAMP_DISTANCE = 25
+/** Spill light intensity (above/below shade, candelas) */
+const LAMP_SPILL_INTENSITY = 10
+/** Spill light distance */
+const LAMP_SPILL_DISTANCE = 15
+/** Light decay: 1 = linear falloff (spreads further than physically correct quadratic) */
+const LAMP_DECAY = 1
 /** Lamp shade color when OFF (static cream) */
 const LAMP_SHADE_OFF = 0xfff4c0
 /** Lamp shade emissive color when ON */
 const LAMP_SHADE_EMISSIVE = 0xffe0a0
 
 /**
- * Turns a lamp ON or OFF: toggles the PointLight intensity and shade emissive.
+ * Turns a lamp ON or OFF: toggles the PointLight intensity, spill lights,
+ * and shade emissive.
  */
 export function setLampOn(lamp: LampRecord, on: boolean): void {
   lamp.light.intensity = on ? LAMP_INTENSITY : 0
+  for (const spill of lamp.spillLights) {
+    spill.intensity = on ? LAMP_SPILL_INTENSITY : 0
+  }
   const mat = lamp.shade.material as THREE.MeshLambertMaterial
   if (on) {
     mat.emissive.setHex(LAMP_SHADE_EMISSIVE)
-    mat.emissiveIntensity = 0.8
+    mat.emissiveIntensity = 1.0
   } else {
     mat.emissive.setHex(0x000000)
     mat.emissiveIntensity = 0
@@ -988,6 +1002,9 @@ export function setLampOn(lamp: LampRecord, on: boolean): void {
 /**
  * Creates a lamp shade mesh + PointLight at the given position and registers
  * it in the lamps array.  The lamp starts OFF.
+ *
+ * Two spill lights are added above and below the shade to simulate light
+ * escaping from the top and bottom of the lamp shade.
  */
 function addLamp(
   group: THREE.Group,
@@ -999,12 +1016,21 @@ function addLamp(
   const shade = makeVoxel(position, LAMP_SHADE_OFF, size)
   group.add(shade)
 
-  const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE)
+  const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE, LAMP_DECAY)
   light.position.set(position.x, position.y, position.z)
   group.add(light)
 
+  // Spill lights above and below the shade
+  const spillTop = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE, LAMP_DECAY)
+  spillTop.position.set(position.x, position.y + size.y / 2 + 0.3, position.z)
+  group.add(spillTop)
+
+  const spillBottom = new THREE.PointLight(LAMP_COLOR, 0, LAMP_SPILL_DISTANCE, LAMP_DECAY)
+  spillBottom.position.set(position.x, position.y - size.y / 2 - 0.3, position.z)
+  group.add(spillBottom)
+
   if (lamps) {
-    lamps.push({ roomId, shade, light })
+    lamps.push({ roomId, shade, light, spillLights: [spillTop, spillBottom] })
   }
   return shade
 }

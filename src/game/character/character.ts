@@ -34,7 +34,7 @@ import {
   describeActivity,
 } from './schedule'
 import type { GameClock } from './schedule'
-import { findPath, getPositionAlongPath } from './pathfinder'
+import { findPath, getPositionAlongPath, getClimbPhaseEnd } from './pathfinder'
 import {
   applyAnimation,
   advanceAnimation,
@@ -152,6 +152,17 @@ export class Character {
    * instead of snapping to a room center.
    */
   private _moveFromPosition: THREE.Vector3 | null = null
+
+  /**
+   * Captures the character's current world position for smooth first-leg lerp.
+   * Snaps Y to the effective room's floor level so the lerp stays horizontal
+   * when the character was interrupted mid-staircase (prevents floating
+   * diagonally through the air or dropping below the floor).
+   */
+  private _capturePosition(effectiveRoom: RoomId): void {
+    this._moveFromPosition = this.mesh.group.position.clone()
+    this._moveFromPosition.y = this.roomMap[effectiveRoom].center.y
+  }
   /** Plant health [0–1]: 1 = lush green, 0 = dead brown */
   private _plantHealth = 1.0
 
@@ -390,11 +401,21 @@ export class Character {
       }
     }
 
-    // Use climb_stairs animation when moving to or from the staircase room
+    // Use climb_stairs only during actual staircase climbing (exit leg, phase 1).
+    // Approach legs and exit walk phases use normal walk animation.
     const destRoom = movingState.path[movingState.pathIndex]
     const fromRoom = movingState.path[movingState.pathIndex - 1]
-    const onStaircase = destRoom === 'staircase' || fromRoom === 'staircase'
-    if (onStaircase) {
+    let useClimbAnimation = false
+    if (fromRoom === 'staircase') {
+      const prevRoom = movingState.pathIndex > 1 ? movingState.path[movingState.pathIndex - 2] : null
+      const prevFloor = prevRoom ? this.roomMap[prevRoom].floor : this.roomMap[destRoom].floor
+      const toFloor = this.roomMap[destRoom].floor
+      if (prevFloor !== toFloor) {
+        const climbEnd = getClimbPhaseEnd(prevFloor, toFloor, this.stairXPerFloor)
+        useClimbAnimation = movingState.legProgress <= climbEnd
+      }
+    }
+    if (useClimbAnimation) {
       if (this.animationState.name !== 'climb_stairs') {
         this.animationState = createAnimationState('climb_stairs')
       }
@@ -710,6 +731,7 @@ export class Character {
     activity: ActivityType,
     durationHours: number,
     responsePhrases: string[],
+    deterministic?: boolean,
   ): void {
     this._injectedThought = responsePhrases[0] ?? null
     this._thoughtQueue = responsePhrases.slice(1)
@@ -721,11 +743,14 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming(activity, durationHours)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
+      const seed = deterministic
+        ? undefined
+        : `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`
       const path = findPath(
         effectiveRoom,
         room,
-        `${this.name}:chat:${this.clock.day}:${Math.floor(this.clock.hour)}`,
+        seed,
         this.roomMap,
       )
       this._queued = { activity, durationHours }
@@ -755,7 +780,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('idle', 1)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'entrance',
@@ -784,7 +809,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('dress', 0.15)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'bedroom',
@@ -824,7 +849,7 @@ export class Character {
       this._moveFromPosition = null
       this._startPerforming('water_plant', 0.5)
     } else {
-      this._moveFromPosition = this.mesh.group.position.clone()
+      this._capturePosition(effectiveRoom)
       const path = findPath(
         effectiveRoom,
         'living_room',

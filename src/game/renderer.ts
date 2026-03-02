@@ -454,6 +454,7 @@ export function initGame(
       'idle',
       0.1,
       [phrase],
+      true, // deterministic shortest path for light sequence
     )
   }
 
@@ -753,6 +754,27 @@ export function initGame(
         .filter((l) => lightStates[l.roomId] !== turnOn)
         .map((l) => l.roomId)
       if (roomsToVisit.length === 0) return
+
+      // Sort rooms for optimal visiting order: visit all rooms on the
+      // character's current floor first, then move to adjacent floors.
+      // Within each floor, rooms are sorted by x position (left to right).
+      const charState = character.getState()
+      const currentFloor = currentRoomMap[charState.currentRoom as RoomId]?.floor ?? 1
+
+      roomsToVisit.sort((a, b) => {
+        const roomA = currentRoomMap[a as RoomId]
+        const roomB = currentRoomMap[b as RoomId]
+        if (!roomA || !roomB) return 0
+
+        const floorDistA = Math.abs(roomA.floor - currentFloor)
+        const floorDistB = Math.abs(roomB.floor - currentFloor)
+        if (floorDistA !== floorDistB) return floorDistA - floorDistB
+
+        if (roomA.floor !== roomB.floor) return roomA.floor - roomB.floor
+
+        return roomA.center.x - roomB.center.x
+      })
+
       lightSequenceTurnOn = turnOn
       lightSequenceQueue = roomsToVisit
       lightPhraseIdx = 0
