@@ -72,8 +72,8 @@ const MOVEMENT_SPEED = 0.2
 
 /** Y offset above floor so character's back rests on the duvet surface */
 const SLEEP_Y_ABOVE_FLOOR = 1.45
-/** Z position of feet near headboard when sleeping */
-const SLEEP_FEET_Z = 8.0
+/** Z position of feet near headboard when sleeping (6.5 = bed center, clear of back wall at z=7.0) */
+const SLEEP_FEET_Z = 6.5
 
 /** Staircase traversal speed: progress units per real second */
 const STAIRCASE_SPEED = 0.3
