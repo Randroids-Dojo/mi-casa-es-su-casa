@@ -17,6 +17,7 @@
 import * as THREE from 'three'
 import type { CharacterAppearance } from './seeder'
 import type { ClothingItem } from '@/lib/characterSchema'
+import type { FaceParts } from './face'
 import { attachClothing } from './accessories'
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,8 @@ export interface CharacterMesh {
   group: THREE.Group
   /** Individual body part meshes for animation. */
   parts: CharacterMeshParts
+  /** Face feature meshes for mood-driven expressions. */
+  face: FaceParts
 }
 
 // ---------------------------------------------------------------------------
@@ -185,5 +188,6 @@ export function buildCharacterMesh(
       leftLeg: leftLegPivot as unknown as THREE.Mesh,
       rightLeg: rightLegPivot as unknown as THREE.Mesh,
     },
+    face: { leftEye, rightEye, mouth },
   }
 }
