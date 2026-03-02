@@ -12,6 +12,49 @@ import type { LayoutRoomId, HouseLayout } from '@/lib/layout'
 import { LayoutEditor } from './layoutEditor'
 
 // ---------------------------------------------------------------------------
+// Day/night lighting
+// ---------------------------------------------------------------------------
+
+const LIGHTING_KEYFRAMES = [
+  { h:  0, ai: 0.06, ac: 0x0d0d2a, di: 0.08, dc: 0x1a2050, cl: 0x05050f },
+  { h:  5, ai: 0.06, ac: 0x0d0d2a, di: 0.08, dc: 0x1a2050, cl: 0x05050f },
+  { h:  7, ai: 0.35, ac: 0xff7030, di: 0.60, dc: 0xff5010, cl: 0x0c0818 },
+  { h:  9, ai: 0.40, ac: 0xfff4e0, di: 0.80, dc: 0xfff4e0, cl: 0x1a1a2e },
+  { h: 17, ai: 0.40, ac: 0xfff4e0, di: 0.80, dc: 0xfff4e0, cl: 0x1a1a2e },
+  { h: 19, ai: 0.25, ac: 0xff6030, di: 0.45, dc: 0xff3a10, cl: 0x0f0a1e },
+  { h: 21, ai: 0.10, ac: 0x2a1880, di: 0.12, dc: 0x201050, cl: 0x08061a },
+  { h: 24, ai: 0.06, ac: 0x0d0d2a, di: 0.08, dc: 0x1a2050, cl: 0x05050f },
+]
+
+function updateDayNightLighting(
+  hour: number,
+  ambientLight: THREE.AmbientLight,
+  dirLight: THREE.DirectionalLight,
+  renderer: THREE.WebGLRenderer,
+): void {
+  const kf = LIGHTING_KEYFRAMES
+  let prev = kf[0]
+  let next = kf[kf.length - 1]
+  for (let i = 0; i < kf.length - 1; i++) {
+    if (hour >= kf[i].h && hour < kf[i + 1].h) {
+      prev = kf[i]
+      next = kf[i + 1]
+      break
+    }
+  }
+  const t = (hour - prev.h) / (next.h - prev.h)
+  const lerp = (a: number, b: number) => a + (b - a) * t
+
+  ambientLight.intensity = lerp(prev.ai, next.ai)
+  ambientLight.color.set(prev.ac).lerp(new THREE.Color(next.ac), t)
+
+  dirLight.intensity = lerp(prev.di, next.di)
+  dirLight.color.set(prev.dc).lerp(new THREE.Color(next.dc), t)
+
+  renderer.setClearColor(new THREE.Color(prev.cl).lerp(new THREE.Color(next.cl), t))
+}
+
+// ---------------------------------------------------------------------------
 // Camera / pan / zoom helpers
 // ---------------------------------------------------------------------------
 
@@ -350,6 +393,7 @@ export function initGame(
     lastTime = now
 
     character.update(deltaTime)
+    updateDayNightLighting(character.hour, ambientLight, dirLight, renderer)
     layoutEditor.update(deltaTime)
 
     // Animate bathroom door: close when character is using the bathroom
