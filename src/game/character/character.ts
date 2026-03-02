@@ -34,7 +34,7 @@ import {
   describeActivity,
 } from './schedule'
 import type { GameClock } from './schedule'
-import { findPath, getPositionAlongPath } from './pathfinder'
+import { findPath, getPositionAlongPath, getClimbPhaseEnd } from './pathfinder'
 import {
   applyAnimation,
   advanceAnimation,
@@ -401,11 +401,21 @@ export class Character {
       }
     }
 
-    // Use climb_stairs animation when moving to or from the staircase room
+    // Use climb_stairs only during actual staircase climbing (exit leg, phase 1).
+    // Approach legs and exit walk phases use normal walk animation.
     const destRoom = movingState.path[movingState.pathIndex]
     const fromRoom = movingState.path[movingState.pathIndex - 1]
-    const onStaircase = destRoom === 'staircase' || fromRoom === 'staircase'
-    if (onStaircase) {
+    let useClimbAnimation = false
+    if (fromRoom === 'staircase') {
+      const prevRoom = movingState.pathIndex > 1 ? movingState.path[movingState.pathIndex - 2] : null
+      const prevFloor = prevRoom ? this.roomMap[prevRoom].floor : this.roomMap[destRoom].floor
+      const toFloor = this.roomMap[destRoom].floor
+      if (prevFloor !== toFloor) {
+        const climbEnd = getClimbPhaseEnd(prevFloor, toFloor, this.stairXPerFloor)
+        useClimbAnimation = movingState.legProgress <= climbEnd
+      }
+    }
+    if (useClimbAnimation) {
       if (this.animationState.name !== 'climb_stairs') {
         this.animationState = createAnimationState('climb_stairs')
       }
