@@ -826,12 +826,70 @@ function buildBathroomDoorForSlot(bathroomSlot: RoomSlot): THREE.Group {
 }
 
 // ---------------------------------------------------------------------------
+// Wall clock builder
+// ---------------------------------------------------------------------------
+
+export interface ClockHands {
+  hourHand: THREE.Group
+  minuteHand: THREE.Group
+}
+
+/**
+ * Builds an analog wall clock centered at (cx, cy) on the back wall.
+ * Returns pivot groups for the hour and minute hands so the renderer can
+ * rotate them each frame.
+ */
+function buildWallClock(
+  group: THREE.Group,
+  cx: number,
+  cy: number,
+): ClockHands {
+  const z = 7.52  // Sits just in front of the back wall (z=7.5)
+
+  // Frame (dark wood)
+  group.add(makeVoxel({ x: cx, y: cy, z: z },            0x3d200a, { x: 3.3, y: 3.3, z: 0.13 }))
+  // Face (cream)
+  group.add(makeVoxel({ x: cx, y: cy, z: z + 0.07 },     0xfff8e8, { x: 2.9, y: 2.9, z: 0.10 }))
+
+  // 12 hour tick marks positioned around the face at radius 1.18
+  const TICK_RADIUS = 1.18
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2
+    const tx = cx + Math.sin(angle) * TICK_RADIUS
+    const ty = cy + Math.cos(angle) * TICK_RADIUS
+    const isQuarter = i % 3 === 0
+    const tw = isQuarter ? 0.28 : 0.17
+    group.add(makeVoxel({ x: tx, y: ty, z: z + 0.14 }, 0x2a1506, { x: tw, y: tw, z: 0.07 }))
+  }
+
+  // Hour hand — pivot at clock centre, hand extends upward
+  const hourPivot = new THREE.Group()
+  hourPivot.position.set(cx, cy, z + 0.18)
+  const hourMesh = makeVoxel({ x: 0, y: 0.22, z: 0 }, 0x111111, { x: 0.22, y: 0.60, z: 0.09 })
+  hourPivot.add(hourMesh)
+  group.add(hourPivot)
+
+  // Minute hand — slightly thinner & longer
+  const minutePivot = new THREE.Group()
+  minutePivot.position.set(cx, cy, z + 0.20)
+  const minuteMesh = makeVoxel({ x: 0, y: 0.35, z: 0 }, 0x111111, { x: 0.15, y: 0.88, z: 0.07 })
+  minutePivot.add(minuteMesh)
+  group.add(minutePivot)
+
+  // Centre pin (on top of everything)
+  group.add(makeVoxel({ x: cx, y: cy, z: z + 0.23 }, 0x111111, { x: 0.20, y: 0.20, z: 0.10 }))
+
+  return { hourHand: hourPivot, minuteHand: minutePivot }
+}
+
+// ---------------------------------------------------------------------------
 // House result type
 // ---------------------------------------------------------------------------
 
 export interface HouseResult {
   group: THREE.Group
   bathroomDoor: THREE.Group
+  clockHands: ClockHands
 }
 
 // ---------------------------------------------------------------------------
@@ -946,5 +1004,11 @@ export function buildHouse(layout: HouseLayout): HouseResult {
   const bathroomDoor = buildBathroomDoorForSlot(bathroomSlot)
   house.add(bathroomDoor)
 
-  return { group: house, bathroomDoor }
+  // Wall clock — placed on the back wall of the living room
+  const livingSlot = layout.slotMap.living_room
+  const clockCx = (livingSlot.xMin + livingSlot.xMax) / 2
+  const clockCy = floorY(livingSlot.floor) + 1 + 4.5
+  const clockHands = buildWallClock(house, clockCx, clockCy)
+
+  return { group: house, bathroomDoor, clockHands }
 }

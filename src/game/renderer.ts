@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH } from './house'
+import type { ClockHands } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
 import { SfxEngine } from './sfx/engine'
@@ -25,6 +26,15 @@ const LIGHTING_KEYFRAMES = [
   { h: 21, ai: 0.10, ac: 0x2a1880, di: 0.12, dc: 0x201050, cl: 0x08061a },
   { h: 24, ai: 0.06, ac: 0x0d0d2a, di: 0.08, dc: 0x1a2050, cl: 0x05050f },
 ]
+
+function updateClockHands(hour: number, clockHands: ClockHands): void {
+  const h12 = hour % 12
+  const minutes = (hour % 1) * 60
+  // Positive Z rotation is CCW from the camera's perspective, so negate for
+  // clockwise movement.
+  clockHands.hourHand.rotation.z   = -(h12 / 12) * Math.PI * 2
+  clockHands.minuteHand.rotation.z = -(minutes / 60) * Math.PI * 2
+}
 
 function updateDayNightLighting(
   hour: number,
@@ -265,6 +275,7 @@ export function initGame(
   let houseResult = buildHouse(currentLayout)
   scene.add(houseResult.group)
   let bathroomDoor = houseResult.bathroomDoor
+  let clockHands = houseResult.clockHands
 
   // ------------------------------------------------------------------
   // Character
@@ -330,6 +341,7 @@ export function initGame(
     houseResult = buildHouse(newLayout)
     scene.add(houseResult.group)
     bathroomDoor = houseResult.bathroomDoor
+    clockHands = houseResult.clockHands
 
     // Update character to use new room positions and staircase X
     character.updateRoomMap(currentRoomMap, stairXPerFloorFromLayout(newLayout))
@@ -395,6 +407,7 @@ export function initGame(
 
     character.update(deltaTime)
     updateDayNightLighting(character.hour, ambientLight, dirLight, renderer)
+    updateClockHands(character.hour, clockHands)
     layoutEditor.update(deltaTime)
 
     // Animate bathroom door: close when character is using the bathroom
