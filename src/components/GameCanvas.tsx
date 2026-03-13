@@ -170,8 +170,32 @@ export function GameCanvas({
       setHeadPos(pos)
     }, 100)
 
+    // SBB Chat Control — receive commands from the StreamerBillboard parent frame
+    function handleSBBMessage(e: MessageEvent) {
+      if (!e.data || e.data.source !== 'sbb' || e.data.type !== 'casa') return
+      const { action, text, room } = e.data as {
+        action: string; text?: string; room?: string
+      }
+      switch (action) {
+        case 'ringDoorbell':
+          gameRef.current?.ringDoorbell()
+          break
+        case 'injectThought':
+          if (text) gameRef.current?.injectThought(text)
+          break
+        case 'wakeUp':
+          gameRef.current?.wakeUp([])
+          break
+        case 'goToRoom':
+          if (room) gameRef.current?.goToRoom(room, 'idle', 1, [])
+          break
+      }
+    }
+    window.addEventListener('message', handleSBBMessage)
+
     return () => {
       clearInterval(pollId)
+      window.removeEventListener('message', handleSBBMessage)
       gameRef.current = null
       game.dispose()
     }
