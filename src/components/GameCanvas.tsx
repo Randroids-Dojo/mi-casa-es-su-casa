@@ -173,8 +173,8 @@ export function GameCanvas({
     // SBB Chat Control — receive commands from the StreamerBillboard parent frame
     function handleSBBMessage(e: MessageEvent) {
       if (!e.data || e.data.source !== 'sbb' || e.data.type !== 'casa') return
-      const { action, text, room } = e.data as {
-        action: string; text?: string; room?: string
+      const { action, text, room, turnOn } = e.data as {
+        action: string; text?: string; room?: string; turnOn?: boolean
       }
       switch (action) {
         case 'ringDoorbell':
@@ -188,6 +188,18 @@ export function GameCanvas({
           break
         case 'goToRoom':
           if (room) gameRef.current?.goToRoom(room, 'idle', 1, [])
+          break
+        case 'waterPlant':
+          gameRef.current?.waterPlant([])
+          break
+        case 'lightsOn':
+          gameRef.current?.startLightSequence(true)
+          break
+        case 'lightsOff':
+          gameRef.current?.startLightSequence(false)
+          break
+        case 'lights':
+          gameRef.current?.startLightSequence(turnOn ?? true)
           break
       }
     }
