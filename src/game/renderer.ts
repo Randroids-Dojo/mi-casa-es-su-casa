@@ -177,7 +177,13 @@ export function initGame(
   const BASE_WORLD_W = HOUSE_WIDTH + MARGIN // 34 units
   const BASE_WORLD_H = FLOOR_HEIGHT * FLOOR_COUNT + MARGIN // 26 units
 
-  const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 1, 60)
+  // Tighten near/far to maximise depth-buffer precision:
+  //   near 23 → clip plane at z = -3  (allows bathroom door to swing open)
+  //   far  36 → clip plane at z = 10  (behind back wall at z = 8)
+  // This gives a 13-unit range instead of the old 59 (near 1, far 60),
+  // yielding ~4.5× better depth precision and eliminating z-fighting on
+  // mobile GPUs with 16-bit depth buffers.
+  const camera = new THREE.OrthographicCamera(0, 0, 0, 0, 23, 36)
 
   // House center in world space — the default camera target.
   const houseCenterX = HOUSE_WIDTH / 2    // 16
