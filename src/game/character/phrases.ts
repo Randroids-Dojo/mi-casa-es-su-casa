@@ -27,6 +27,7 @@ export type PhraseCategory =
   | 'doorbell_reaction'
   | 'doorbell_entrance'
   | 'doorbell_sleeping'
+  | 'tips'
 
 // ---------------------------------------------------------------------------
 // Phrase lists
@@ -167,6 +168,16 @@ export const PHRASES: Readonly<Record<PhraseCategory, readonly string[]>> = {
     "Wha...? Someone at the door?",
     "...mmmf. Coming...",
   ],
+  tips: [
+    'Tip: Double-tap any furniture to select it, then double-tap another of the same type to swap them!',
+    'Tip: Double-tap a selected item again to deselect it.',
+    'Tip: Long-press and drag a room to swap it with another room.',
+    'Tip: Drag the walls between rooms to resize them.',
+    'Tip: Long-press the staircase to move it to a different position.',
+    'Tip: Try saying "giddy up" in visitor messages for a surprise!',
+    'Tip: You can swap bookshelves, sofas, rugs, and more between rooms!',
+    'Tip: Pan by dragging, zoom with scroll or pinch.',
+  ],
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +204,9 @@ export function pickPhrase(category: PhraseCategory, seed: number): string {
  *   3. Current activity
  *   4. Default to content/happy
  */
+let _phraseCategorySeed = 0
+const TIP_PROBABILITY = 0.15
+
 export function selectPhraseCategory(
   needs: { hunger: number; sleep: number; hygiene: number; entertainment: number },
   activity: string,
@@ -223,7 +237,10 @@ export function selectPhraseCategory(
   if (needs.hunger >= HIGH) return 'hungry'
   if (needs.entertainment >= HIGH) return 'bored'
 
-  // Neutral / positive — vary between happy and content
+  // Neutral / positive — vary between happy, content, and tips
+  // ~15% chance to show a tip instead of a mood phrase
+  const rng = seededRngFromKey(`tip-check:${_phraseCategorySeed++}`)
+  if (rng.next() < TIP_PROBABILITY) return 'tips'
   if (needs.hunger < 0.2 && needs.sleep < 0.2) return 'happy'
   return 'content'
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLampOn, updatePlantColor } from './house'
-import type { ClockHands, LampRecord, PlantRecord } from './house'
+import type { ClockHands, LampRecord, PlantRecord, ItemRecord } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
 import { SfxEngine } from './sfx/engine'
@@ -143,6 +143,9 @@ export function initGame(
       startLightSequence() {},
       isLightSequenceActive() { return false },
       unlockAudio() {},
+      onDoubleTap() {},
+      isItemSelected() { return false },
+      clearItemSelection() {},
       onLayoutPointerDown() {},
       onLayoutPointerMove() {},
       onLayoutPointerUp() {},
@@ -284,6 +287,7 @@ export function initGame(
   let clockHands = houseResult.clockHands
   let currentLamps = houseResult.lamps
   let currentPlant: PlantRecord = houseResult.plant
+  let currentItems: ItemRecord[] = houseResult.items
   /** Per-room light on/off state — survives house rebuilds */
   const lightStates: Record<string, boolean> = {}
   for (const lamp of currentLamps) {
@@ -358,6 +362,11 @@ export function initGame(
     clockHands = houseResult.clockHands
     currentLamps = houseResult.lamps
     currentPlant = houseResult.plant
+    currentItems = houseResult.items
+    cachedTaggedMeshes = buildTaggedMeshCache()
+    itemById = buildItemIdMap()
+    // Clear item selection on rebuild (items have new meshes)
+    clearItemSelectionState()
     // Re-apply persisted light states to new lamp meshes
     for (const lamp of currentLamps) {
       if (lightStates[lamp.roomId]) {
@@ -408,6 +417,199 @@ export function initGame(
       }
     },
   })
+
+  // ------------------------------------------------------------------
+  // Item swap system — double-tap to select and swap furniture
+  // ------------------------------------------------------------------
+
+  // Overlay appearance constants
+  const SELECTION_COLOR = 0x44aaff
+  const SELECTION_OPACITY = 0.25
+  const SWAP_FLASH_COLOR = 0xffffff
+  const SWAP_FLASH_OPACITY = 0.5
+  const ERROR_FLASH_COLOR = 0xff2222
+  const ERROR_FLASH_OPACITY = 0.4
+
+  const raycaster = new THREE.Raycaster()
+  const _rayVec = new THREE.Vector2()
+
+  /** Currently selected item for swap, or null */
+  let selectedItem: ItemRecord | null = null
+  /** Highlight overlay mesh for the selected item */
+  let selectionOverlay: THREE.Mesh | null = null
+  /** Temporary flash overlays (swap confirmation, error indicator, etc.) */
+  let flashOverlays: THREE.Mesh[] = []
+  let flashTimer = 0
+  const FLASH_DURATION = 0.2
+
+  function computeItemAABB(item: ItemRecord): THREE.Box3 {
+    const box = new THREE.Box3()
+    for (const mesh of item.meshes) {
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+      const meshBox = mesh.geometry.boundingBox!.clone()
+      meshBox.translate(mesh.position)
+      box.union(meshBox)
+    }
+    return box
+  }
+
+  function computeItemCentroid(item: ItemRecord): THREE.Vector3 {
+    const center = new THREE.Vector3()
+    for (const mesh of item.meshes) {
+      center.add(mesh.position)
+    }
+    center.divideScalar(item.meshes.length)
+    return center
+  }
+
+  function makeItemOverlay(item: ItemRecord, color: number, opacity: number): THREE.Mesh {
+    const box = computeItemAABB(item)
+    const size = new THREE.Vector3()
+    box.getSize(size)
+    const center = new THREE.Vector3()
+    box.getCenter(center)
+    const geo = new THREE.BoxGeometry(size.x + 0.3, size.y + 0.3, size.z + 0.3)
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.copy(center)
+    mesh.position.z -= 0.1 // slightly in front
+    mesh.renderOrder = 999
+    return mesh
+  }
+
+  function showSelectionOverlay(item: ItemRecord): void {
+    clearSelectionOverlay()
+    selectionOverlay = makeItemOverlay(item, SELECTION_COLOR, SELECTION_OPACITY)
+    scene.add(selectionOverlay)
+  }
+
+  function clearSelectionOverlay(): void {
+    if (selectionOverlay) {
+      scene.remove(selectionOverlay)
+      selectionOverlay.geometry.dispose()
+      ;(selectionOverlay.material as THREE.Material).dispose()
+      selectionOverlay = null
+    }
+  }
+
+  function showFlash(items: ItemRecord[], color: number, opacity: number): void {
+    clearFlash()
+    for (const item of items) {
+      const overlay = makeItemOverlay(item, color, opacity)
+      scene.add(overlay)
+      flashOverlays.push(overlay)
+    }
+    flashTimer = FLASH_DURATION
+  }
+
+  function clearFlash(): void {
+    for (const o of flashOverlays) {
+      scene.remove(o)
+      o.geometry.dispose()
+      ;(o.material as THREE.Material).dispose()
+    }
+    flashOverlays = []
+  }
+
+  function swapItemPositions(a: ItemRecord, b: ItemRecord): void {
+    const centroidA = computeItemCentroid(a)
+    const centroidB = computeItemCentroid(b)
+    const delta = centroidB.clone().sub(centroidA)
+
+    for (const mesh of a.meshes) {
+      mesh.position.add(delta)
+    }
+    for (const mesh of b.meshes) {
+      mesh.position.sub(delta)
+    }
+  }
+
+  function clearItemSelectionState(): void {
+    selectedItem = null
+    clearSelectionOverlay()
+    clearFlash()
+  }
+
+  /** Cached flat array of all tagged meshes — rebuilt when house is rebuilt */
+  let cachedTaggedMeshes: THREE.Mesh[] = buildTaggedMeshCache()
+  /** O(1) lookup from itemId → ItemRecord */
+  let itemById: Map<number, ItemRecord> = buildItemIdMap()
+
+  function buildTaggedMeshCache(): THREE.Mesh[] {
+    const meshes: THREE.Mesh[] = []
+    for (const item of currentItems) {
+      meshes.push(...item.meshes)
+    }
+    return meshes
+  }
+
+  function buildItemIdMap(): Map<number, ItemRecord> {
+    const map = new Map<number, ItemRecord>()
+    for (const item of currentItems) {
+      map.set(item.itemId, item)
+    }
+    return map
+  }
+
+  function hitTestItem(screenX: number, screenY: number): ItemRecord | null {
+    const rect = canvas.getBoundingClientRect()
+    _rayVec.x = ((screenX - rect.left) / rect.width) * 2 - 1
+    _rayVec.y = -((screenY - rect.top) / rect.height) * 2 + 1
+    raycaster.setFromCamera(_rayVec, camera)
+
+    const hits = raycaster.intersectObjects(cachedTaggedMeshes, false)
+    if (hits.length === 0) return null
+
+    const hitMesh = hits[0].object as THREE.Mesh
+    const hitItemId = hitMesh.userData.itemId as number
+    return itemById.get(hitItemId) ?? null
+  }
+
+  function handleDoubleTap(screenX: number, screenY: number): void {
+    const hitItem = hitTestItem(screenX, screenY)
+    if (!hitItem) {
+      // Tapped empty space — deselect
+      if (selectedItem) {
+        clearItemSelectionState()
+      }
+      return
+    }
+
+    if (selectedItem === null) {
+      // First selection
+      selectedItem = hitItem
+      showSelectionOverlay(hitItem)
+      character.injectThought(`Selected ${hitItem.itemType.replace(/_/g, ' ')}. Double-tap another ${hitItem.itemType.replace(/_/g, ' ')} to swap!`)
+      return
+    }
+
+    // Second tap — check if same item (deselect)
+    if (hitItem.itemId === selectedItem.itemId) {
+      clearItemSelectionState()
+      character.injectThought('Deselected.')
+      return
+    }
+
+    // Check type match
+    if (hitItem.itemType === selectedItem.itemType) {
+      // Swap!
+      swapItemPositions(selectedItem, hitItem)
+      showFlash([selectedItem, hitItem], SWAP_FLASH_COLOR, SWAP_FLASH_OPACITY)
+      character.injectThought('Swapped!')
+      selectedItem = null
+      clearSelectionOverlay()
+    } else {
+      // Type mismatch — show error, keep selection
+      showFlash([hitItem], ERROR_FLASH_COLOR, ERROR_FLASH_OPACITY)
+      character.injectThought(`Can't swap ${selectedItem.itemType.replace(/_/g, ' ')} with ${hitItem.itemType.replace(/_/g, ' ')}. Pick the same type!`)
+    }
+  }
 
   // ------------------------------------------------------------------
   // Light toggle sequence state
@@ -560,6 +762,12 @@ export function initGame(
     updateClockHands(character.hour, clockHands)
     layoutEditor.update(deltaTime)
 
+    // Item flash timer (swap confirmation / error indicator)
+    if (flashTimer > 0) {
+      flashTimer -= deltaTime
+      if (flashTimer <= 0) clearFlash()
+    }
+
     // Light toggle sequence: check if character arrived at target room
     if (lightSequenceTarget !== null) {
       const charState = character.getState()
@@ -650,6 +858,7 @@ export function initGame(
     dispose() {
       cancelAnimationFrame(animFrameId)
       resizeObserver.disconnect()
+      clearItemSelectionState()
       layoutEditor.dispose()
       character.dispose()
       sfxEngine.dispose()
@@ -786,6 +995,17 @@ export function initGame(
     },
     unlockAudio() {
       sfxEngine.unlock()
+    },
+
+    // --- Item swap (double-tap) ---
+    onDoubleTap(screenX: number, screenY: number) {
+      handleDoubleTap(screenX, screenY)
+    },
+    isItemSelected() {
+      return selectedItem !== null
+    },
+    clearItemSelection() {
+      clearItemSelectionState()
     },
 
     // --- Layout editor ---
