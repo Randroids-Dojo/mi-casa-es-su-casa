@@ -495,32 +495,37 @@ function buildBathroomFurniture(
   const w = xMax - xMin
 
   addVoxels(group, [
-    // Floor tiles (structural, not a swappable item)
-    { position: { x: cx, y: ft - 0.4, z: 4 }, color: PALETTE.TILE, size: { x: w, y: 0.1, z: 6 } },
+    // Floor tiles
+    detail({ x: cx, y: ft - 0.4, z: 4 }, PALETTE.TILE, { x: w, y: 0.1, z: 6 }),
   ])
   addItem(group, 'bathtub', [
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.PORCELAIN, size: { x: 4, y: 1, z: 2 } },
-    { position: { x: cx, y: ft + 0.9, z: 6.5 }, color: PALETTE.TILE, size: { x: 3, y: 0.5, z: 1.5 } },
-    { position: { x: xMin + 1.3, y: ft + 1.5, z: 7 }, color: PALETTE.CHROME, size: { x: 0.3, y: 0.7, z: 0.3 } },
+    detail({ x: cx, y: ft + 0.9, z: 6.5 }, PALETTE.TILE, { x: 3, y: 0.5, z: 1.5 }),
+    // Bath tap — left end of tub
+    detail({ x: xMin + 1.3, y: ft + 1.5, z: 7 }, PALETTE.CHROME, { x: 0.3, y: 0.7, z: 0.3 }),
   ], items)
   addItem(group, 'sink', [
     { position: { x: xMin + 1.5, y: ft + 1, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 1 } },
-    { position: { x: xMin + 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 0.8, y: 1, z: 0.8 } },
+    // Sink pedestal
+    detail({ x: xMin + 1.5, y: ft + 0.5, z: 2.5 }, PALETTE.PORCELAIN, { x: 0.8, y: 1, z: 0.8 }),
   ], items)
   addItem(group, 'toilet', [
     { position: { x: xMax - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
-    { position: { x: xMax - 1.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    detail({ x: xMax - 1.5, y: ft + 1, z: 3.2 }, PALETTE.PORCELAIN, { x: 1.5, y: 0.5, z: 0.8 }),
   ], items)
   addItem(group, 'mirror', [
-    { position: { x: xMin + 1.5, y: ft + 3, z: 6.95 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
+    // Mirror above sink — back wall (z=6.95 so front face at 6.8, visible in front of wall)
+    detail({ x: xMin + 1.5, y: ft + 3, z: 6.95 }, 0xc0d8e8, { x: 2, y: 2, z: 0.3 }),
   ], items)
   addItem(group, 'towel_rack', [
-    { position: { x: xMax - 2, y: ft + 2.5, z: 6.95 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
-    { position: { x: xMax - 2, y: ft + 1.5, z: 6.85 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
+    // Towel rail — right side, back wall (z=6.95 so front face at 6.8, visible)
+    detail({ x: xMax - 2, y: ft + 2.5, z: 6.95 }, PALETTE.CHROME, { x: 2, y: 0.3, z: 0.3 }),
+    // Towel (z=6.85 so front face at 6.7, in front of towel rail)
+    detail({ x: xMax - 2, y: ft + 1.5, z: 6.85 }, 0x4a9b9b, { x: 1.5, y: 2, z: 0.3 }),
   ], items)
   addVoxels(group, [
     // Ceiling light fixture cord
-    { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+    detail({ x: cx, y: ft + 5.5, z: 4 }, PALETTE.CHROME, { x: 0.1, y: 2, z: 0.1 }),
   ])
   // Ceiling light shade
   addLamp(group, 'bathroom', { x: cx, y: ft + 4.5, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
@@ -556,8 +561,11 @@ function makeBookshelfVoxels(
   const rowH = (height - (numRows + 1) * boardH) / numRows
 
   // Back panel — innerW so it sits between side panels with no x-overlap.
-  // Front face at z=7.70, behind books (back face z=7.14). Visible above shorter books.
-  specs.push({ position: { x, y: yBase + height / 2, z: zShelf + shelfDepth / 2 - 0.1 }, color: wood, size: { x: innerW, y: height, z: 0.2 } })
+  // Positioned just behind the books (book front face ≈ 6.76) but in front
+  // of the back wall (inner face at z = 7.0).  Old position (z = 7.65) placed
+  // the panel 0.55 units behind the wall, causing severe z-fighting.
+  const backPanelZ = 6.95       // front face = 6.95 − 0.05 = 6.90
+  specs.push({ position: { x, y: yBase + height / 2, z: backPanelZ }, color: wood, size: { x: innerW, y: height, z: 0.1 } })
 
   // Side panels — full height, at x edges. z=7.10–7.90.
   specs.push(
@@ -590,11 +598,11 @@ function makeBookshelfVoxels(
       const bw = Math.min(BOOK_WIDTHS[idx % BOOK_WIDTHS.length], x + innerW / 2 - xCursor)
       if (bw < 0.18) break
       const bh = bookMaxH * BOOK_H_FACTORS[idx % BOOK_H_FACTORS.length]
-      specs.push({
-        position: { x: xCursor + bw / 2, y: rowBottom + bh / 2, z: zBooks },
-        color: BOOK_COLORS[idx % BOOK_COLORS.length],
-        size: { x: bw - 0.02, y: bh, z: bookDepth },
-      })
+      specs.push(detail(
+        { x: xCursor + bw / 2, y: rowBottom + bh / 2, z: zBooks },
+        BOOK_COLORS[idx % BOOK_COLORS.length],
+        { x: bw - 0.02, y: bh, z: bookDepth },
+      ))
       xCursor += bw
       idx++
     }
@@ -619,8 +627,10 @@ function buildStudyFurniture(
   addItem(group, 'desk', [
     { position: { x: cx, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
     { position: { x: xMin + 1, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
-    { position: { x: cx - 1, y: ft + 1.75, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
-    { position: { x: cx - 1, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
+    // Computer monitor — z=6.8 so front face (6.65) is visible in front of desk back (z=8.0)
+    detail({ x: cx - 1, y: ft + 1.75, z: 6.8 }, PALETTE.TV_SCREEN, { x: 2, y: 1.5, z: 0.3 }),
+    // Keyboard
+    detail({ x: cx - 1, y: ft + 1, z: 6.4 }, PALETTE.STOVE, { x: 2, y: 0.2, z: 0.8 }),
   ], items)
   addItem(group, 'chair', [
     { position: { x: cx, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
@@ -629,7 +639,7 @@ function buildStudyFurniture(
   addItem(group, 'bookshelf', makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.35, 6.9), items)
   addVoxels(group, [
     // Desk lamp pole
-    { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    detail({ x: cx + 1.5, y: ft + 1, z: 6.5 }, PALETTE.BOOKSHELF, { x: 0.2, y: 2, z: 0.2 }),
   ])
 
   if (w >= 7) {
@@ -653,10 +663,14 @@ function buildHobbyRoomFurniture(
   const w = xMax - xMin
 
   addItem(group, 'piano', [
-    { position: { x: xMin + 3, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
-    { position: { x: xMin + 3, y: ft + 0.5, z: 7.1 }, color: PALETTE.CEILING, size: { x: 3.5, y: 0.5, z: 0.5 } },
-    { position: { x: xMin + 2.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
-    { position: { x: xMin + 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
+    // Upright piano — left side, back wall
+    { position: { x: xMin + 3, y: ft + 2, z: 7.45 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
+    // Piano keys
+    detail({ x: xMin + 3, y: ft + 0.5, z: 7.1 }, PALETTE.CEILING, { x: 3.5, y: 0.5, z: 0.5 }),
+    // Piano black keys
+    detail({ x: xMin + 2.5, y: ft + 0.8, z: 6.9 }, PALETTE.TV_SCREEN, { x: 0.4, y: 0.4, z: 0.3 }),
+    detail({ x: xMin + 3.5, y: ft + 0.8, z: 6.9 }, PALETTE.TV_SCREEN, { x: 0.4, y: 0.4, z: 0.3 }),
+    // Piano bench (z=6.2 keeps front face at 5.7, clear of couch back face at 5.45 in narrow rooms)
     { position: { x: xMin + 3, y: ft + 0.5, z: 6.2 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
   ], items)
   addItem(group, 'sofa', [
@@ -664,35 +678,36 @@ function buildHobbyRoomFurniture(
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
   ], items)
   addItem(group, 'rug', [
-    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: Math.min(6, w - 2), y: 0.1, z: 4 } },
+    detail({ x: cx, y: ft + 0.1, z: 4.5 }, 0x8b3a5a, { x: Math.min(6, w - 2), y: 0.1, z: 4 }),
   ], items)
 
   const pianoRightEdge = xMin + 5
   const cabinetX = Math.max(cx, pianoRightEdge + 1.6)
   if (cabinetX + 1.5 <= xMax - 0.5) {
     addItem(group, 'cabinet', [
-      { position: { x: cabinetX, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
-      { position: { x: cabinetX, y: ft + 1.5, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
+      { position: { x: cabinetX, y: ft + 0.5, z: 7.45 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
+      // Record player screen — z=6.8 so front face (6.55) is in front of cabinet (front at 7.0)
+      detail({ x: cabinetX, y: ft + 1.5, z: 6.8 }, PALETTE.TV_SCREEN, { x: 2, y: 0.5, z: 0.5 }),
     ], items)
   }
 
   if (w >= 10) {
     addItem(group, 'speaker', [
-      { position: { x: cx - 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
-      { position: { x: cx + 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+      { position: { x: cx - 2.5, y: ft + 1.5, z: 7.45 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
+      { position: { x: cx + 2.5, y: ft + 1.5, z: 7.45 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
     ], items)
   }
 
   if (w >= 8) {
     addItem(group, 'easel', [
       { position: { x: xMax - 2, y: ft + 2, z: 7 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
-      { position: { x: xMax - 2, y: ft + 3, z: 6.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
+      detail({ x: xMax - 2, y: ft + 3, z: 6.5 }, PALETTE.CEILING, { x: 2, y: 2, z: 0.3 }),
     ], items)
   }
 
   // Ceiling pendant light
   addVoxels(group, [
-    { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+    detail({ x: cx, y: ft + 5.5, z: 4.5 }, PALETTE.CHROME, { x: 0.1, y: 2, z: 0.1 }),
   ])
   addLamp(group, 'hobby_room', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 0.9, y: 0.3, z: 0.9 }, lamps)
 }
@@ -718,10 +733,10 @@ function buildStorageFurniture(
   addVoxels(group, [
     // Side table with lamp pole (part of lamp system)
     { position: { x: cx - 0.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
-    { position: { x: cx - 0.5, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
+    detail({ x: cx - 0.5, y: ft + 1, z: 4 }, PALETTE.BOOKSHELF, { x: 0.2, y: 2, z: 0.2 }),
   ])
   addItem(group, 'rug', [
-    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: Math.min(8, w - 2), y: 0.1, z: 5 } },
+    detail({ x: cx, y: ft + 0.1, z: 4.5 }, 0x3a5a3a, { x: Math.min(8, w - 2), y: 0.1, z: 5 }),
   ], items)
 
   if (w >= 8) {
@@ -734,7 +749,7 @@ function buildStorageFurniture(
   if (w >= 8) {
     addItem(group, 'desk', [
       { position: { x: xMax - 2.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 1.5 } },
-      { position: { x: xMax - 2, y: ft + 1.2, z: 3.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.4, y: 1, z: 0.4 } },
+      detail({ x: xMax - 2, y: ft + 1.2, z: 3.5 }, PALETTE.BOOKSHELF, { x: 0.4, y: 1, z: 0.4 }),
     ], items)
   }
   // Side table lamp shade
@@ -760,8 +775,8 @@ function buildLandingFurniture(
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
   ], items)
   addVoxels(group, [
-    // Floor lamp pole (part of lamp system)
-    { position: { x: xMin + 1, y: ft + 1.5, z: 5.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 3, z: 0.2 } },
+    // Floor lamp pole
+    detail({ x: xMin + 1, y: ft + 1.5, z: 5.5 }, PALETTE.BOOKSHELF, { x: 0.2, y: 3, z: 0.2 }),
   ])
   // Floor lamp shade
   addLamp(group, 'landing', { x: xMin + 1, y: ft + 3.2, z: 5.3 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
@@ -956,6 +971,7 @@ function buildBathroomDoorForSlot(bathroomSlot: RoomSlot): THREE.Group {
   const geo = new THREE.BoxGeometry(doorWidth, wallH, doorThickness)
   const mat = new THREE.MeshLambertMaterial({ color: PALETTE.DOOR })
   const panel = new THREE.Mesh(geo, mat)
+  applyDepthLayer(mat, 'furniture', panel)
   panel.position.set(doorWidth / 2, 0, 0)
   panel.castShadow = true
   panel.receiveShadow = true
@@ -965,6 +981,7 @@ function buildBathroomDoorForSlot(bathroomSlot: RoomSlot): THREE.Group {
   const knobGeo = new THREE.BoxGeometry(0.25, 0.25, 0.2)
   const knobMat = new THREE.MeshLambertMaterial({ color: PALETTE.CHROME })
   const knob = new THREE.Mesh(knobGeo, knobMat)
+  applyDepthLayer(knobMat, 'detail', knob)
   knob.position.set(doorWidth - 0.6, -0.5, -doorThickness / 2 - 0.1)
   pivot.add(knob)
 
