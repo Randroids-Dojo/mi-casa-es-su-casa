@@ -32,6 +32,7 @@ function makeState(overrides?: Partial<CharacterState>): CharacterState {
     needs: { hunger: 0.2, sleep: 0.1, hygiene: 0.1, entertainment: 0.2 },
     clock: { hour: 9, day: 0 },
     position: { x: 10, y: 1, z: 4 },
+    pesos: 0,
     ...overrides,
   }
 }

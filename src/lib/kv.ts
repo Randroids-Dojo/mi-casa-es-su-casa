@@ -106,6 +106,7 @@ export function createDefaultCharacter(name: string): CharacterState {
     needs: { hunger: 0.2, sleep: 0.1, hygiene: 0.1, entertainment: 0.2 },
     clock: { hour: 9, day: 0 },
     position: { x: livingRoomCenter.x, y: livingRoomCenter.y, z: livingRoomCenter.z },
+    pesos: 0,
   }
 }
 

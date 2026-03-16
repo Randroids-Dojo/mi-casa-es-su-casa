@@ -22,6 +22,7 @@ import type { PersonalityBias, HobbyType } from '@/game/character/seeder'
 import {
   advanceNeeds,
   applyActivityEffect,
+  countRecoveredNeeds,
   getCriticalNeeds,
   getMostUrgentNeed,
   CRITICAL_NEED_THRESHOLD,
@@ -292,6 +293,7 @@ export function simulateOffline(
   let needs: Needs = { ...state.needs }
   let currentRoom: string = state.currentRoom
   let currentActivity: ActivityType = state.currentActivity
+  let pesos = state.pesos ?? 0
 
   const STEP_SIZE = 0.5 // game hours per simulation step
   let remaining = hoursToSimulate
@@ -303,7 +305,11 @@ export function simulateOffline(
     clock = advanceClock(clock, step)
 
     // Apply current activity effects on needs
+    const prevNeeds = needs
     needs = applyActivityEffect(needs, currentActivity, step)
+
+    // Award 1 peso for each need that just recovered to zero
+    pesos += countRecoveredNeeds(prevNeeds, needs)
 
     // Pick the next activity for this time slot
     const next = selectActivity(
@@ -339,5 +345,6 @@ export function simulateOffline(
     clock,
     position,
     plantHealth: newPlantHealth,
+    pesos,
   }
 }

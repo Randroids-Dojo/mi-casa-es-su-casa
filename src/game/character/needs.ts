@@ -68,6 +68,9 @@ const ACTIVITY_EFFECT_RATE: Readonly<
   water_plant: {}, // plant watering has no need effects
 }
 
+/** All need keys in a stable order */
+export const NEED_KEYS: readonly (keyof Needs)[] = ['hunger', 'sleep', 'hygiene', 'entertainment']
+
 /** Threshold above which a need is considered critical (overrides schedule) */
 export const CRITICAL_NEED_THRESHOLD = 0.85
 
@@ -123,9 +126,7 @@ export function hasAnyCriticalNeed(needs: Needs): boolean {
  * Returns a list of needs that are at or above the critical threshold.
  */
 export function getCriticalNeeds(needs: Needs): (keyof Needs)[] {
-  return (Object.keys(needs) as (keyof Needs)[]).filter(
-    (k) => needs[k] >= CRITICAL_NEED_THRESHOLD,
-  )
+  return NEED_KEYS.filter((k) => needs[k] >= CRITICAL_NEED_THRESHOLD)
 }
 
 /**
@@ -164,6 +165,18 @@ export function applyActivityEffect(
   }
 
   return result
+}
+
+/**
+ * Counts how many needs transitioned from non-zero to zero between two states.
+ * Used to award pesos when a need fully recovers.
+ */
+export function countRecoveredNeeds(prev: Needs, next: Needs): number {
+  let count = 0
+  for (const key of NEED_KEYS) {
+    if (prev[key] > 0 && next[key] === 0) count += 1
+  }
+  return count
 }
 
 /**

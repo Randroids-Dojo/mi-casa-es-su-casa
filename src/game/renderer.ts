@@ -730,6 +730,7 @@ export function initGame(
         position: s.position,
         accessories: s.accessories,
         plantHealth: s.plantHealth,
+        pesos: s.pesos ?? 0,
       }
     },
     waterPlant(responsePhrases: string[]) {
