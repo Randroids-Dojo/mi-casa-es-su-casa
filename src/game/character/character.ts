@@ -261,6 +261,8 @@ export class Character {
     const state = this.fsm.state
     if (state.kind === 'active/performing') {
       this.needs = applyActivityEffect(this.needs, state.activity, deltaGameHours)
+    } else if (state.kind === 'sleeping') {
+      this.needs = applyActivityEffect(this.needs, 'sleep', deltaGameHours)
     } else {
       this.needs = advanceNeeds(this.needs, deltaGameHours)
     }

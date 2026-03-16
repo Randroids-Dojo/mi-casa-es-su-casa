@@ -49,22 +49,22 @@ const NEED_INCREASE_RATE: Readonly<Record<keyof Needs, number>> = {
 const ACTIVITY_EFFECT_RATE: Readonly<
   Partial<Record<ActivityType, Partial<Record<keyof Needs, number>>>>
 > = {
-  eat: { hunger: -0.4 }, // eating reduces hunger quickly
-  cook: { hunger: -0.05 }, // cooking slightly reduces hunger (snacking)
-  sleep: { sleep: -0.35 }, // sleeping reduces sleep need
-  bathe: { hygiene: -0.5 }, // bathing reduces hygiene need significantly
-  groom: { hygiene: -0.2 }, // grooming also helps
-  relax: { entertainment: -0.15, sleep: -0.02 },
-  watch_tv: { entertainment: -0.2 },
-  read: { entertainment: -0.15 },
-  paint: { entertainment: -0.25 },
-  play_instrument: { entertainment: -0.25 },
-  tinker: { entertainment: -0.2 },
-  work: { entertainment: -0.05 }, // work is mildly stimulating
-  type: { entertainment: -0.05 },
+  eat: { hunger: -0.8 }, // eating reduces hunger quickly
+  cook: { hunger: -0.1 }, // cooking slightly reduces hunger (snacking)
+  sleep: { sleep: -0.5 }, // sleeping reduces sleep need
+  bathe: { hygiene: -1.0 }, // bathing reduces hygiene need significantly
+  groom: { hygiene: -0.4 }, // grooming also helps
+  relax: { entertainment: -0.3, sleep: -0.04 },
+  watch_tv: { entertainment: -0.4 },
+  read: { entertainment: -0.35 },
+  paint: { entertainment: -0.5 },
+  play_instrument: { entertainment: -0.5 },
+  tinker: { entertainment: -0.45 },
+  work: { entertainment: -0.1 }, // work is mildly stimulating
+  type: { entertainment: -0.1 },
   idle: {}, // idle does nothing beneficial
-  rummage: { entertainment: -0.08 },
-  dress: { hygiene: -0.05 },
+  rummage: { entertainment: -0.15 },
+  dress: { hygiene: -0.1 },
   water_plant: {}, // plant watering has no need effects
 }
 
