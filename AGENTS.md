@@ -120,9 +120,29 @@ the back wall and invisible to the player.
   **in front of** their parent object. Compute: parent front =
   `parent.z − parent.size.z / 2`, detail front = `detail.z − detail.size.z / 2`.
   Detail front must be < parent front.
-- **Structural elements** (walls, floors) use `structural = true` for
-  `polygonOffset`. This only resolves coplanar surfaces (front face exactly at
-  z = 7.0). It does **not** help items genuinely behind the wall (z > 7.0).
+- **Three-layer depth system:** Every voxel gets a `DepthLayer` that provides
+  two complementary z-fighting defences:
+  1. **Physical z-nudge** (primary, GPU-independent): each layer shifts the
+     mesh toward the camera by a small amount. `structural` = 0, `furniture`
+     = −0.03, `detail` = −0.06. This gives ~179 distinct depth-buffer values
+     of guaranteed separation even on 16-bit mobile GPUs.
+  2. **polygonOffset units** (secondary, for residual coplanar faces):
+     `structural` = 8 units, `furniture` = 4, `detail` = 0. Factor is always
+     0 because the orthographic camera views axis-aligned faces head-on
+     (depth slope ≈ 0), making factor contribute nothing.
+  Layer list:
+  - `'structural'` — walls, floors. Always renders behind everything.
+  - `'furniture'` — main furniture bodies. Default for `makeVoxel`.
+  - `'detail'` — handles, screens, buttons, trim, rugs, books.
+    Always renders in front.
+  Pass the layer as the 4th argument to `makeVoxel()`, or set `depthLayer` on a
+  `VoxelSpec`. For meshes built outside `makeVoxel` (e.g. the bathroom door),
+  use `applyDepthLayer(material, layer, mesh)`.
+  This does **not** help items genuinely behind the wall (z > 7.0).
+- **Camera near/far planes** are tightened to (23, 36) — mapping to world-space
+  z ≈ −3 to z ≈ 10 — so the depth buffer covers only the geometry range instead
+  of wasting precision on empty space. The near plane must allow for the bathroom
+  door swinging open to ~z = −2.
 - **Staircase steps** use compressed depth (`STAIR_STEP_DEPTH = 0.75`) to fit
   all 8 steps + landing within z = 0.5–6.875. Never increase step depth beyond
   what fits inside the house depth without hitting the back wall.

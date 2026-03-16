@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { PALETTE } from './palette'
-import type { Vec3, Room, VoxelSpec } from './types'
+import type { Vec3, Room, VoxelSpec, DepthLayer } from './types'
 import type { HouseLayout, LayoutRoomId, RoomSlot } from '@/lib/layout'
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,32 @@ export const FLOOR_COUNT = 3
 // ---------------------------------------------------------------------------
 
 /**
+ * Physical z-nudge per depth layer. Moves meshes toward the camera (−Z) so
+ * coplanar surfaces at different logical layers are guaranteed to be separated
+ * in the depth buffer, regardless of GPU polygon-offset implementation.
+ */
+const DEPTH_LAYER_Z_NUDGE: Record<DepthLayer, number> = {
+  structural:  0,
+  furniture:  -0.03,
+  detail:     -0.06,
+}
+
+/**
+ * Polygon-offset per depth layer (secondary defence for residual coplanar
+ * faces). Factor is 0 because the orthographic camera views axis-aligned
+ * faces head-on (depth slope ≈ 0), making factor contribute nothing.
+ *
+ *   detail     (0, 0) — handles, screens, buttons, trim — closest to camera
+ *   furniture  (0, 4) — main furniture bodies
+ *   structural (0, 8) — walls, floors — furthest from camera
+ */
+const DEPTH_LAYER_OFFSET: Record<DepthLayer, { factor: number; units: number }> = {
+  detail:     { factor: 0, units: 0 },
+  furniture:  { factor: 0, units: 4 },
+  structural: { factor: 0, units: 8 },
+}
+
+/**
  * Creates a box mesh (voxel) at the given position with the given color.
  * Position is the *center* of the voxel in world space.
  */
@@ -30,19 +56,19 @@ function makeVoxel(
   position: Vec3,
   color: number,
   size: Vec3 = { x: 1, y: 1, z: 1 },
-  structural = false,
+  depthLayer: DepthLayer = 'furniture',
 ): THREE.Mesh {
   const geometry = new THREE.BoxGeometry(size.x, size.y, size.z)
   const material = new THREE.MeshLambertMaterial({ color })
-  // Structural elements (walls, floors) use polygonOffset so that furniture
-  // at the same depth always renders in front, eliminating z-fighting.
-  if (structural) {
+  const offset = DEPTH_LAYER_OFFSET[depthLayer]
+  if (offset.factor !== 0 || offset.units !== 0) {
     material.polygonOffset = true
-    material.polygonOffsetFactor = 1
-    material.polygonOffsetUnits = 1
+    material.polygonOffsetFactor = offset.factor
+    material.polygonOffsetUnits = offset.units
   }
   const mesh = new THREE.Mesh(geometry, material)
-  mesh.position.set(position.x, position.y, position.z)
+  const zNudge = DEPTH_LAYER_Z_NUDGE[depthLayer]
+  mesh.position.set(position.x, position.y, position.z + zNudge)
   mesh.castShadow = true
   mesh.receiveShadow = true
   return mesh
@@ -51,7 +77,33 @@ function makeVoxel(
 /** Add multiple voxel specs to a group */
 function addVoxels(group: THREE.Group, specs: VoxelSpec[]): void {
   for (const spec of specs) {
-    group.add(makeVoxel(spec.position, spec.color, spec.size))
+    group.add(makeVoxel(spec.position, spec.color, spec.size, spec.depthLayer))
+  }
+}
+
+/** Shorthand for a VoxelSpec on the 'detail' depth layer */
+function detail(position: Vec3, color: number, size: Vec3): VoxelSpec {
+  return { position, color, size, depthLayer: 'detail' }
+}
+
+/**
+ * Apply depth-layer settings to an existing material and optionally nudge a
+ * mesh's z-position.  Used for meshes built outside of makeVoxel (e.g. the
+ * bathroom door).
+ */
+function applyDepthLayer(
+  mat: THREE.MeshLambertMaterial,
+  layer: DepthLayer,
+  mesh?: THREE.Mesh,
+): void {
+  const offset = DEPTH_LAYER_OFFSET[layer]
+  if (offset.factor !== 0 || offset.units !== 0) {
+    mat.polygonOffset = true
+    mat.polygonOffsetFactor = offset.factor
+    mat.polygonOffsetUnits = offset.units
+  }
+  if (mesh) {
+    mesh.position.z += DEPTH_LAYER_Z_NUDGE[layer]
   }
 }
 
@@ -80,7 +132,7 @@ function addItem(
   const id = _nextItemId++
   const meshes: THREE.Mesh[] = []
   for (const spec of specs) {
-    const mesh = makeVoxel(spec.position, spec.color, spec.size)
+    const mesh = makeVoxel(spec.position, spec.color, spec.size, spec.depthLayer)
     mesh.userData.itemType = itemType
     mesh.userData.itemId = id
     group.add(mesh)
@@ -124,7 +176,7 @@ function buildFloorShell(
       { x: hw / 2, y: baseY + 0.5, z: (hd - wt) / 2 },
       PALETTE.FLOOR_WOOD,
       { x: hw - 2 * wt, y: wt, z: hd - wt },
-      true,
+      'structural',
     ),
   )
 
@@ -134,7 +186,7 @@ function buildFloorShell(
       { x: 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
       PALETTE.WALL_EXTERIOR,
       { x: wt, y: FLOOR_HEIGHT, z: hd },
-      true,
+      'structural',
     ),
   )
 
@@ -144,7 +196,7 @@ function buildFloorShell(
       { x: hw - 0.5, y: baseY + FLOOR_HEIGHT / 2, z: hd / 2 },
       PALETTE.WALL_EXTERIOR,
       { x: wt, y: FLOOR_HEIGHT, z: hd },
-      true,
+      'structural',
     ),
   )
 
@@ -154,7 +206,7 @@ function buildFloorShell(
       { x: hw / 2, y: baseY + FLOOR_HEIGHT / 2, z: hd - 0.5 },
       PALETTE.WALL_EXTERIOR,
       { x: hw, y: FLOOR_HEIGHT, z: wt },
-      true,
+      'structural',
     ),
   )
 }
@@ -183,7 +235,7 @@ function buildInteriorWalls(
         { x: wallX + 0.5, y: baseY + wallH / 2 + 1, z: wallZCenter },
         PALETTE.WALL_INTERIOR,
         { x: wt, y: wallH, z: wallZSize },
-        true,
+        'structural',
       ),
     )
   }
@@ -233,16 +285,16 @@ function buildEntranceRoom(
     // Coat rack — left side
     { position: { x: xMin + 0.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
     // Coat rack hooks
-    { position: { x: xMin + 0.75, y: ft + 3, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
-    { position: { x: xMin + 0.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+    detail({ x: xMin + 0.75, y: ft + 3, z: 4.8 }, PALETTE.DESK, { x: 0.5, y: 0.5, z: 0.4 }),
+    detail({ x: xMin + 0.75, y: ft + 2, z: 4.8 }, PALETTE.DESK, { x: 0.5, y: 0.5, z: 0.4 }),
   ], items)
   addItem(group, 'rug', [
     // Entry rug — centered
-    { position: { x: cx, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
+    detail({ x: cx, y: ft + 0.1, z: 4 }, PALETTE.SOFA, { x: 2, y: 0.1, z: 3 }),
   ], items)
   addVoxels(group, [
     // Wall sconce pole — right side of door (z=6.9 so front face at 6.8, visible in front of wall)
-    { position: { x: cx + 1.8, y: ft + 3, z: 6.9 }, color: PALETTE.CHROME, size: { x: 0.2, y: 1.5, z: 0.2 } },
+    detail({ x: cx + 1.8, y: ft + 3, z: 6.9 }, PALETTE.CHROME, { x: 0.2, y: 1.5, z: 0.2 }),
   ])
   // Sconce shade
   addLamp(group, 'entrance', { x: cx + 1.8, y: ft + 3.8, z: 6.8 }, { x: 0.6, y: 0.3, z: 0.6 }, lamps)
@@ -261,36 +313,38 @@ function buildLivingRoomFurniture(
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
+  // Sofa width shrinks in narrow rooms so it doesn't overlap the bookshelf
+  const sofaW = Math.min(5, w - 3)
   addItem(group, 'sofa', [
-    { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
-    { position: { x: cx, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
-    { position: { x: cx - 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
-    { position: { x: cx + 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
+    { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: sofaW, y: 1, z: 1.5 } },
+    { position: { x: cx, y: ft + 1.5, z: 7.15 }, color: PALETTE.SOFA, size: { x: sofaW, y: 2, z: 0.5 } },
+    detail({ x: cx - 1, y: ft + 1.25, z: 6 }, PALETTE.BED, { x: 1, y: 0.5, z: 1 }),
+    detail({ x: cx + 1, y: ft + 1.25, z: 6 }, PALETTE.BED, { x: 1, y: 0.5, z: 1 }),
   ], items)
   addItem(group, 'tv', [
     { position: { x: cx, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
-    { position: { x: cx, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
+    detail({ x: cx, y: ft + 1.75, z: 1.6 }, PALETTE.TV_SCREEN, { x: 3.5, y: 2, z: 0.3 }),
   ], items)
   addItem(group, 'table', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
   ], items)
   addItem(group, 'bookshelf', [
     { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
-    { position: { x: xMin + 1, y: ft + 1, z: 6.9 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 1.5, y: ft + 2, z: 6.9 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 3, z: 6.9 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
+    detail({ x: xMin + 1, y: ft + 1, z: 6.9 }, 0x8b3a3a, { x: 0.5, y: 1, z: 0.3 }),
+    detail({ x: xMin + 1.5, y: ft + 2, z: 6.9 }, 0x3a6b3a, { x: 0.5, y: 1, z: 0.3 }),
+    detail({ x: xMin + 2, y: ft + 3, z: 6.9 }, 0x3a3a8b, { x: 0.5, y: 1, z: 0.3 }),
   ], items)
   addVoxels(group, [
     // Floor lamp pole + base (part of lamp system)
-    { position: { x: xMin + 2, y: ft + 2, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 4, z: 0.3 } },
-    { position: { x: xMin + 2, y: ft + 0.1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 0.2, z: 1 } },
+    detail({ x: xMin + 2, y: ft + 2, z: 4.5 }, PALETTE.FRIDGE, { x: 0.3, y: 4, z: 0.3 }),
+    detail({ x: xMin + 2, y: ft + 0.1, z: 4.5 }, PALETTE.FRIDGE, { x: 1, y: 0.2, z: 1 }),
   ])
 
   if (w >= 10) {
     addItem(group, 'fireplace', [
-      { position: { x: xMax - 1.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
+      { position: { x: xMax - 1.5, y: ft + 1.5, z: 7.45 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
       { position: { x: xMax - 1.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
-      { position: { x: xMax - 1.5, y: ft + 0.5, z: 6.8 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
+      detail({ x: xMax - 1.5, y: ft + 0.5, z: 6.8 }, 0xe05c1a, { x: 1.2, y: 1, z: 0.5 }),
     ], items)
     addItem(group, 'armchair', [
       { position: { x: cx + 2, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
@@ -318,25 +372,30 @@ function buildKitchenFurniture(
   const counterW = Math.min(w - 2, 9)
 
   addItem(group, 'counter', [
-    { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: counterW, y: 1, z: 1 } },
-    { position: { x: cx, y: ft + 2, z: 7.1 }, color: 0xd0e8e8, size: { x: counterW, y: 2, z: 0.3 } },
+    // Counter along back wall — centered
+    { position: { x: cx, y: ft + 0.5, z: 7.45 }, color: PALETTE.COUNTER, size: { x: counterW, y: 1, z: 1 } },
+    // Counter backsplash (z=7.1 so front face at 6.95, visible above counter)
+    detail({ x: cx, y: ft + 2, z: 7.1 }, 0xd0e8e8, { x: counterW, y: 2, z: 0.3 }),
   ], items)
   addItem(group, 'stove', [
     { position: { x: xMin + 2.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
-    { position: { x: xMin + 2, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
-    { position: { x: xMin + 3, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
+    // Stove top burners
+    detail({ x: xMin + 2, y: ft + 2, z: 7.2 }, 0x444444, { x: 0.7, y: 0.3, z: 0.7 }),
+    detail({ x: xMin + 3, y: ft + 2, z: 7.2 }, 0x444444, { x: 0.7, y: 0.3, z: 0.7 }),
   ], items)
   addItem(group, 'sink', [
-    { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
+    detail({ x: cx, y: ft + 1.5, z: 7.3 }, PALETTE.FRIDGE, { x: 1.5, y: 0.7, z: 0.7 }),
   ], items)
   addItem(group, 'fridge', [
     { position: { x: xMax - 1.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
-    { position: { x: xMax - 2.1, y: ft + 2, z: 6.1 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
+    // Fridge handle — z=6.1 so it sits visibly on the front face of the fridge (front face at z=6.25)
+    detail({ x: xMax - 2.1, y: ft + 2, z: 6.1 }, PALETTE.STOVE, { x: 0.2, y: 2, z: 0.3 }),
   ], items)
   addItem(group, 'table', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
-    { position: { x: cx - 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
-    { position: { x: cx + 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
+    // Table legs
+    detail({ x: cx - 1.5, y: ft + 0.5, z: 3.5 }, PALETTE.DESK, { x: 0.3, y: 1, z: 0.3 }),
+    detail({ x: cx + 1.5, y: ft + 0.5, z: 3.5 }, PALETTE.DESK, { x: 0.3, y: 1, z: 0.3 }),
   ], items)
   addItem(group, 'chair', [
     { position: { x: cx - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
@@ -345,13 +404,14 @@ function buildKitchenFurniture(
 
   if (w >= 8) {
     addItem(group, 'cabinet', [
+      // Upper cabinet (z=7.3 so front face at 6.95, visible in front of wall)
       { position: { x: xMin + 4, y: ft + 4.5, z: 7.3 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
     ], items)
   }
 
   // Pendant light cord above dining table
   addVoxels(group, [
-    { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+    detail({ x: cx, y: ft + 5.5, z: 4.5 }, PALETTE.CHROME, { x: 0.1, y: 2, z: 0.1 }),
   ])
   // Pendant shade
   addLamp(group, 'kitchen', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 1.0, y: 0.4, z: 1.0 }, lamps)
@@ -372,36 +432,41 @@ function buildBedroomFurniture(
 
   addItem(group, 'bed', [
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
-    { position: { x: cx, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 1.8 } },
-    { position: { x: cx - 1.5, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    { position: { x: cx + 1, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
+    // Duvet — depth 1.8 (not 2) so its front/back faces don't coincide with the bed's (z=5.5 and z=7.5)
+    detail({ x: cx, y: ft + 1, z: 6.5 }, 0xb8a0cc, { x: 4.5, y: 0.3, z: 1.8 }),
+    // Pillows — raised to sit on top of bed (y=ft+1) to avoid embedded geometry z-fighting
+    detail({ x: cx - 1.5, y: ft + 1.25, z: 5.7 }, PALETTE.CEILING, { x: 1.5, y: 0.5, z: 0.8 }),
+    detail({ x: cx + 1, y: ft + 1.25, z: 5.7 }, PALETTE.CEILING, { x: 1.5, y: 0.5, z: 0.8 }),
+    // Headboard — centered, back wall (z=7.2 so front face at 6.95, clear of wall)
     { position: { x: cx, y: ft + 2, z: 7.2 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
   ], items)
   addItem(group, 'rug', [
-    { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: Math.min(7, w - 2), y: 0.1, z: 3 } },
+    detail({ x: cx, y: ft + 0.1, z: 4.5 }, 0x7a5cb8, { x: Math.min(7, w - 2), y: 0.1, z: 3 }),
   ], items)
 
   if (w >= 8) {
     addItem(group, 'nightstand', [
       { position: { x: xMin + 0.75, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.0, y: 1, z: 1.5 } },
-      { position: { x: xMin + 0.75, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
+      detail({ x: xMin + 0.75, y: ft + 1.5, z: 6.5 }, PALETTE.FRIDGE, { x: 0.3, y: 1, z: 0.3 }),
     ], items)
   }
 
   if (w >= 8) {
     addItem(group, 'wardrobe', [
       { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.35 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
-      { position: { x: xMin + 1, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-      { position: { x: xMin + 2, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
+      // Door panels at z=6.8 for clear separation from wardrobe front at 6.95
+      detail({ x: xMin + 1, y: ft + 2.5, z: 6.8 }, PALETTE.DESK, { x: 1, y: 4, z: 0.3 }),
+      detail({ x: xMin + 2, y: ft + 2.5, z: 6.8 }, PALETTE.DESK, { x: 1, y: 4, z: 0.3 }),
     ], items)
   }
 
   if (w >= 10) {
     addItem(group, 'dresser', [
-      { position: { x: xMax - 3, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
-      { position: { x: xMax - 3, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
-      { position: { x: xMax - 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
-      { position: { x: xMax - 2, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
+      // Dresser rows sized to 0.9 to leave 0.1 gap and avoid shared coplanar y-face
+      { position: { x: xMax - 3, y: ft + 0.5, z: 7.45 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
+      { position: { x: xMax - 3, y: ft + 1.5, z: 7.45 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
+      detail({ x: xMax - 4, y: ft + 0.5, z: 7.1 }, PALETTE.FRIDGE, { x: 0.8, y: 0.3, z: 0.3 }),
+      detail({ x: xMax - 2, y: ft + 0.5, z: 7.1 }, PALETTE.FRIDGE, { x: 0.8, y: 0.3, z: 0.3 }),
     ], items)
   }
   // Nightstand lamp shade — tracked for toggling (always present; pole/nightstand conditional above)
@@ -738,6 +803,7 @@ function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2, number>): 
           { x: stepCenterX, y: stepCenterY, z: stepCenterZ },
           PALETTE.STAIRCASE,
           { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
+          'structural',
         ),
       )
     }
@@ -750,6 +816,7 @@ function buildStaircase(group: THREE.Group, staircaseX: Record<1 | 2, number>): 
         { x: stepCenterX, y: landingTopY - 0.5, z: landingZ },
         PALETTE.STAIRCASE,
         { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
+        'structural',
       ),
     )
   }
