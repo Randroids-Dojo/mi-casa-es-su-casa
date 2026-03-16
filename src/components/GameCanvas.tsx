@@ -85,6 +85,23 @@ export function GameCanvas({
     { isDown: false, lastX: 0, lastY: 0 },
   )
 
+  // Double-tap detection state
+  const doubleTapRef = useRef<{
+    lastTime: number
+    lastX: number
+    lastY: number
+  }>({ lastTime: 0, lastX: 0, lastY: 0 })
+
+  /** Maximum time between taps to register as double-tap (ms) */
+  const DOUBLE_TAP_INTERVAL = 400
+  /** Maximum pixel distance between taps to register as double-tap */
+  const DOUBLE_TAP_DISTANCE = 30
+  /** Maximum touch duration to count as a "tap" (ms) */
+  const TAP_MAX_DURATION = 300
+
+  // Track touch start time for tap detection
+  const touchStartTimeRef = useRef(0)
+
   // Long press state (shared by touch and mouse)
   const longPressRef = useRef<{
     timer: ReturnType<typeof setTimeout> | null
@@ -126,6 +143,22 @@ export function GameCanvas({
     const dx = screenX - longPressRef.current.startX
     const dy = screenY - longPressRef.current.startY
     return Math.sqrt(dx * dx + dy * dy) > LONG_PRESS_MOVE_THRESHOLD
+  }
+
+  /**
+   * Checks if a tap at (x, y) constitutes a double-tap.
+   * Returns true if this is the second tap within the interval and distance.
+   */
+  function checkDoubleTap(x: number, y: number): boolean {
+    const now = Date.now()
+    const dt = now - doubleTapRef.current.lastTime
+    const dx = x - doubleTapRef.current.lastX
+    const dy = y - doubleTapRef.current.lastY
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    doubleTapRef.current = { lastTime: now, lastX: x, lastY: y }
+
+    return dt < DOUBLE_TAP_INTERVAL && dist < DOUBLE_TAP_DISTANCE
   }
 
   useEffect(() => {
@@ -233,6 +266,9 @@ export function GameCanvas({
         const x = e.touches[0].clientX
         const y = e.touches[0].clientY
 
+        // Track touch start time for tap detection
+        touchStartTimeRef.current = Date.now()
+
         // Start long press timer — don't enter pan mode yet
         startLongPressTimer(x, y)
 
@@ -319,8 +355,25 @@ export function GameCanvas({
       if (longPressRef.current.triggered) {
         gameRef.current?.onLayoutPointerUp()
         longPressRef.current.triggered = false
+        cancelLongPressTimer()
+      } else {
+        // Check for tap (short, stationary touch) → double-tap detection
+        const wasTap = !longPressRef.current.triggered
+          && touchStateRef.current.type !== 'pan'
+          && touchStateRef.current.type !== 'pinch'
+          && (Date.now() - touchStartTimeRef.current) < TAP_MAX_DURATION
+          && e.touches.length === 0
+
+        cancelLongPressTimer()
+
+        if (wasTap) {
+          const x = touchStateRef.current.lastX
+          const y = touchStateRef.current.lastY
+          if (checkDoubleTap(x, y)) {
+            gameRef.current?.onDoubleTap(x, y)
+          }
+        }
       }
-      cancelLongPressTimer()
 
       if (e.touches.length === 1) {
         // Transition from pinch back to single-finger pan
@@ -393,15 +446,29 @@ export function GameCanvas({
       }
     }
 
-    function onMouseUp(): void {
+    function onMouseUp(e: MouseEvent): void {
+      const wasDown = mouseStateRef.current.isDown
       mouseStateRef.current.isDown = false
 
       // End layout edit if active
       if (longPressRef.current.triggered) {
         gameRef.current?.onLayoutPointerUp()
         longPressRef.current.triggered = false
+        cancelLongPressTimer()
+      } else if (wasDown) {
+        // Check if this was a click (no significant movement, no long press)
+        const didntMove = !hasMovedBeyondThreshold(e.clientX, e.clientY)
+          || longPressRef.current.timer !== null // timer still pending = didn't move beyond threshold
+        cancelLongPressTimer()
+
+        if (didntMove) {
+          if (checkDoubleTap(e.clientX, e.clientY)) {
+            gameRef.current?.onDoubleTap(e.clientX, e.clientY)
+          }
+        }
+      } else {
+        cancelLongPressTimer()
       }
-      cancelLongPressTimer()
 
       container!.style.cursor = 'grab'
     }

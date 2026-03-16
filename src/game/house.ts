@@ -56,6 +56,40 @@ function addVoxels(group: THREE.Group, specs: VoxelSpec[]): void {
 }
 
 // ---------------------------------------------------------------------------
+// Item tracking — tagged furniture pieces for double-tap swap
+// ---------------------------------------------------------------------------
+
+export interface ItemRecord {
+  itemId: number
+  itemType: string
+  meshes: THREE.Mesh[]
+}
+
+let _nextItemId = 0
+
+/**
+ * Adds voxel specs to a group and tags every mesh with an item type and
+ * unique item ID. Collected in the items array for raycasting/swap logic.
+ */
+function addItem(
+  group: THREE.Group,
+  itemType: string,
+  specs: VoxelSpec[],
+  items?: ItemRecord[],
+): void {
+  const id = _nextItemId++
+  const meshes: THREE.Mesh[] = []
+  for (const spec of specs) {
+    const mesh = makeVoxel(spec.position, spec.color, spec.size)
+    mesh.userData.itemType = itemType
+    mesh.userData.itemId = id
+    group.add(mesh)
+    meshes.push(mesh)
+  }
+  if (items) items.push({ itemId: id, itemType, meshes })
+}
+
+// ---------------------------------------------------------------------------
 // Floor geometry builder
 // ---------------------------------------------------------------------------
 
@@ -185,20 +219,28 @@ function buildEntranceRoom(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
 
-  addVoxels(group, [
+  addItem(group, 'door', [
     // Front door frame on back wall — centered (z=7.2 so front face at 6.95, clear of wall at 7.0)
     { position: { x: cx, y: ft + 2, z: 7.2 }, color: PALETTE.DOOR, size: { x: 2, y: 4, z: 0.5 } },
+  ], items)
+  addItem(group, 'coat_rack', [
     // Coat rack — left side
     { position: { x: xMin + 0.5, y: ft + 2, z: 5 }, color: PALETTE.BOOKSHELF, size: { x: 0.5, y: 4, z: 0.5 } },
     // Coat rack hooks
     { position: { x: xMin + 0.75, y: ft + 3, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
     { position: { x: xMin + 0.75, y: ft + 2, z: 4.8 }, color: PALETTE.DESK, size: { x: 0.5, y: 0.5, z: 0.4 } },
+  ], items)
+  addItem(group, 'rug', [
     // Entry rug — centered
     { position: { x: cx, y: ft + 0.1, z: 4 }, color: PALETTE.SOFA, size: { x: 2, y: 0.1, z: 3 } },
+  ], items)
+  addVoxels(group, [
     // Wall sconce pole — right side of door (z=6.9 so front face at 6.8, visible in front of wall)
     { position: { x: cx + 1.8, y: ft + 3, z: 6.9 }, color: PALETTE.CHROME, size: { x: 0.2, y: 1.5, z: 0.2 } },
   ])
@@ -213,51 +255,48 @@ function buildLivingRoomFurniture(
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
   plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Sofa — centered, back area
+  addItem(group, 'sofa', [
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.SOFA, size: { x: 5, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 7.2 }, color: PALETTE.SOFA, size: { x: 5, y: 2, z: 0.5 } },
-    // Sofa cushions — raised to sit on top of sofa base (y=ft+1) to avoid embedded geometry z-fighting
     { position: { x: cx - 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
     { position: { x: cx + 1, y: ft + 1.25, z: 6 }, color: PALETTE.BED, size: { x: 1, y: 0.5, z: 1 } },
-    // TV stand — centered, front
+  ], items)
+  addItem(group, 'tv', [
     { position: { x: cx, y: ft + 0.5, z: 1.5 }, color: PALETTE.DESK, size: { x: 4, y: 1, z: 1 } },
-    // TV screen
     { position: { x: cx, y: ft + 1.75, z: 1.6 }, color: PALETTE.TV_SCREEN, size: { x: 3.5, y: 2, z: 0.3 } },
-    // Coffee table — centered
+  ], items)
+  addItem(group, 'table', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Bookshelf — left side, back wall (z=7.2 so front face at 6.95, clear of wall at 7.0)
+  ], items)
+  addItem(group, 'bookshelf', [
     { position: { x: xMin + 1.5, y: ft + 2, z: 7.2 }, color: PALETTE.BOOKSHELF, size: { x: 2, y: 4, z: 0.5 } },
-    // Books on shelf (z=6.9 so front face at 6.75, visible in front of shelf)
     { position: { x: xMin + 1, y: ft + 1, z: 6.9 }, color: 0x8b3a3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 1.5, y: ft + 2, z: 6.9 }, color: 0x3a6b3a, size: { x: 0.5, y: 1, z: 0.3 } },
     { position: { x: xMin + 2, y: ft + 3, z: 6.9 }, color: 0x3a3a8b, size: { x: 0.5, y: 1, z: 0.3 } },
-    // Floor lamp pole — left side (tall, from floor to near shade)
+  ], items)
+  addVoxels(group, [
+    // Floor lamp pole + base (part of lamp system)
     { position: { x: xMin + 2, y: ft + 2, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 4, z: 0.3 } },
-    // Floor lamp base
     { position: { x: xMin + 2, y: ft + 0.1, z: 4.5 }, color: PALETTE.FRIDGE, size: { x: 1, y: 0.2, z: 1 } },
-  ]
+  ])
 
-  // Fireplace + armchair — right side (only if room is wide enough)
   if (w >= 10) {
-    specs.push(
-      // Fireplace
+    addItem(group, 'fireplace', [
       { position: { x: xMax - 1.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 2, y: 3, z: 1 } },
       { position: { x: xMax - 1.5, y: ft + 3, z: 7.2 }, color: PALETTE.STAIRCASE, size: { x: 3, y: 0.5, z: 1.5 } },
-      // Fire — z=6.8 so front face (6.55) is clearly in front of fireplace (front at 7.0)
       { position: { x: xMax - 1.5, y: ft + 0.5, z: 6.8 }, color: 0xe05c1a, size: { x: 1.2, y: 1, z: 0.5 } },
-      // Armchair
+    ], items)
+    addItem(group, 'armchair', [
       { position: { x: cx + 2, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
       { position: { x: cx + 2, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1.5, z: 0.5 } },
-    )
+    ], items)
   }
-
-  addVoxels(group, specs)
   // Floor lamp shade — large shade at top of pole, tracked for toggling
   addLamp(group, 'living_room', { x: xMin + 2, y: ft + 4.3, z: 4.5 }, { x: 1.2, y: 0.5, z: 1.2 }, lamps)
   // Big fern plant — right side, front area
@@ -270,52 +309,50 @@ function buildKitchenFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
   const counterW = Math.min(w - 2, 9)
 
-  const specs: VoxelSpec[] = [
-    // Counter along back wall — centered
+  addItem(group, 'counter', [
     { position: { x: cx, y: ft + 0.5, z: 7.5 }, color: PALETTE.COUNTER, size: { x: counterW, y: 1, z: 1 } },
-    // Counter backsplash (z=7.1 so front face at 6.95, visible above counter)
     { position: { x: cx, y: ft + 2, z: 7.1 }, color: 0xd0e8e8, size: { x: counterW, y: 2, z: 0.3 } },
-    // Stove — left side of counter
+  ], items)
+  addItem(group, 'stove', [
     { position: { x: xMin + 2.5, y: ft + 1.5, z: 7.3 }, color: PALETTE.STOVE, size: { x: 2, y: 1, z: 0.7 } },
-    // Stove top burners
     { position: { x: xMin + 2, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
     { position: { x: xMin + 3, y: ft + 2, z: 7.2 }, color: 0x444444, size: { x: 0.7, y: 0.3, z: 0.7 } },
-    // Sink — center of counter
+  ], items)
+  addItem(group, 'sink', [
     { position: { x: cx, y: ft + 1.5, z: 7.3 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 0.7, z: 0.7 } },
-    // Fridge — right side
+  ], items)
+  addItem(group, 'fridge', [
     { position: { x: xMax - 1.5, y: ft + 2, z: 7 }, color: PALETTE.FRIDGE, size: { x: 1.5, y: 4, z: 1.5 } },
-    // Fridge handle — z=6.1 so it sits visibly on the front face of the fridge (front face at z=6.25)
     { position: { x: xMax - 2.1, y: ft + 2, z: 6.1 }, color: PALETTE.STOVE, size: { x: 0.2, y: 2, z: 0.3 } },
-    // Dining table — centered
+  ], items)
+  addItem(group, 'table', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.TABLE, size: { x: 4, y: 1, z: 2.5 } },
-    // Table legs
     { position: { x: cx - 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
     { position: { x: cx + 1.5, y: ft + 0.5, z: 3.5 }, color: PALETTE.DESK, size: { x: 0.3, y: 1, z: 0.3 } },
-    // Chairs
+  ], items)
+  addItem(group, 'chair', [
     { position: { x: cx - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
     { position: { x: cx + 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.WARDROBE, size: { x: 1, y: 1, z: 1 } },
-  ]
+  ], items)
 
-  // Upper cabinet (only if wide enough)
   if (w >= 8) {
-    specs.push(
-      // Upper cabinet (z=7.3 so front face at 6.95, visible in front of wall)
+    addItem(group, 'cabinet', [
       { position: { x: xMin + 4, y: ft + 4.5, z: 7.3 }, color: PALETTE.COUNTER, size: { x: 4, y: 2, z: 0.7 } },
-    )
+    ], items)
   }
 
   // Pendant light cord above dining table
-  specs.push(
+  addVoxels(group, [
     { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
-  )
-
-  addVoxels(group, specs)
+  ])
   // Pendant shade
   addLamp(group, 'kitchen', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 1.0, y: 0.4, z: 1.0 }, lamps)
 }
@@ -326,60 +363,52 @@ function buildBedroomFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Bed — centered, back area
+  addItem(group, 'bed', [
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.BED, size: { x: 5, y: 1, z: 2 } },
-    // Duvet — depth 1.8 (not 2) so its front/back faces don't coincide with the bed's (z=5.5 and z=7.5)
     { position: { x: cx, y: ft + 1, z: 6.5 }, color: 0xb8a0cc, size: { x: 4.5, y: 0.3, z: 1.8 } },
-    // Pillows — raised to sit on top of bed (y=ft+1) to avoid embedded geometry z-fighting
     { position: { x: cx - 1.5, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
     { position: { x: cx + 1, y: ft + 1.25, z: 5.7 }, color: PALETTE.CEILING, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Headboard — centered, back wall (z=7.2 so front face at 6.95, clear of wall)
     { position: { x: cx, y: ft + 2, z: 7.2 }, color: PALETTE.WARDROBE, size: { x: 5.5, y: 3, z: 0.5 } },
-    // Rug — centered
+  ], items)
+  addItem(group, 'rug', [
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x7a5cb8, size: { x: Math.min(7, w - 2), y: 0.1, z: 3 } },
-  ]
+  ], items)
 
-  // Nightstand + lamp (left of bed; x offset keeps it clear of bed's left edge to avoid coplanar top faces)
   if (w >= 8) {
-    specs.push(
+    addItem(group, 'nightstand', [
       { position: { x: xMin + 0.75, y: ft + 0.5, z: 6.5 }, color: PALETTE.DESK, size: { x: 1.0, y: 1, z: 1.5 } },
       { position: { x: xMin + 0.75, y: ft + 1.5, z: 6.5 }, color: PALETTE.FRIDGE, size: { x: 0.3, y: 1, z: 0.3 } },
-    )
+    ], items)
   }
 
-  // Wardrobe (left side, back wall; z=7.35 so front face at 6.95, clear of wall)
   if (w >= 8) {
-    specs.push(
+    addItem(group, 'wardrobe', [
       { position: { x: xMin + 1.5, y: ft + 2.5, z: 7.35 }, color: PALETTE.WARDROBE, size: { x: 3, y: 5, z: 0.8 } },
-      // Door panels at z=6.8 for clear separation from wardrobe front at 6.95
       { position: { x: xMin + 1, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
       { position: { x: xMin + 2, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
-    )
+    ], items)
   }
 
-  // Dresser (right side, back wall; rows sized to 0.9 to leave 0.1 gap and avoid shared coplanar y-face)
   if (w >= 10) {
-    specs.push(
+    addItem(group, 'dresser', [
       { position: { x: xMax - 3, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
       { position: { x: xMax - 3, y: ft + 1.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 4, y: 0.9, z: 1 } },
       { position: { x: xMax - 4, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
       { position: { x: xMax - 2, y: ft + 0.5, z: 7.1 }, color: PALETTE.FRIDGE, size: { x: 0.8, y: 0.3, z: 0.3 } },
-    )
+    ], items)
   }
-
-  addVoxels(group, specs)
   // Nightstand lamp shade — tracked for toggling (always present; pole/nightstand conditional above)
   if (w >= 8) {
     addLamp(group, 'bedroom', { x: xMin + 0.75, y: ft + 2.1, z: 6.5 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
   } else {
     // Narrow bedroom: ceiling pendant instead
-    specs.length // no-op — add pendant
     addVoxels(group, [
       { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
     ])
@@ -393,32 +422,38 @@ function buildBathroomFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
   addVoxels(group, [
-    // Floor tiles
+    // Floor tiles (structural, not a swappable item)
     { position: { x: cx, y: ft - 0.4, z: 4 }, color: PALETTE.TILE, size: { x: w, y: 0.1, z: 6 } },
-    // Bathtub — centered, back area
+  ])
+  addItem(group, 'bathtub', [
     { position: { x: cx, y: ft + 0.5, z: 6.5 }, color: PALETTE.PORCELAIN, size: { x: 4, y: 1, z: 2 } },
     { position: { x: cx, y: ft + 0.9, z: 6.5 }, color: PALETTE.TILE, size: { x: 3, y: 0.5, z: 1.5 } },
-    // Bath tap — left end of tub
     { position: { x: xMin + 1.3, y: ft + 1.5, z: 7 }, color: PALETTE.CHROME, size: { x: 0.3, y: 0.7, z: 0.3 } },
-    // Sink — left, front
+  ], items)
+  addItem(group, 'sink', [
     { position: { x: xMin + 1.5, y: ft + 1, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 1 } },
-    // Sink pedestal
     { position: { x: xMin + 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 0.8, y: 1, z: 0.8 } },
-    // Toilet — right, front
+  ], items)
+  addItem(group, 'toilet', [
     { position: { x: xMax - 1.5, y: ft + 0.5, z: 2.5 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: xMax - 1.5, y: ft + 1, z: 3.2 }, color: PALETTE.PORCELAIN, size: { x: 1.5, y: 0.5, z: 0.8 } },
-    // Mirror above sink — back wall (z=6.95 so front face at 6.8, visible in front of wall)
+  ], items)
+  addItem(group, 'mirror', [
     { position: { x: xMin + 1.5, y: ft + 3, z: 6.95 }, color: 0xc0d8e8, size: { x: 2, y: 2, z: 0.3 } },
-    // Towel rail — right side, back wall (z=6.95 so front face at 6.8, visible)
+  ], items)
+  addItem(group, 'towel_rack', [
     { position: { x: xMax - 2, y: ft + 2.5, z: 6.95 }, color: PALETTE.CHROME, size: { x: 2, y: 0.3, z: 0.3 } },
-    // Towel (z=6.85 so front face at 6.7, in front of towel rail)
     { position: { x: xMax - 2, y: ft + 1.5, z: 6.85 }, color: 0x4a9b9b, size: { x: 1.5, y: 2, z: 0.3 } },
+  ], items)
+  addVoxels(group, [
     // Ceiling light fixture cord
     { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
   ])
@@ -509,35 +544,32 @@ function buildStudyFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Desk — centered, back wall
+  addItem(group, 'desk', [
     { position: { x: cx, y: ft + 0.5, z: 7 }, color: PALETTE.DESK, size: { x: 5, y: 1, z: 2 } },
-    // Desk side return — left
     { position: { x: xMin + 1, y: ft + 0.5, z: 5.5 }, color: PALETTE.DESK, size: { x: 1.5, y: 1, z: 1 } },
-    // Computer monitor — z=6.8 so front face (6.65) is visible in front of desk back (z=8.0)
     { position: { x: cx - 1, y: ft + 1.75, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 1.5, z: 0.3 } },
-    // Keyboard
     { position: { x: cx - 1, y: ft + 1, z: 6.4 }, color: PALETTE.STOVE, size: { x: 2, y: 0.2, z: 0.8 } },
-    // Desk chair
+  ], items)
+  addItem(group, 'chair', [
     { position: { x: cx, y: ft + 0.5, z: 5 }, color: PALETTE.SOFA, size: { x: 1.5, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.7 }, color: PALETTE.SOFA, size: { x: 1.5, y: 2, z: 0.5 } },
-    // Left bookshelf
-    ...makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.35, 6.9),
+  ], items)
+  addItem(group, 'bookshelf', makeBookshelfVoxels(xMin + 1, ft, 2, 5, 7.35, 6.9), items)
+  addVoxels(group, [
     // Desk lamp pole
     { position: { x: cx + 1.5, y: ft + 1, z: 6.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-  ]
+  ])
 
-  // Right bookshelf (only if wide enough)
   if (w >= 7) {
-    specs.push(...makeBookshelfVoxels(xMax - 1.5, ft, 2, 5, 7.35, 6.9))
+    addItem(group, 'bookshelf', makeBookshelfVoxels(xMax - 1.5, ft, 2, 5, 7.35, 6.9), items)
   }
-
-  addVoxels(group, specs)
   // Desk lamp shade
   addLamp(group, 'study', { x: cx + 1.5, y: ft + 2.3, z: 6.3 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
 }
@@ -548,61 +580,55 @@ function buildHobbyRoomFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Upright piano — left side, back wall
+  addItem(group, 'piano', [
     { position: { x: xMin + 3, y: ft + 2, z: 7.5 }, color: PALETTE.BOOKSHELF, size: { x: 4, y: 4, z: 1 } },
-    // Piano keys
     { position: { x: xMin + 3, y: ft + 0.5, z: 7.1 }, color: PALETTE.CEILING, size: { x: 3.5, y: 0.5, z: 0.5 } },
-    // Piano black keys
     { position: { x: xMin + 2.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
     { position: { x: xMin + 3.5, y: ft + 0.8, z: 6.9 }, color: PALETTE.TV_SCREEN, size: { x: 0.4, y: 0.4, z: 0.3 } },
-    // Piano bench (z=6.2 keeps front face at 5.7, clear of couch back face at 5.45 in narrow rooms)
     { position: { x: xMin + 3, y: ft + 0.5, z: 6.2 }, color: PALETTE.WARDROBE, size: { x: 2.5, y: 1, z: 1 } },
-    // Couch — centered
+  ], items)
+  addItem(group, 'sofa', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: 4, y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: 4, y: 1.5, z: 0.5 } },
-    // Rug
+  ], items)
+  addItem(group, 'rug', [
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x8b3a5a, size: { x: Math.min(6, w - 2), y: 0.1, z: 4 } },
-  ]
+  ], items)
 
-  // Record player / stereo on cabinet — placed to the right of the piano to avoid
-  // coplanar faces (both at z=7.5) that cause z-fighting in narrow rooms.
-  const pianoRightEdge = xMin + 5 // piano center xMin+3 + half-width 2
+  const pianoRightEdge = xMin + 5
   const cabinetX = Math.max(cx, pianoRightEdge + 1.6)
   if (cabinetX + 1.5 <= xMax - 0.5) {
-    specs.push(
+    addItem(group, 'cabinet', [
       { position: { x: cabinetX, y: ft + 0.5, z: 7.5 }, color: PALETTE.WARDROBE, size: { x: 3, y: 1, z: 1 } },
-      // Record player screen — z=6.8 so front face (6.55) is in front of cabinet (front at 7.0)
       { position: { x: cabinetX, y: ft + 1.5, z: 6.8 }, color: PALETTE.TV_SCREEN, size: { x: 2, y: 0.5, z: 0.5 } },
-    )
+    ], items)
   }
 
-  // Speakers (only if wide enough)
   if (w >= 10) {
-    specs.push(
+    addItem(group, 'speaker', [
       { position: { x: cx - 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
       { position: { x: cx + 2.5, y: ft + 1.5, z: 7.5 }, color: PALETTE.STOVE, size: { x: 1.5, y: 3, z: 1 } },
-    )
+    ], items)
   }
 
-  // Easel — right side, back wall (only if wide enough)
   if (w >= 8) {
-    specs.push(
+    addItem(group, 'easel', [
       { position: { x: xMax - 2, y: ft + 2, z: 7 }, color: PALETTE.STAIRCASE, size: { x: 0.5, y: 4, z: 0.5 } },
       { position: { x: xMax - 2, y: ft + 3, z: 6.5 }, color: PALETTE.CEILING, size: { x: 2, y: 2, z: 0.3 } },
-    )
+    ], items)
   }
 
   // Ceiling pendant light
-  specs.push(
+  addVoxels(group, [
     { position: { x: cx, y: ft + 5.5, z: 4.5 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
-  )
-  addVoxels(group, specs)
+  ])
   addLamp(group, 'hobby_room', { x: cx, y: ft + 4.5, z: 4.5 }, { x: 0.9, y: 0.3, z: 0.9 }, lamps)
 }
 
@@ -612,43 +638,40 @@ function buildStorageFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Center bookshelf — back wall
-    ...makeBookshelfVoxels(cx, ft, 3, 5, 7.35, 6.9),
-    // Reading armchair — left-center
+  addItem(group, 'bookshelf', makeBookshelfVoxels(cx, ft, 3, 5, 7.35, 6.9), items)
+  addItem(group, 'armchair', [
     { position: { x: xMin + 3, y: ft + 0.5, z: 4.5 }, color: PALETTE.WARDROBE, size: { x: 2, y: 1, z: 2 } },
     { position: { x: xMin + 3, y: ft + 1.5, z: 5.4 }, color: PALETTE.WARDROBE, size: { x: 2, y: 2, z: 0.5 } },
-    // Side table with lamp pole
+  ], items)
+  addVoxels(group, [
+    // Side table with lamp pole (part of lamp system)
     { position: { x: cx - 0.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 1, y: 1, z: 1 } },
     { position: { x: cx - 0.5, y: ft + 1, z: 4 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 2, z: 0.2 } },
-    // Rug
+  ])
+  addItem(group, 'rug', [
     { position: { x: cx, y: ft + 0.1, z: 4.5 }, color: 0x3a5a3a, size: { x: Math.min(8, w - 2), y: 0.1, z: 5 } },
-  ]
+  ], items)
 
-  // Left bookshelf (if wide enough for 2+)
   if (w >= 8) {
-    specs.push(...makeBookshelfVoxels(xMin + 2, ft, 3, 5, 7.35, 6.9))
+    addItem(group, 'bookshelf', makeBookshelfVoxels(xMin + 2, ft, 3, 5, 7.35, 6.9), items)
   }
-
-  // Right bookshelf (if wide enough for 3)
   if (w >= 10) {
-    specs.push(...makeBookshelfVoxels(xMax - 2, ft, 3, 5, 7.35, 6.9))
+    addItem(group, 'bookshelf', makeBookshelfVoxels(xMax - 2, ft, 3, 5, 7.35, 6.9), items)
   }
 
-  // Writing desk (right side, if wide enough)
   if (w >= 8) {
-    specs.push(
+    addItem(group, 'desk', [
       { position: { x: xMax - 2.5, y: ft + 0.5, z: 4 }, color: PALETTE.DESK, size: { x: 3, y: 1, z: 1.5 } },
       { position: { x: xMax - 2, y: ft + 1.2, z: 3.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.4, y: 1, z: 0.4 } },
-    )
+    ], items)
   }
-
-  addVoxels(group, specs)
   // Side table lamp shade
   addLamp(group, 'storage', { x: cx - 0.5, y: ft + 2.1, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
 }
@@ -659,22 +682,22 @@ function buildLandingFurniture(
   xMax: number,
   floor: 1 | 2 | 3,
   lamps?: LampRecord[],
+  _plant?: PlantRecord,
+  items?: ItemRecord[],
 ): void {
   const ft = floorY(floor) + 1
   const cx = (xMin + xMax) / 2
   const w = xMax - xMin
 
-  const specs: VoxelSpec[] = [
-    // Tall bookshelf against back wall
-    ...makeBookshelfVoxels(cx, ft, Math.min(w - 1, 3), 5, 7.35, 6.9),
-    // Small armchair
+  addItem(group, 'bookshelf', makeBookshelfVoxels(cx, ft, Math.min(w - 1, 3), 5, 7.35, 6.9), items)
+  addItem(group, 'armchair', [
     { position: { x: cx, y: ft + 0.5, z: 4.5 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1, z: 1.5 } },
     { position: { x: cx, y: ft + 1.5, z: 5.2 }, color: PALETTE.SOFA, size: { x: Math.min(w - 1, 2.5), y: 1.5, z: 0.5 } },
-    // Floor lamp pole
+  ], items)
+  addVoxels(group, [
+    // Floor lamp pole (part of lamp system)
     { position: { x: xMin + 1, y: ft + 1.5, z: 5.5 }, color: PALETTE.BOOKSHELF, size: { x: 0.2, y: 3, z: 0.2 } },
-  ]
-
-  addVoxels(group, specs)
+  ])
   // Floor lamp shade
   addLamp(group, 'landing', { x: xMin + 1, y: ft + 3.2, z: 5.3 }, { x: 0.7, y: 0.3, z: 0.7 }, lamps)
 }
@@ -1139,13 +1162,14 @@ export interface HouseResult {
   clockHands: ClockHands
   lamps: LampRecord[]
   plant: PlantRecord
+  items: ItemRecord[]
 }
 
 // ---------------------------------------------------------------------------
 // Room builder dispatch table
 // ---------------------------------------------------------------------------
 
-type RoomBuilder = (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3, lamps?: LampRecord[], plant?: PlantRecord) => void
+type RoomBuilder = (g: THREE.Group, xMin: number, xMax: number, floor: 1 | 2 | 3, lamps?: LampRecord[], plant?: PlantRecord, items?: ItemRecord[]) => void
 
 const ROOM_BUILDERS: Readonly<Record<LayoutRoomId, RoomBuilder>> = {
   entrance: buildEntranceRoom,
@@ -1239,12 +1263,14 @@ export function buildHouse(layout: HouseLayout): HouseResult {
     buildInteriorWalls(house, floor, floorWalls, stairBoundsForFloor)
   }
 
-  // Build furniture for each room slot (collecting lamp records and plant fronds)
+  // Build furniture for each room slot (collecting lamp records, plant fronds, and item records)
   const lamps: LampRecord[] = []
   const plant: PlantRecord = { fronds: [], position: { x: 0, y: 0, z: 0 } }
+  const items: ItemRecord[] = []
+  _nextItemId = 0
   for (const slot of layout.slots) {
     const builder = ROOM_BUILDERS[slot.roomId]
-    builder(house, slot.xMin, slot.xMax, slot.floor, lamps, slot.roomId === 'living_room' ? plant : undefined)
+    builder(house, slot.xMin, slot.xMax, slot.floor, lamps, slot.roomId === 'living_room' ? plant : undefined, items)
   }
 
   // Staircase (per-floor independent positioning)
@@ -1261,5 +1287,5 @@ export function buildHouse(layout: HouseLayout): HouseResult {
   const clockCy = floorY(livingSlot.floor) + 1 + 4.5
   const clockHands = buildWallClock(house, clockCx, clockCy)
 
-  return { group: house, bathroomDoor, clockHands, lamps, plant }
+  return { group: house, bathroomDoor, clockHands, lamps, plant, items }
 }

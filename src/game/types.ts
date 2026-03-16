@@ -119,6 +119,14 @@ export interface GameInstance {
    */
   unlockAudio(): void
 
+  // --- Item swap (double-tap) ---
+  /** Handle a double-tap at screen coordinates to select/swap furniture items. */
+  onDoubleTap(screenX: number, screenY: number): void
+  /** Returns true when an item is currently selected for swap. */
+  isItemSelected(): boolean
+  /** Deselect the currently selected item (if any). */
+  clearItemSelection(): void
+
   // --- Layout editor ---
   /** Begin a layout edit gesture at screen coordinates. */
   onLayoutPointerDown(screenX: number, screenY: number): void
