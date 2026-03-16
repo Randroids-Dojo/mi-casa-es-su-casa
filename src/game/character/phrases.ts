@@ -205,6 +205,7 @@ export function pickPhrase(category: PhraseCategory, seed: number): string {
  *   4. Default to content/happy
  */
 let _phraseCategorySeed = 0
+const TIP_PROBABILITY = 0.15
 
 export function selectPhraseCategory(
   needs: { hunger: number; sleep: number; hygiene: number; entertainment: number },
@@ -239,7 +240,7 @@ export function selectPhraseCategory(
   // Neutral / positive — vary between happy, content, and tips
   // ~15% chance to show a tip instead of a mood phrase
   const rng = seededRngFromKey(`tip-check:${_phraseCategorySeed++}`)
-  if (rng.next() < 0.15) return 'tips'
+  if (rng.next() < TIP_PROBABILITY) return 'tips'
   if (needs.hunger < 0.2 && needs.sleep < 0.2) return 'happy'
   return 'content'
 }

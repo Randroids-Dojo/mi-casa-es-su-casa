@@ -364,6 +364,7 @@ export function initGame(
     currentPlant = houseResult.plant
     currentItems = houseResult.items
     cachedTaggedMeshes = buildTaggedMeshCache()
+    itemById = buildItemIdMap()
     // Clear item selection on rebuild (items have new meshes)
     clearItemSelectionState()
     // Re-apply persisted light states to new lamp meshes
@@ -421,6 +422,14 @@ export function initGame(
   // Item swap system — double-tap to select and swap furniture
   // ------------------------------------------------------------------
 
+  // Overlay appearance constants
+  const SELECTION_COLOR = 0x44aaff
+  const SELECTION_OPACITY = 0.25
+  const SWAP_FLASH_COLOR = 0xffffff
+  const SWAP_FLASH_OPACITY = 0.5
+  const ERROR_FLASH_COLOR = 0xff2222
+  const ERROR_FLASH_OPACITY = 0.4
+
   const raycaster = new THREE.Raycaster()
   const _rayVec = new THREE.Vector2()
 
@@ -476,7 +485,7 @@ export function initGame(
 
   function showSelectionOverlay(item: ItemRecord): void {
     clearSelectionOverlay()
-    selectionOverlay = makeItemOverlay(item, 0x44aaff, 0.25)
+    selectionOverlay = makeItemOverlay(item, SELECTION_COLOR, SELECTION_OPACITY)
     scene.add(selectionOverlay)
   }
 
@@ -529,6 +538,8 @@ export function initGame(
 
   /** Cached flat array of all tagged meshes — rebuilt when house is rebuilt */
   let cachedTaggedMeshes: THREE.Mesh[] = buildTaggedMeshCache()
+  /** O(1) lookup from itemId → ItemRecord */
+  let itemById: Map<number, ItemRecord> = buildItemIdMap()
 
   function buildTaggedMeshCache(): THREE.Mesh[] {
     const meshes: THREE.Mesh[] = []
@@ -536,6 +547,14 @@ export function initGame(
       meshes.push(...item.meshes)
     }
     return meshes
+  }
+
+  function buildItemIdMap(): Map<number, ItemRecord> {
+    const map = new Map<number, ItemRecord>()
+    for (const item of currentItems) {
+      map.set(item.itemId, item)
+    }
+    return map
   }
 
   function hitTestItem(screenX: number, screenY: number): ItemRecord | null {
@@ -549,7 +568,7 @@ export function initGame(
 
     const hitMesh = hits[0].object as THREE.Mesh
     const hitItemId = hitMesh.userData.itemId as number
-    return currentItems.find((it) => it.itemId === hitItemId) ?? null
+    return itemById.get(hitItemId) ?? null
   }
 
   function handleDoubleTap(screenX: number, screenY: number): void {
@@ -581,13 +600,13 @@ export function initGame(
     if (hitItem.itemType === selectedItem.itemType) {
       // Swap!
       swapItemPositions(selectedItem, hitItem)
-      showFlash([selectedItem, hitItem], 0xffffff, 0.5)
+      showFlash([selectedItem, hitItem], SWAP_FLASH_COLOR, SWAP_FLASH_OPACITY)
       character.injectThought('Swapped!')
       selectedItem = null
       clearSelectionOverlay()
     } else {
       // Type mismatch — show error, keep selection
-      showFlash([hitItem], 0xff2222, 0.4)
+      showFlash([hitItem], ERROR_FLASH_COLOR, ERROR_FLASH_OPACITY)
       character.injectThought(`Can't swap ${selectedItem.itemType.replace(/_/g, ' ')} with ${hitItem.itemType.replace(/_/g, ' ')}. Pick the same type!`)
     }
   }

@@ -43,10 +43,14 @@ interface GameCanvasProps {
   externalStaircaseIndex?: Record<1 | 2, number> | null
 }
 
-function getTouchDistance(touches: TouchList): number {
-  const dx = touches[0].clientX - touches[1].clientX
-  const dy = touches[0].clientY - touches[1].clientY
+function dist2D(x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x1 - x2
+  const dy = y1 - y2
   return Math.sqrt(dx * dx + dy * dy)
+}
+
+function getTouchDistance(touches: TouchList): number {
+  return dist2D(touches[0].clientX, touches[0].clientY, touches[1].clientX, touches[1].clientY)
 }
 
 /** Pixel movement threshold before long press is canceled */
@@ -139,9 +143,7 @@ export function GameCanvas({
   }
 
   function hasMovedBeyondThreshold(screenX: number, screenY: number): boolean {
-    const dx = screenX - longPressRef.current.startX
-    const dy = screenY - longPressRef.current.startY
-    return Math.sqrt(dx * dx + dy * dy) > LONG_PRESS_MOVE_THRESHOLD
+    return dist2D(screenX, screenY, longPressRef.current.startX, longPressRef.current.startY) > LONG_PRESS_MOVE_THRESHOLD
   }
 
   /**
@@ -151,13 +153,11 @@ export function GameCanvas({
   function checkDoubleTap(x: number, y: number): boolean {
     const now = Date.now()
     const dt = now - doubleTapRef.current.lastTime
-    const dx = x - doubleTapRef.current.lastX
-    const dy = y - doubleTapRef.current.lastY
-    const dist = Math.sqrt(dx * dx + dy * dy)
+    const d = dist2D(x, y, doubleTapRef.current.lastX, doubleTapRef.current.lastY)
 
     doubleTapRef.current = { lastTime: now, lastX: x, lastY: y }
 
-    return dt < DOUBLE_TAP_INTERVAL && dist < DOUBLE_TAP_DISTANCE
+    return dt < DOUBLE_TAP_INTERVAL && d < DOUBLE_TAP_DISTANCE
   }
 
   useEffect(() => {
