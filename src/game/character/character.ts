@@ -26,7 +26,7 @@ import { attachClothing } from './accessories'
 import type { ClothingItem } from '@/lib/characterSchema'
 import { CharacterStateMachine } from './stateMachine'
 import type { CharacterStateData } from './stateMachine'
-import { advanceNeeds, applyActivityEffect, DEFAULT_NEEDS } from './needs'
+import { advanceNeeds, applyActivityEffect, countRecoveredNeeds, DEFAULT_NEEDS } from './needs'
 import type { Needs } from './needs'
 import {
   selectNextActivity,
@@ -273,11 +273,7 @@ export class Character {
     }
 
     // Award 1 peso for each need that just recovered to zero
-    for (const key of ['hunger', 'sleep', 'hygiene', 'entertainment'] as const) {
-      if (prevNeeds[key] > 0 && this.needs[key] === 0) {
-        this._pesos += 1
-      }
-    }
+    this._pesos += countRecoveredNeeds(prevNeeds, this.needs)
 
     // --- 2b. Plant health decay / restoration ---
     if (state.kind === 'active/performing' && state.activity === 'water_plant') {

@@ -68,6 +68,9 @@ const ACTIVITY_EFFECT_RATE: Readonly<
   water_plant: {}, // plant watering has no need effects
 }
 
+/** All need keys in a stable order */
+export const NEED_KEYS: readonly (keyof Needs)[] = ['hunger', 'sleep', 'hygiene', 'entertainment']
+
 /** Threshold above which a need is considered critical (overrides schedule) */
 export const CRITICAL_NEED_THRESHOLD = 0.85
 
@@ -170,6 +173,18 @@ export function applyActivityEffect(
  * Applies a single instantaneous activity effect (no time delta).
  * Useful for one-shot events (e.g., character just ate a full meal).
  */
+/**
+ * Counts how many needs transitioned from non-zero to zero between two states.
+ * Used to award pesos when a need fully recovers.
+ */
+export function countRecoveredNeeds(prev: Needs, next: Needs): number {
+  let count = 0
+  for (const key of NEED_KEYS) {
+    if (prev[key] > 0 && next[key] === 0) count += 1
+  }
+  return count
+}
+
 export function applyInstantActivityEffect(needs: Needs, activity: ActivityType): Needs {
   const effects = ACTIVITY_EFFECT_RATE[activity] ?? {}
   const result: Needs = { ...needs }

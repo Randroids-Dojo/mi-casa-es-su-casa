@@ -22,6 +22,7 @@ import type { PersonalityBias, HobbyType } from '@/game/character/seeder'
 import {
   advanceNeeds,
   applyActivityEffect,
+  countRecoveredNeeds,
   getCriticalNeeds,
   getMostUrgentNeed,
   CRITICAL_NEED_THRESHOLD,
@@ -304,15 +305,11 @@ export function simulateOffline(
     clock = advanceClock(clock, step)
 
     // Apply current activity effects on needs
-    const prevNeeds: Needs = { ...needs }
+    const prevNeeds = needs
     needs = applyActivityEffect(needs, currentActivity, step)
 
     // Award 1 peso for each need that just recovered to zero
-    for (const key of ['hunger', 'sleep', 'hygiene', 'entertainment'] as const) {
-      if (prevNeeds[key] > 0 && needs[key] === 0) {
-        pesos += 1
-      }
-    }
+    pesos += countRecoveredNeeds(prevNeeds, needs)
 
     // Pick the next activity for this time slot
     const next = selectActivity(
