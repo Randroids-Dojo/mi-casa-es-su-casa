@@ -163,6 +163,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
     hygiene: 0,
     entertainment: 0,
   })
+  const [pesos, setPesos] = useState(0)
   const [isSleeping, setIsSleeping] = useState(false)
   const [allLightsOn, setAllLightsOn] = useState(false)
   const [cooldowns, setCooldowns] = useState<Record<TamagotchiActionId | 'doorbell' | 'lights' | 'water', number>>({
@@ -188,6 +189,7 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
       const state = gameActions!.getState()
       if (state) {
         setNeeds(state.needs)
+        setPesos(state.pesos ?? 0)
         setIsSleeping(state.currentActivity === 'sleep')
       }
       // Check light states
@@ -342,6 +344,24 @@ export function TamagotchiBar({ characterName, gameActions, onInteraction, onRin
             </div>
           )
         })}
+      </div>
+
+      {/* Pesos balance */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 1,
+          padding: '2px 8px',
+          minWidth: 40,
+        }}
+      >
+        <span style={{ fontSize: 13, lineHeight: 1 }}>💰</span>
+        <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: 1, color: '#ffcc00' }}>
+          {pesos}
+        </span>
+        <span style={{ fontSize: 8, color: CRT_DIM, letterSpacing: 0.5 }}>PESO{pesos !== 1 ? 'S' : ''}</span>
       </div>
 
       {/* Divider */}

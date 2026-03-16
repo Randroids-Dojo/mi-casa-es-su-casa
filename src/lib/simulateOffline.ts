@@ -292,6 +292,7 @@ export function simulateOffline(
   let needs: Needs = { ...state.needs }
   let currentRoom: string = state.currentRoom
   let currentActivity: ActivityType = state.currentActivity
+  let pesos = state.pesos ?? 0
 
   const STEP_SIZE = 0.5 // game hours per simulation step
   let remaining = hoursToSimulate
@@ -303,7 +304,15 @@ export function simulateOffline(
     clock = advanceClock(clock, step)
 
     // Apply current activity effects on needs
+    const prevNeeds: Needs = { ...needs }
     needs = applyActivityEffect(needs, currentActivity, step)
+
+    // Award 1 peso for each need that just recovered to zero
+    for (const key of ['hunger', 'sleep', 'hygiene', 'entertainment'] as const) {
+      if (prevNeeds[key] > 0 && needs[key] === 0) {
+        pesos += 1
+      }
+    }
 
     // Pick the next activity for this time slot
     const next = selectActivity(
@@ -339,5 +348,6 @@ export function simulateOffline(
     clock,
     position,
     plantHealth: newPlantHealth,
+    pesos,
   }
 }

@@ -96,6 +96,7 @@ export interface CharacterState {
   position: { x: number; y: number; z: number }
   accessories: ClothingItem[]
   plantHealth?: number
+  pesos?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +166,8 @@ export class Character {
   }
   /** Plant health [0–1]: 1 = lush green, 0 = dead brown */
   private _plantHealth = 1.0
+  /** Bank balance — earns 1 peso each time a need recovers to zero */
+  private _pesos = 0
 
   constructor(
     name: string,
@@ -186,6 +189,7 @@ export class Character {
     if (initialState) {
       this._accessories = [...(initialState.accessories ?? [])]
       this._plantHealth = initialState.plantHealth ?? 1.0
+      this._pesos = initialState.pesos ?? 0
     }
 
     // Build Three.js mesh (passes accessories so they render on first frame)
@@ -259,12 +263,20 @@ export class Character {
 
     // --- 2. Advance needs ---
     const state = this.fsm.state
+    const prevNeeds = this.needs
     if (state.kind === 'active/performing') {
       this.needs = applyActivityEffect(this.needs, state.activity, deltaGameHours)
     } else if (state.kind === 'sleeping') {
       this.needs = applyActivityEffect(this.needs, 'sleep', deltaGameHours)
     } else {
       this.needs = advanceNeeds(this.needs, deltaGameHours)
+    }
+
+    // Award 1 peso for each need that just recovered to zero
+    for (const key of ['hunger', 'sleep', 'hygiene', 'entertainment'] as const) {
+      if (prevNeeds[key] > 0 && this.needs[key] === 0) {
+        this._pesos += 1
+      }
     }
 
     // --- 2b. Plant health decay / restoration ---
@@ -696,6 +708,7 @@ export class Character {
       },
       accessories: [...this._accessories],
       plantHealth: this._plantHealth,
+      pesos: this._pesos,
     }
   }
 
