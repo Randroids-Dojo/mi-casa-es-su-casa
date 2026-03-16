@@ -363,6 +363,7 @@ export function initGame(
     currentLamps = houseResult.lamps
     currentPlant = houseResult.plant
     currentItems = houseResult.items
+    cachedTaggedMeshes = buildTaggedMeshCache()
     // Clear item selection on rebuild (items have new meshes)
     clearItemSelectionState()
     // Re-apply persisted light states to new lamp meshes
@@ -427,18 +428,15 @@ export function initGame(
   let selectedItem: ItemRecord | null = null
   /** Highlight overlay mesh for the selected item */
   let selectionOverlay: THREE.Mesh | null = null
-  /** Brief flash overlay after swap */
-  let swapFlashOverlays: THREE.Mesh[] = []
-  let swapFlashTimer = 0
-  /** Brief red error flash overlay */
-  let errorFlashOverlays: THREE.Mesh[] = []
-  let errorFlashTimer = 0
-  const SWAP_FLASH_DURATION = 0.2
+  /** Temporary flash overlays (swap confirmation, error indicator, etc.) */
+  let flashOverlays: THREE.Mesh[] = []
+  let flashTimer = 0
+  const FLASH_DURATION = 0.2
 
   function computeItemAABB(item: ItemRecord): THREE.Box3 {
     const box = new THREE.Box3()
     for (const mesh of item.meshes) {
-      mesh.geometry.computeBoundingBox()
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
       const meshBox = mesh.geometry.boundingBox!.clone()
       meshBox.translate(mesh.position)
       box.union(meshBox)
@@ -491,40 +489,23 @@ export function initGame(
     }
   }
 
-  function showSwapFlash(itemA: ItemRecord, itemB: ItemRecord): void {
-    clearSwapFlash()
-    const overlayA = makeItemOverlay(itemA, 0xffffff, 0.5)
-    const overlayB = makeItemOverlay(itemB, 0xffffff, 0.5)
-    scene.add(overlayA)
-    scene.add(overlayB)
-    swapFlashOverlays = [overlayA, overlayB]
-    swapFlashTimer = SWAP_FLASH_DURATION
+  function showFlash(items: ItemRecord[], color: number, opacity: number): void {
+    clearFlash()
+    for (const item of items) {
+      const overlay = makeItemOverlay(item, color, opacity)
+      scene.add(overlay)
+      flashOverlays.push(overlay)
+    }
+    flashTimer = FLASH_DURATION
   }
 
-  function clearSwapFlash(): void {
-    for (const o of swapFlashOverlays) {
+  function clearFlash(): void {
+    for (const o of flashOverlays) {
       scene.remove(o)
       o.geometry.dispose()
       ;(o.material as THREE.Material).dispose()
     }
-    swapFlashOverlays = []
-  }
-
-  function showErrorFlash(item: ItemRecord): void {
-    clearErrorFlash()
-    const overlay = makeItemOverlay(item, 0xff2222, 0.4)
-    scene.add(overlay)
-    errorFlashOverlays = [overlay]
-    errorFlashTimer = SWAP_FLASH_DURATION
-  }
-
-  function clearErrorFlash(): void {
-    for (const o of errorFlashOverlays) {
-      scene.remove(o)
-      o.geometry.dispose()
-      ;(o.material as THREE.Material).dispose()
-    }
-    errorFlashOverlays = []
+    flashOverlays = []
   }
 
   function swapItemPositions(a: ItemRecord, b: ItemRecord): void {
@@ -543,8 +524,18 @@ export function initGame(
   function clearItemSelectionState(): void {
     selectedItem = null
     clearSelectionOverlay()
-    clearSwapFlash()
-    clearErrorFlash()
+    clearFlash()
+  }
+
+  /** Cached flat array of all tagged meshes — rebuilt when house is rebuilt */
+  let cachedTaggedMeshes: THREE.Mesh[] = buildTaggedMeshCache()
+
+  function buildTaggedMeshCache(): THREE.Mesh[] {
+    const meshes: THREE.Mesh[] = []
+    for (const item of currentItems) {
+      meshes.push(...item.meshes)
+    }
+    return meshes
   }
 
   function hitTestItem(screenX: number, screenY: number): ItemRecord | null {
@@ -553,13 +544,7 @@ export function initGame(
     _rayVec.y = -((screenY - rect.top) / rect.height) * 2 + 1
     raycaster.setFromCamera(_rayVec, camera)
 
-    // Collect all tagged meshes from current items
-    const taggedMeshes: THREE.Mesh[] = []
-    for (const item of currentItems) {
-      taggedMeshes.push(...item.meshes)
-    }
-
-    const hits = raycaster.intersectObjects(taggedMeshes, false)
+    const hits = raycaster.intersectObjects(cachedTaggedMeshes, false)
     if (hits.length === 0) return null
 
     const hitMesh = hits[0].object as THREE.Mesh
@@ -596,13 +581,13 @@ export function initGame(
     if (hitItem.itemType === selectedItem.itemType) {
       // Swap!
       swapItemPositions(selectedItem, hitItem)
-      showSwapFlash(selectedItem, hitItem)
+      showFlash([selectedItem, hitItem], 0xffffff, 0.5)
       character.injectThought('Swapped!')
       selectedItem = null
       clearSelectionOverlay()
     } else {
       // Type mismatch — show error, keep selection
-      showErrorFlash(hitItem)
+      showFlash([hitItem], 0xff2222, 0.4)
       character.injectThought(`Can't swap ${selectedItem.itemType.replace(/_/g, ' ')} with ${hitItem.itemType.replace(/_/g, ' ')}. Pick the same type!`)
     }
   }
@@ -758,14 +743,10 @@ export function initGame(
     updateClockHands(character.hour, clockHands)
     layoutEditor.update(deltaTime)
 
-    // Item swap flash timers
-    if (swapFlashTimer > 0) {
-      swapFlashTimer -= deltaTime
-      if (swapFlashTimer <= 0) clearSwapFlash()
-    }
-    if (errorFlashTimer > 0) {
-      errorFlashTimer -= deltaTime
-      if (errorFlashTimer <= 0) clearErrorFlash()
+    // Item flash timer (swap confirmation / error indicator)
+    if (flashTimer > 0) {
+      flashTimer -= deltaTime
+      if (flashTimer <= 0) clearFlash()
     }
 
     // Light toggle sequence: check if character arrived at target room

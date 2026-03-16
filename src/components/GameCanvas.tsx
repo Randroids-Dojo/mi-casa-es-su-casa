@@ -53,6 +53,12 @@ function getTouchDistance(touches: TouchList): number {
 const LONG_PRESS_MOVE_THRESHOLD = 8
 /** Duration in ms for long press to trigger */
 const LONG_PRESS_DURATION = 500
+/** Maximum time between taps to register as double-tap (ms) */
+const DOUBLE_TAP_INTERVAL = 400
+/** Maximum pixel distance between taps to register as double-tap */
+const DOUBLE_TAP_DISTANCE = 30
+/** Maximum touch duration to count as a "tap" (ms) */
+const TAP_MAX_DURATION = 300
 
 export function GameCanvas({
   characterName = 'resident',
@@ -91,13 +97,6 @@ export function GameCanvas({
     lastX: number
     lastY: number
   }>({ lastTime: 0, lastX: 0, lastY: 0 })
-
-  /** Maximum time between taps to register as double-tap (ms) */
-  const DOUBLE_TAP_INTERVAL = 400
-  /** Maximum pixel distance between taps to register as double-tap */
-  const DOUBLE_TAP_DISTANCE = 30
-  /** Maximum touch duration to count as a "tap" (ms) */
-  const TAP_MAX_DURATION = 300
 
   // Track touch start time for tap detection
   const touchStartTimeRef = useRef(0)
@@ -358,8 +357,7 @@ export function GameCanvas({
         cancelLongPressTimer()
       } else {
         // Check for tap (short, stationary touch) → double-tap detection
-        const wasTap = !longPressRef.current.triggered
-          && touchStateRef.current.type !== 'pan'
+        const wasTap = touchStateRef.current.type !== 'pan'
           && touchStateRef.current.type !== 'pinch'
           && (Date.now() - touchStartTimeRef.current) < TAP_MAX_DURATION
           && e.touches.length === 0
