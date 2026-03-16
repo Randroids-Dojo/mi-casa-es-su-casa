@@ -126,9 +126,7 @@ export function hasAnyCriticalNeed(needs: Needs): boolean {
  * Returns a list of needs that are at or above the critical threshold.
  */
 export function getCriticalNeeds(needs: Needs): (keyof Needs)[] {
-  return (Object.keys(needs) as (keyof Needs)[]).filter(
-    (k) => needs[k] >= CRITICAL_NEED_THRESHOLD,
-  )
+  return NEED_KEYS.filter((k) => needs[k] >= CRITICAL_NEED_THRESHOLD)
 }
 
 /**
@@ -170,10 +168,6 @@ export function applyActivityEffect(
 }
 
 /**
- * Applies a single instantaneous activity effect (no time delta).
- * Useful for one-shot events (e.g., character just ate a full meal).
- */
-/**
  * Counts how many needs transitioned from non-zero to zero between two states.
  * Used to award pesos when a need fully recovers.
  */
@@ -185,6 +179,10 @@ export function countRecoveredNeeds(prev: Needs, next: Needs): number {
   return count
 }
 
+/**
+ * Applies a single instantaneous activity effect (no time delta).
+ * Useful for one-shot events (e.g., character just ate a full meal).
+ */
 export function applyInstantActivityEffect(needs: Needs, activity: ActivityType): Needs {
   const effects = ACTIVITY_EFFECT_RATE[activity] ?? {}
   const result: Needs = { ...needs }
