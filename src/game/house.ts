@@ -1171,7 +1171,7 @@ function buildFernPlant(
   plant?: PlantRecord,
 ): void {
   // Pot body
-  group.add(makeVoxel({ x: cx, y: ft + 0.6, z }, PLANT_POT_COLOR, { x: 1.5, y: 1.2, z: 1.5 }))
+  group.add(makeVoxel({ x: cx, y: ft + 0.6, z }, PLANT_POT_COLOR, { x: 1.5, y: 1.2, z: 1.5 }, 'detail'))
   // Pot rim
   group.add(makeVoxel({ x: cx, y: ft + 1.25, z }, 0xc06930, { x: 1.7, y: 0.2, z: 1.7 }, 'detail'))
   // Soil
@@ -1294,6 +1294,7 @@ export function buildStaircaseGhostGroup(floor: 1 | 2, stairXStart: number): THR
         { x: stepCenterX, y: stepTopY - 0.5, z: STAIR_START_Z + step * STAIR_STEP_DEPTH + STAIR_STEP_DEPTH / 2 },
         PALETTE.STAIRCASE,
         { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
+        'structural',
       ),
     )
   }
@@ -1304,6 +1305,7 @@ export function buildStaircaseGhostGroup(floor: 1 | 2, stairXStart: number): THR
       { x: stepCenterX, y: baseY + FLOOR_HEIGHT + 0.5, z: landingZ },
       PALETTE.STAIRCASE,
       { x: stepWidth, y: 1, z: STAIR_STEP_DEPTH },
+      'structural',
     ),
   )
   return group
