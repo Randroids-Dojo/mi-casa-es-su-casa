@@ -475,7 +475,7 @@ function buildBedroomFurniture(
   } else {
     // Narrow bedroom: ceiling pendant instead
     addVoxels(group, [
-      { position: { x: cx, y: ft + 5.5, z: 4 }, color: PALETTE.CHROME, size: { x: 0.1, y: 2, z: 0.1 } },
+      detail({ x: cx, y: ft + 5.5, z: 4 }, PALETTE.CHROME, { x: 0.1, y: 2, z: 0.1 }),
     ])
     addLamp(group, 'bedroom', { x: cx, y: ft + 4.5, z: 4 }, { x: 0.8, y: 0.3, z: 0.8 }, lamps)
   }
@@ -1019,7 +1019,7 @@ function buildWallClock(
   // Frame (dark wood) — rearmost layer, visible only at the border
   group.add(makeVoxel({ x: cx, y: cy, z: z },            0x3d200a, { x: 3.3, y: 3.3, z: 0.13 }))
   // Face (cream) — in front of frame, fills the interior
-  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.07 },     0xfff8e8, { x: 2.9, y: 2.9, z: 0.10 }))
+  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.07 },     0xfff8e8, { x: 2.9, y: 2.9, z: 0.10 }, 'detail'))
 
   // 12 hour tick marks positioned around the face at radius 1.18
   const TICK_RADIUS = 1.18
@@ -1029,25 +1029,25 @@ function buildWallClock(
     const ty = cy + Math.cos(angle) * TICK_RADIUS
     const isQuarter = i % 3 === 0
     const tw = isQuarter ? 0.28 : 0.17
-    group.add(makeVoxel({ x: tx, y: ty, z: z - 0.14 }, 0x2a1506, { x: tw, y: tw, z: 0.07 }))
+    group.add(makeVoxel({ x: tx, y: ty, z: z - 0.14 }, 0x2a1506, { x: tw, y: tw, z: 0.07 }, 'detail'))
   }
 
   // Hour hand — pivot at clock centre, hand extends upward
   const hourPivot = new THREE.Group()
   hourPivot.position.set(cx, cy, z - 0.18)
-  const hourMesh = makeVoxel({ x: 0, y: 0.22, z: 0 }, 0x111111, { x: 0.22, y: 0.60, z: 0.09 })
+  const hourMesh = makeVoxel({ x: 0, y: 0.22, z: 0 }, 0x111111, { x: 0.22, y: 0.60, z: 0.09 }, 'detail')
   hourPivot.add(hourMesh)
   group.add(hourPivot)
 
   // Minute hand — slightly thinner & longer
   const minutePivot = new THREE.Group()
   minutePivot.position.set(cx, cy, z - 0.20)
-  const minuteMesh = makeVoxel({ x: 0, y: 0.35, z: 0 }, 0x111111, { x: 0.15, y: 0.88, z: 0.07 })
+  const minuteMesh = makeVoxel({ x: 0, y: 0.35, z: 0 }, 0x111111, { x: 0.15, y: 0.88, z: 0.07 }, 'detail')
   minutePivot.add(minuteMesh)
   group.add(minutePivot)
 
   // Centre pin (closest to camera — renders on top of everything)
-  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.23 }, 0x111111, { x: 0.20, y: 0.20, z: 0.10 }))
+  group.add(makeVoxel({ x: cx, y: cy, z: z - 0.23 }, 0x111111, { x: 0.20, y: 0.20, z: 0.10 }, 'detail'))
 
   return { hourHand: hourPivot, minuteHand: minutePivot }
 }
@@ -1120,7 +1120,7 @@ function addLamp(
   size: Vec3,
   lamps: LampRecord[] | undefined,
 ): THREE.Mesh {
-  const shade = makeVoxel(position, LAMP_SHADE_OFF, size)
+  const shade = makeVoxel(position, LAMP_SHADE_OFF, size, 'detail')
   group.add(shade)
 
   const light = new THREE.PointLight(LAMP_COLOR, 0, LAMP_DISTANCE, LAMP_DECAY)
@@ -1173,16 +1173,16 @@ function buildFernPlant(
   // Pot body
   group.add(makeVoxel({ x: cx, y: ft + 0.6, z }, PLANT_POT_COLOR, { x: 1.5, y: 1.2, z: 1.5 }))
   // Pot rim
-  group.add(makeVoxel({ x: cx, y: ft + 1.25, z }, 0xc06930, { x: 1.7, y: 0.2, z: 1.7 }))
+  group.add(makeVoxel({ x: cx, y: ft + 1.25, z }, 0xc06930, { x: 1.7, y: 0.2, z: 1.7 }, 'detail'))
   // Soil
-  group.add(makeVoxel({ x: cx, y: ft + 1.4, z }, PLANT_SOIL_COLOR, { x: 1.2, y: 0.1, z: 1.2 }))
+  group.add(makeVoxel({ x: cx, y: ft + 1.4, z }, PLANT_SOIL_COLOR, { x: 1.2, y: 0.1, z: 1.2 }, 'detail'))
 
   // Frond leaves — radiating outward from center
   const frondColor = PLANT_COLOR_HEALTHY
   const fronds: THREE.Mesh[] = []
 
   function addFrond(pos: Vec3, size: Vec3): void {
-    const mesh = makeVoxel(pos, frondColor, size)
+    const mesh = makeVoxel(pos, frondColor, size, 'detail')
     group.add(mesh)
     fronds.push(mesh)
   }
