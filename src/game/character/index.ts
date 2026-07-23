@@ -81,6 +81,15 @@ export type { ChatTrigger, ChatTriggerMatch } from './chatTriggers'
 // Accessories
 export { attachClothing, detachClothing } from './accessories'
 
+// Wardrobe (keyword-driven clothing changes)
+export {
+  matchWardrobeRequest,
+  pickWardrobePhrases,
+  ACCESSORY_SLOT,
+  OUTFIT_COLOR_HEX,
+} from './wardrobe'
+export type { WardrobeChange, WardrobeMatch, AccessorySlot } from './wardrobe'
+
 // Main character class
 export { Character, REAL_SECONDS_PER_GAME_MINUTE } from './character'
 export type { CharacterState } from './character'

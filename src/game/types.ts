@@ -34,6 +34,7 @@ export interface Room {
 
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
 import type { LayoutRoomId } from '@/lib/layout'
+import type { WardrobeChange } from '@/game/character/wardrobe'
 
 export interface GameInstance {
   dispose(): void
@@ -70,6 +71,12 @@ export interface GameInstance {
    * The item persists in the character's saved state.
    */
   putOnClothes(item: string): void
+  /**
+   * Walks the character to the bedroom wardrobe to apply clothing changes
+   * (accessories, shirt/pants colors). Shows a response thought on arrival.
+   * The changes persist in the character's saved state.
+   */
+  changeClothes(changes: WardrobeChange[], responsePhrases: string[]): void
   /**
    * Interrupts the current activity and sends the character to a specific room
    * to perform the given activity, showing a response thought on arrival.

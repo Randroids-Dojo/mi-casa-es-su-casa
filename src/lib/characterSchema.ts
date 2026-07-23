@@ -1,7 +1,37 @@
 import { z } from 'zod'
 
-export const ClothingItemSchema = z.enum(['COWBOY_HAT'])
+export const ClothingItemSchema = z.enum([
+  'COWBOY_HAT',
+  'TOP_HAT',
+  'CAP',
+  'BEANIE',
+  'CROWN',
+  'PARTY_HAT',
+  'SUNGLASSES',
+  'GLASSES',
+  'BOW_TIE',
+  'SCARF',
+  'NECKLACE',
+  'HEADPHONES',
+  'MUSTACHE',
+])
 export type ClothingItem = z.infer<typeof ClothingItemSchema>
+
+export const OutfitColorSchema = z.enum([
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'teal',
+  'blue',
+  'purple',
+  'pink',
+  'brown',
+  'white',
+  'black',
+  'gray',
+])
+export type OutfitColor = z.infer<typeof OutfitColorSchema>
 
 export const NeedsSchema = z.object({
   hunger: z.number().min(0).max(1),
@@ -57,6 +87,8 @@ export const CharacterStateSchema = z.object({
     z: z.number(),
   }),
   accessories: z.array(ClothingItemSchema).optional(),
+  shirtColor: OutfitColorSchema.optional(),
+  pantsColor: OutfitColorSchema.optional(),
   lastActiveAt: z.string().datetime().optional(),
   plantHealth: z.number().min(0).max(1).optional(),
   pesos: z.number().min(0).optional().default(0),

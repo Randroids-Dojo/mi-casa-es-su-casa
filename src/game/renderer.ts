@@ -3,6 +3,7 @@ import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLam
 import type { ClockHands, LampRecord, PlantRecord, ItemRecord } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
+import type { WardrobeChange } from './character/wardrobe'
 import { SfxEngine } from './sfx/engine'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
 import type { ClothingItem } from '@/lib/characterSchema'
@@ -133,6 +134,7 @@ export function initGame(
       injectThought() {},
       ringDoorbell() {},
       putOnClothes() {},
+      changeClothes() {},
       goToRoom() {},
       wakeUp() {},
       getCharacterState() { return null },
@@ -908,6 +910,9 @@ export function initGame(
     putOnClothes(item: string) {
       character.putOnClothes(item as ClothingItem)
     },
+    changeClothes(changes: WardrobeChange[], responsePhrases: string[]) {
+      character.changeClothes(changes, responsePhrases)
+    },
     goToRoom(room: string, activity: string, durationHours: number, responsePhrases: string[]) {
       character.goToRoom(
         room as RoomId,
@@ -938,6 +943,8 @@ export function initGame(
         clock: s.clock,
         position: s.position,
         accessories: s.accessories,
+        shirtColor: s.shirtColor,
+        pantsColor: s.pantsColor,
         plantHealth: s.plantHealth,
         pesos: s.pesos ?? 0,
       }
