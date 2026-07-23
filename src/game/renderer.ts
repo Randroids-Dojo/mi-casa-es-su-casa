@@ -884,12 +884,14 @@ export function initGame(
     },
     applyPanDeltaPixels(dx: number, dy: number) {
       // "Content follows finger": the world point under the touch stays fixed.
-      // X: screen-X and world-X both increase rightward → pan is inverse of drag: -= dx
-      // Y: screen-Y increases downward, world-Y increases upward → pan matches drag: += dy
+      // The camera looks in +Z, which mirrors world-X on screen (screen-right
+      // = world −X), so dragging right must increase camera X: += dx.
+      // Y: screen-Y increases downward, world-Y increases upward, and camera up
+      // is +Y — dragging down must raise the camera: += dy.
       const unitsPerPixelX = frustumVisibleW / canvas.clientWidth
       const unitsPerPixelY = frustumVisibleH / canvas.clientHeight
-      panWorldX -= dx * unitsPerPixelX
-      panWorldY -= dy * unitsPerPixelY
+      panWorldX += dx * unitsPerPixelX
+      panWorldY += dy * unitsPerPixelY
       panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
       panWorldY = clamp(panWorldY, -MAX_PAN_Y, MAX_PAN_Y)
       applyPanZoom()
