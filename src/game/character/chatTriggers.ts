@@ -6,7 +6,7 @@
 // reacts by navigating to the relevant room, performing an activity, and
 // showing 1–3 fun response thought bubbles with short gaps between them.
 
-import { seededRngFromKey } from './seeder'
+import { pickUniquePhrases } from './phrases'
 import type { RoomId, ActivityType } from '../rooms'
 
 // ---------------------------------------------------------------------------
@@ -292,14 +292,5 @@ export function matchChatTrigger(text: string): ChatTriggerMatch | null {
  * The first phrase is shown on arrival; the rest are queued with short gaps.
  */
 export function pickResponsePhrases(trigger: ChatTrigger, seed: number): string[] {
-  const rng = seededRngFromKey(`chat-response:${trigger.room}:${seed}`)
-  const count = 1 + rng.nextInt(3) // 1, 2, or 3
-  const available = [...trigger.responsePhrases]
-  const phrases: string[] = []
-  for (let i = 0; i < count && available.length > 0; i++) {
-    const idx = rng.nextInt(available.length)
-    phrases.push(available[idx])
-    available.splice(idx, 1)
-  }
-  return phrases
+  return pickUniquePhrases(trigger.responsePhrases, `chat-response:${trigger.room}:${seed}`)
 }

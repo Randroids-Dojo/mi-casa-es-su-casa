@@ -394,6 +394,15 @@ function buildBedroomFurniture(
       { position: { x: xMin + 1, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
       { position: { x: xMin + 2, y: ft + 2.5, z: 6.8 }, color: PALETTE.DESK, size: { x: 1, y: 4, z: 0.3 } },
     ], items)
+  } else {
+    // Narrow bedroom: the back wall is fully taken by the bed, so place a
+    // compact free-standing armoire near the front corner. Visitors can
+    // always send the character here to change clothes.
+    addItem(group, 'wardrobe', [
+      { position: { x: xMin + 1, y: ft + 2, z: 2.0 }, color: PALETTE.WARDROBE, size: { x: 1.8, y: 4, z: 1.0 } },
+      { position: { x: xMin + 1, y: ft + 2, z: 1.4 }, color: PALETTE.DESK, size: { x: 1.4, y: 3.6, z: 0.2 } },
+      { position: { x: xMin + 1.45, y: ft + 2, z: 1.25 }, color: PALETTE.FRIDGE, size: { x: 0.15, y: 0.6, z: 0.15 } },
+    ], items)
   }
 
   if (w >= 10) {

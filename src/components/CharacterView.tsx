@@ -12,6 +12,7 @@ import type { CharacterState } from '@/lib/characterSchema'
 import type { LayoutRoomId } from '@/lib/layout'
 import { DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
 import { matchChatTrigger, pickResponsePhrases } from '@/game/character/chatTriggers'
+import { matchWardrobeRequest, pickWardrobePhrases } from '@/game/character/wardrobe'
 import type { TamagotchiAction } from '@/game/character/tamagotchiReactions'
 
 interface CharacterViewProps {
@@ -91,8 +92,19 @@ export function CharacterView({ name }: CharacterViewProps) {
     (text: string) => {
       // Cowboy hat easter egg
       if (text.trim().toLowerCase() === 'giddy up') {
-        gameActionsRef.current?.injectThought(`💌 ${text}`)
-        gameActionsRef.current?.putOnClothes('COWBOY_HAT')
+        gameActionsRef.current?.changeClothes(
+          [{ kind: 'accessory', item: 'COWBOY_HAT' }],
+          [`💌 ${text}`],
+        )
+        return
+      }
+
+      // Wardrobe requests ("I want a green shirt", "put on a top hat") —
+      // character heads to the bedroom wardrobe to change
+      const wardrobe = matchWardrobeRequest(text, triggerSeedRef.current++)
+      if (wardrobe) {
+        const phrases = pickWardrobePhrases(triggerSeedRef.current++)
+        gameActionsRef.current?.changeClothes(wardrobe, phrases)
         return
       }
 
