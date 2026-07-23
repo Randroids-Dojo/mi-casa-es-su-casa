@@ -6,7 +6,6 @@ import { Character } from './character'
 import type { WardrobeChange } from './character/wardrobe'
 import { SfxEngine } from './sfx/engine'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
-import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
 import { buildRooms } from './rooms'
 import { generateLayout, layoutFromOrder, roomOrderFromLayout, stairXPerFloorFromLayout, DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
@@ -133,7 +132,6 @@ export function initGame(
       applyZoomScale() {},
       injectThought() {},
       ringDoorbell() {},
-      putOnClothes() {},
       changeClothes() {},
       goToRoom() {},
       wakeUp() {},
@@ -307,7 +305,9 @@ export function initGame(
         needs: initialState.needs,
         clock: initialState.clock,
         position: initialState.position,
-        accessories: (initialState.accessories ?? []) as ClothingItem[],
+        accessories: initialState.accessories ?? [],
+        shirtColor: initialState.shirtColor,
+        pantsColor: initialState.pantsColor,
         plantHealth: initialState.plantHealth,
       }
     : undefined
@@ -906,9 +906,6 @@ export function initGame(
       sfxEngine.unlock() // idempotent — ensures AudioContext is ready on first click
       sfxEngine.playDoorbell()
       character.ringDoorbell()
-    },
-    putOnClothes(item: string) {
-      character.putOnClothes(item as ClothingItem)
     },
     changeClothes(changes: WardrobeChange[], responsePhrases: string[]) {
       character.changeClothes(changes, responsePhrases)

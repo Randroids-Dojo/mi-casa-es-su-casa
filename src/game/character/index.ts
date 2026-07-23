@@ -85,10 +85,11 @@ export { attachClothing, detachClothing } from './accessories'
 export {
   matchWardrobeRequest,
   pickWardrobePhrases,
+  resolveSlotConflicts,
   ACCESSORY_SLOT,
   OUTFIT_COLOR_HEX,
 } from './wardrobe'
-export type { WardrobeChange, WardrobeMatch, AccessorySlot } from './wardrobe'
+export type { WardrobeChange, AccessorySlot } from './wardrobe'
 
 // Main character class
 export { Character, REAL_SECONDS_PER_GAME_MINUTE } from './character'

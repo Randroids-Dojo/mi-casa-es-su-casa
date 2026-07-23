@@ -10,7 +10,6 @@ import { ThoughtBubble } from './ThoughtBubble'
 export interface GameActions {
   injectThought: (text: string) => void
   ringDoorbell: () => void
-  putOnClothes: (item: string) => void
   changeClothes: (changes: WardrobeChange[], responsePhrases: string[]) => void
   goToRoom: (room: string, activity: string, durationHours: number, responsePhrases: string[]) => void
   wakeUp: (responsePhrases: string[]) => void
@@ -182,7 +181,6 @@ export function GameCanvas({
       onGameReady({
         injectThought: (text: string) => { gameRef.current?.injectThought(text) },
         ringDoorbell: () => { gameRef.current?.ringDoorbell() },
-        putOnClothes: (item: string) => { gameRef.current?.putOnClothes(item) },
         changeClothes: (changes: WardrobeChange[], responsePhrases: string[]) => {
           gameRef.current?.changeClothes(changes, responsePhrases)
         },

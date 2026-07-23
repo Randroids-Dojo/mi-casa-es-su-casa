@@ -92,8 +92,10 @@ export function CharacterView({ name }: CharacterViewProps) {
     (text: string) => {
       // Cowboy hat easter egg
       if (text.trim().toLowerCase() === 'giddy up') {
-        gameActionsRef.current?.injectThought(`💌 ${text}`)
-        gameActionsRef.current?.putOnClothes('COWBOY_HAT')
+        gameActionsRef.current?.changeClothes(
+          [{ kind: 'accessory', item: 'COWBOY_HAT' }],
+          [`💌 ${text}`],
+        )
         return
       }
 
@@ -102,7 +104,7 @@ export function CharacterView({ name }: CharacterViewProps) {
       const wardrobe = matchWardrobeRequest(text, triggerSeedRef.current++)
       if (wardrobe) {
         const phrases = pickWardrobePhrases(triggerSeedRef.current++)
-        gameActionsRef.current?.changeClothes(wardrobe.changes, phrases)
+        gameActionsRef.current?.changeClothes(wardrobe, phrases)
         return
       }
 

@@ -16,9 +16,10 @@
 
 import * as THREE from 'three'
 import type { CharacterAppearance } from './seeder'
-import type { ClothingItem } from '@/lib/characterSchema'
+import type { ClothingItem, OutfitColor } from '@/lib/characterSchema'
 import type { FaceParts } from './face'
 import { attachClothing } from './accessories'
+import { OUTFIT_COLOR_HEX } from './wardrobe'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,8 +90,8 @@ function withPivot(mesh: THREE.Mesh, offsetY: number): THREE.Group {
  */
 export function applyOutfitColors(
   parts: CharacterMeshParts,
-  shirtHex: number | null,
-  pantsHex: number | null,
+  shirt: OutfitColor | null,
+  pants: OutfitColor | null,
 ): void {
   const recolor = (part: THREE.Object3D, hex: number): void => {
     const mesh =
@@ -99,14 +100,16 @@ export function applyOutfitColors(
     const mat = mesh.material as THREE.MeshLambertMaterial
     mat.color.setHex(hex)
   }
-  if (shirtHex !== null) {
-    recolor(parts.body, shirtHex)
-    recolor(parts.leftArm, shirtHex)
-    recolor(parts.rightArm, shirtHex)
+  if (shirt !== null) {
+    const hex = OUTFIT_COLOR_HEX[shirt]
+    recolor(parts.body, hex)
+    recolor(parts.leftArm, hex)
+    recolor(parts.rightArm, hex)
   }
-  if (pantsHex !== null) {
-    recolor(parts.leftLeg, pantsHex)
-    recolor(parts.rightLeg, pantsHex)
+  if (pants !== null) {
+    const hex = OUTFIT_COLOR_HEX[pants]
+    recolor(parts.leftLeg, hex)
+    recolor(parts.rightLeg, hex)
   }
 }
 

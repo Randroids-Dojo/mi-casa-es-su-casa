@@ -67,11 +67,6 @@ export interface GameInstance {
    */
   ringDoorbell(): void
   /**
-   * Walks the character to the wardrobe and puts on the given clothing item.
-   * The item persists in the character's saved state.
-   */
-  putOnClothes(item: string): void
-  /**
    * Walks the character to the bedroom wardrobe to apply clothing changes
    * (accessories, shirt/pants colors). Shows a response thought on arrival.
    * The changes persist in the character's saved state.

@@ -23,7 +23,7 @@ import { seedFromName } from './seeder'
 import { buildCharacterMesh, applyOutfitColors } from './mesh'
 import type { CharacterMesh } from './mesh'
 import { attachClothing, detachClothing } from './accessories'
-import { ACCESSORY_SLOT, OUTFIT_COLOR_HEX } from './wardrobe'
+import { ACCESSORY_SLOT, resolveSlotConflicts } from './wardrobe'
 import type { WardrobeChange } from './wardrobe'
 import type { ClothingItem, OutfitColor } from '@/lib/characterSchema'
 import { CharacterStateMachine } from './stateMachine'
@@ -195,7 +195,8 @@ export class Character {
 
     // Initialize accessories from saved state (before building mesh so hat appears immediately)
     if (initialState) {
-      this._accessories = [...(initialState.accessories ?? [])]
+      // Normalize so a bad save can't render two items in the same slot
+      this._accessories = resolveSlotConflicts(initialState.accessories ?? [])
       this._shirtColor = initialState.shirtColor ?? null
       this._pantsColor = initialState.pantsColor ?? null
       this._plantHealth = initialState.plantHealth ?? 1.0
@@ -204,13 +205,7 @@ export class Character {
 
     // Build Three.js mesh (passes accessories so they render on first frame)
     this.mesh = buildCharacterMesh(appearance, this._accessories)
-    if (this._shirtColor !== null || this._pantsColor !== null) {
-      applyOutfitColors(
-        this.mesh.parts,
-        this._shirtColor !== null ? OUTFIT_COLOR_HEX[this._shirtColor] : null,
-        this._pantsColor !== null ? OUTFIT_COLOR_HEX[this._pantsColor] : null,
-      )
-    }
+    applyOutfitColors(this.mesh.parts, this._shirtColor, this._pantsColor)
     scene.add(this.mesh.group)
 
     // Initialize state from saved state or defaults
@@ -824,15 +819,6 @@ export class Character {
   }
 
   /**
-   * Walks the character to the bedroom wardrobe and puts on the given item.
-   * The item is applied visually when the 'dress' activity completes.
-   * No-op if the character is already wearing the item.
-   */
-  putOnClothes(item: ClothingItem): void {
-    this.changeClothes([{ kind: 'accessory', item }], [])
-  }
-
-  /**
    * Walks the character to the bedroom wardrobe to apply a set of clothing
    * changes (accessories, shirt color, pants color). Changes are applied
    * visually when the 'dress' activity completes and persist via getState.
@@ -855,33 +841,12 @@ export class Character {
     }
 
     this._wardrobeQueue = effective
-    this._injectedThought = responsePhrases[0] ?? null
-    this._thoughtQueue = responsePhrases.slice(1)
-
-    const effectiveRoom = this._getEffectiveCurrentRoom()
-    this.currentRoom = effectiveRoom
-
-    if (effectiveRoom === 'bedroom') {
-      this._moveFromPosition = null
-      this._startPerforming('dress', 0.15)
-    } else {
-      this._capturePosition(effectiveRoom)
-      const path = findPath(
-        effectiveRoom,
-        'bedroom',
-        `${this.name}:dress:${this.clock.day}:${Math.floor(this.clock.hour)}`,
-        this.roomMap,
-      )
-      this._queued = { activity: 'dress', durationHours: 0.15 }
-      this.fsm.transitionToMoving(path)
-      this.animationState = createAnimationState('walk')
-    }
+    this.goToRoom('bedroom', 'dress', 0.15, responsePhrases)
   }
 
   private _applyWardrobe(changes: WardrobeChange[]): void {
     for (const change of changes) {
       if (change.kind === 'accessory') {
-        if (this._accessories.includes(change.item)) continue
         // One item per slot: putting on a top hat takes off the cowboy hat
         const slot = ACCESSORY_SLOT[change.item]
         const existing = this._accessories.find((a) => ACCESSORY_SLOT[a] === slot)
@@ -893,10 +858,10 @@ export class Character {
         attachClothing(change.item, this.mesh.parts.head)
       } else if (change.kind === 'shirt') {
         this._shirtColor = change.color
-        applyOutfitColors(this.mesh.parts, OUTFIT_COLOR_HEX[change.color], null)
+        applyOutfitColors(this.mesh.parts, change.color, null)
       } else {
         this._pantsColor = change.color
-        applyOutfitColors(this.mesh.parts, null, OUTFIT_COLOR_HEX[change.color])
+        applyOutfitColors(this.mesh.parts, null, change.color)
       }
     }
   }

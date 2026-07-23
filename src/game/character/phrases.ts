@@ -196,6 +196,24 @@ export function pickPhrase(category: PhraseCategory, seed: number): string {
 }
 
 /**
+ * Pick 1–3 unique phrases from a pool, seeded by key so picks are stable.
+ * Used for reaction phrases: the first is shown on arrival, the rest are
+ * queued with short gaps between them.
+ */
+export function pickUniquePhrases(pool: readonly string[], seedKey: string): string[] {
+  const rng = seededRngFromKey(seedKey)
+  const count = 1 + rng.nextInt(3) // 1, 2, or 3
+  const available = [...pool]
+  const phrases: string[] = []
+  for (let i = 0; i < count && available.length > 0; i++) {
+    const idx = rng.nextInt(available.length)
+    phrases.push(available[idx])
+    available.splice(idx, 1)
+  }
+  return phrases
+}
+
+/**
  * Map current character context to a phrase category.
  *
  * Priority:

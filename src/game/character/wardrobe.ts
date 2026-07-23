@@ -11,6 +11,7 @@
 // in accessories.ts; this module owns the vocabulary and parsing.
 
 import { seededRngFromKey } from './seeder'
+import { pickUniquePhrases } from './phrases'
 import type { ClothingItem, OutfitColor } from '@/lib/characterSchema'
 
 // ---------------------------------------------------------------------------
@@ -21,12 +22,6 @@ export type WardrobeChange =
   | { kind: 'shirt'; color: OutfitColor }
   | { kind: 'pants'; color: OutfitColor }
   | { kind: 'accessory'; item: ClothingItem }
-
-export interface WardrobeMatch {
-  changes: WardrobeChange[]
-  /** The first garment/accessory keyword that matched (for tests/debugging) */
-  matchedKeyword: string
-}
 
 // ---------------------------------------------------------------------------
 // Colors
@@ -86,6 +81,17 @@ export const ACCESSORY_SLOT: Readonly<Record<ClothingItem, AccessorySlot>> = {
   NECKLACE: 'neck',
   HEADPHONES: 'ears',
   MUSTACHE: 'face',
+}
+
+/**
+ * Enforces the one-item-per-slot invariant on a worn-accessories list:
+ * for each slot the last-listed item wins. Used to normalize saved state
+ * on load so e.g. two hats from an old save can't both render.
+ */
+export function resolveSlotConflicts(items: readonly ClothingItem[]): ClothingItem[] {
+  const bySlot = new Map<AccessorySlot, ClothingItem>()
+  for (const item of items) bySlot.set(ACCESSORY_SLOT[item], item)
+  return [...bySlot.values()]
 }
 
 // ---------------------------------------------------------------------------
@@ -156,8 +162,10 @@ const KEYWORDS: Readonly<Record<string, KeywordEntry>> = {
   'new look': { type: 'outfit' },
 }
 
-/** Longest keyword phrase, in words */
-const MAX_PHRASE_WORDS = 2
+/** Longest keyword phrase, in words (derived so new phrases can't outgrow it) */
+const MAX_PHRASE_WORDS = Math.max(
+  ...Object.keys(KEYWORDS).map((k) => k.split(' ').length),
+)
 
 // ---------------------------------------------------------------------------
 // Matching
@@ -170,22 +178,23 @@ const MAX_PHRASE_WORDS = 2
  * ("green shirt", "blue pants"), and whole-outfit changes ("change
  * clothes", "new outfit"). A color word before a garment applies to it;
  * a garment without a color gets a seeded-random color (except items with
- * a natural default, e.g. jeans → blue). Returns null if the message
- * contains no clothing keywords.
+ * a natural default, e.g. jeans → blue). Returns the requested changes,
+ * at most one per slot (the last mention wins, so "change clothes, and
+ * make the shirt green" ends up with a green shirt), or null if the
+ * message contains no clothing keywords.
  *
  * `seed` keeps the random color picks deterministic per call site.
  */
-export function matchWardrobeRequest(text: string, seed = 0): WardrobeMatch | null {
+export function matchWardrobeRequest(text: string, seed = 0): WardrobeChange[] | null {
   if (!text) return null
 
-  const words = (text.toLowerCase().match(/[a-z]+/g) ?? []) as string[]
+  const words = text.toLowerCase().match(/[a-z]+/g) ?? []
   if (words.length === 0) return null
 
   const rng = seededRngFromKey(`wardrobe:${seed}:${words.join(' ')}`)
-  const randomColor = (): OutfitColor => ALL_COLORS[rng.nextInt(ALL_COLORS.length)]
+  const randomColor = (): OutfitColor => rng.pick(ALL_COLORS)
 
   const changes: WardrobeChange[] = []
-  let matchedKeyword: string | null = null
   let pendingColor: OutfitColor | null = null
   const consumed = new Set<number>()
 
@@ -232,7 +241,6 @@ export function matchWardrobeRequest(text: string, seed = 0): WardrobeMatch | nu
     }
 
     if (entry) {
-      matchedKeyword ??= phrase
       switch (entry.type) {
         case 'accessory':
           changes.push({ kind: 'accessory', item: entry.item })
@@ -263,22 +271,16 @@ export function matchWardrobeRequest(text: string, seed = 0): WardrobeMatch | nu
     }
   }
 
-  if (changes.length === 0 || matchedKeyword === null) return null
+  if (changes.length === 0) return null
 
-  // Collapse to one change per slot — the last mention wins, so
-  // "change clothes, and make the shirt green" ends up with a green shirt.
-  const seenSlots = new Set<string>()
-  const deduped: WardrobeChange[] = []
-  for (let j = changes.length - 1; j >= 0; j--) {
-    const change = changes[j]
+  // Collapse to one change per slot — forward Map.set gives last-wins
+  const bySlot = new Map<string, WardrobeChange>()
+  for (const change of changes) {
     const slot =
       change.kind === 'accessory' ? `acc:${ACCESSORY_SLOT[change.item]}` : change.kind
-    if (seenSlots.has(slot)) continue
-    seenSlots.add(slot)
-    deduped.unshift(change)
+    bySlot.set(slot, change)
   }
-
-  return { changes: deduped, matchedKeyword }
+  return [...bySlot.values()]
 }
 
 // ---------------------------------------------------------------------------
@@ -302,18 +304,8 @@ const WARDROBE_PHRASES: readonly string[] = [
 
 /**
  * Pick 1–3 unique wardrobe response phrases. The first is shown on arrival
- * at the wardrobe; the rest are queued with short gaps (same contract as
- * pickResponsePhrases in chatTriggers.ts).
+ * at the wardrobe; the rest are queued with short gaps between them.
  */
 export function pickWardrobePhrases(seed: number): string[] {
-  const rng = seededRngFromKey(`wardrobe-response:${seed}`)
-  const count = 1 + rng.nextInt(3) // 1, 2, or 3
-  const available = [...WARDROBE_PHRASES]
-  const phrases: string[] = []
-  for (let i = 0; i < count && available.length > 0; i++) {
-    const idx = rng.nextInt(available.length)
-    phrases.push(available[idx])
-    available.splice(idx, 1)
-  }
-  return phrases
+  return pickUniquePhrases(WARDROBE_PHRASES, `wardrobe-response:${seed}`)
 }

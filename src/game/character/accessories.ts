@@ -15,6 +15,7 @@
 
 import * as THREE from 'three'
 import type { ClothingItem } from '@/lib/characterSchema'
+import { OUTFIT_COLOR_HEX } from './wardrobe'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -46,40 +47,40 @@ function buildParts(item: ClothingItem, group: THREE.Group): void {
   switch (item) {
     case 'COWBOY_HAT':
       // Brim: wide flat box just above head top; crown on top
-      group.add(makePart(1.6, 0.08, 1.4, 0x8b5e3c, 0.54))
-      group.add(makePart(0.72, 0.45, 0.72, 0x8b5e3c, 0.81))
+      group.add(makePart(1.6, 0.08, 1.4, OUTFIT_COLOR_HEX.brown, 0.54))
+      group.add(makePart(0.72, 0.45, 0.72, OUTFIT_COLOR_HEX.brown, 0.81))
       break
 
     case 'TOP_HAT':
-      group.add(makePart(1.4, 0.08, 1.3, 0x2a2a35, 0.54)) // brim
-      group.add(makePart(0.8, 0.95, 0.8, 0x2a2a35, 1.05)) // tall crown
-      group.add(makePart(0.84, 0.18, 0.84, 0xd0453e, 0.68)) // red band
+      group.add(makePart(1.4, 0.08, 1.3, OUTFIT_COLOR_HEX.black, 0.54)) // brim
+      group.add(makePart(0.8, 0.95, 0.8, OUTFIT_COLOR_HEX.black, 1.05)) // tall crown
+      group.add(makePart(0.84, 0.18, 0.84, OUTFIT_COLOR_HEX.red, 0.68)) // red band
       break
 
     case 'CAP':
-      group.add(makePart(1.08, 0.4, 1.08, 0xd0453e, 0.62)) // dome
-      group.add(makePart(0.9, 0.07, 0.5, 0xd0453e, 0.45, 0, -0.75)) // front brim
+      group.add(makePart(1.08, 0.4, 1.08, OUTFIT_COLOR_HEX.red, 0.62)) // dome
+      group.add(makePart(0.9, 0.07, 0.5, OUTFIT_COLOR_HEX.red, 0.45, 0, -0.75)) // front brim
       break
 
     case 'BEANIE':
-      group.add(makePart(1.12, 0.22, 1.12, 0x3aa8a0, 0.44)) // fold-up band
-      group.add(makePart(1.0, 0.35, 1.0, 0x3aa8a0, 0.7)) // dome
-      group.add(makePart(0.28, 0.28, 0.28, 0xf0f0f0, 0.98)) // pompom
+      group.add(makePart(1.12, 0.22, 1.12, OUTFIT_COLOR_HEX.teal, 0.44)) // fold-up band
+      group.add(makePart(1.0, 0.35, 1.0, OUTFIT_COLOR_HEX.teal, 0.7)) // dome
+      group.add(makePart(0.28, 0.28, 0.28, OUTFIT_COLOR_HEX.white, 0.98)) // pompom
       break
 
     case 'CROWN':
-      group.add(makePart(1.12, 0.28, 1.12, 0xe8c84a, 0.62)) // gold band
-      group.add(makePart(0.16, 0.28, 0.1, 0xe8c84a, 0.9, -0.35, -0.51)) // spikes
-      group.add(makePart(0.16, 0.28, 0.1, 0xe8c84a, 0.9, 0, -0.51))
-      group.add(makePart(0.16, 0.28, 0.1, 0xe8c84a, 0.9, 0.35, -0.51))
+      group.add(makePart(1.12, 0.28, 1.12, OUTFIT_COLOR_HEX.yellow, 0.62)) // gold band
+      group.add(makePart(0.16, 0.28, 0.1, OUTFIT_COLOR_HEX.yellow, 0.9, -0.35, -0.51)) // spikes
+      group.add(makePart(0.16, 0.28, 0.1, OUTFIT_COLOR_HEX.yellow, 0.9, 0, -0.51))
+      group.add(makePart(0.16, 0.28, 0.1, OUTFIT_COLOR_HEX.yellow, 0.9, 0.35, -0.51))
       break
 
     case 'PARTY_HAT':
       // Stacked boxes approximate a cone, topped with a pompom
-      group.add(makePart(0.75, 0.3, 0.75, 0xe07aa8, 0.65))
-      group.add(makePart(0.5, 0.3, 0.5, 0x3aa8a0, 0.95))
-      group.add(makePart(0.28, 0.3, 0.28, 0xe8c84a, 1.25))
-      group.add(makePart(0.15, 0.15, 0.15, 0xf0f0f0, 1.45))
+      group.add(makePart(0.75, 0.3, 0.75, OUTFIT_COLOR_HEX.pink, 0.65))
+      group.add(makePart(0.5, 0.3, 0.5, OUTFIT_COLOR_HEX.teal, 0.95))
+      group.add(makePart(0.28, 0.3, 0.28, OUTFIT_COLOR_HEX.yellow, 1.25))
+      group.add(makePart(0.15, 0.15, 0.15, OUTFIT_COLOR_HEX.white, 1.45))
       break
 
     case 'SUNGLASSES':
@@ -96,25 +97,25 @@ function buildParts(item: ClothingItem, group: THREE.Group): void {
 
     case 'BOW_TIE':
       // Sits at the torso top, in front of the body's front face (z = -0.3)
-      group.add(makePart(0.1, 0.1, 0.08, 0xd0453e, -0.6, 0, -0.34)) // knot
-      group.add(makePart(0.16, 0.16, 0.07, 0xd0453e, -0.6, -0.16, -0.33)) // wings
-      group.add(makePart(0.16, 0.16, 0.07, 0xd0453e, -0.6, 0.16, -0.33))
+      group.add(makePart(0.1, 0.1, 0.08, OUTFIT_COLOR_HEX.red, -0.6, 0, -0.34)) // knot
+      group.add(makePart(0.16, 0.16, 0.07, OUTFIT_COLOR_HEX.red, -0.6, -0.16, -0.33)) // wings
+      group.add(makePart(0.16, 0.16, 0.07, OUTFIT_COLOR_HEX.red, -0.6, 0.16, -0.33))
       break
 
     case 'SCARF':
-      group.add(makePart(1.08, 0.24, 0.68, 0x3aa8a0, -0.6)) // wrap around neck
-      group.add(makePart(0.26, 0.55, 0.08, 0x3aa8a0, -0.95, 0.22, -0.34)) // tail
+      group.add(makePart(1.08, 0.24, 0.68, OUTFIT_COLOR_HEX.teal, -0.6)) // wrap around neck
+      group.add(makePart(0.26, 0.55, 0.08, OUTFIT_COLOR_HEX.teal, -0.95, 0.22, -0.34)) // tail
       break
 
     case 'NECKLACE':
-      group.add(makePart(0.8, 0.07, 0.66, 0xe8c84a, -0.58)) // chain
-      group.add(makePart(0.14, 0.14, 0.08, 0xe8c84a, -0.7, 0, -0.35)) // pendant
+      group.add(makePart(0.8, 0.07, 0.66, OUTFIT_COLOR_HEX.yellow, -0.58)) // chain
+      group.add(makePart(0.14, 0.14, 0.08, OUTFIT_COLOR_HEX.yellow, -0.7, 0, -0.35)) // pendant
       break
 
     case 'HEADPHONES':
-      group.add(makePart(1.14, 0.1, 0.35, 0x2a2a35, 0.56)) // headband
-      group.add(makePart(0.18, 0.4, 0.4, 0x8455c9, 0.05, -0.6, 0)) // ear cups
-      group.add(makePart(0.18, 0.4, 0.4, 0x8455c9, 0.05, 0.6, 0))
+      group.add(makePart(1.14, 0.1, 0.35, OUTFIT_COLOR_HEX.black, 0.56)) // headband
+      group.add(makePart(0.18, 0.4, 0.4, OUTFIT_COLOR_HEX.purple, 0.05, -0.6, 0)) // ear cups
+      group.add(makePart(0.18, 0.4, 0.4, OUTFIT_COLOR_HEX.purple, 0.05, 0.6, 0))
       break
 
     case 'MUSTACHE':
@@ -139,7 +140,6 @@ export function attachClothing(item: ClothingItem, head: THREE.Mesh): void {
   const group = new THREE.Group()
   group.userData.clothingItem = item
   buildParts(item, group)
-  if (group.children.length === 0) return
   head.add(group)
 }
 

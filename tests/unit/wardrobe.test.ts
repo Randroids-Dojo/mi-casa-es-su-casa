@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import {
   matchWardrobeRequest,
   pickWardrobePhrases,
+  resolveSlotConflicts,
   ACCESSORY_SLOT,
   OUTFIT_COLOR_HEX,
 } from '../../src/game/character/wardrobe'
@@ -45,7 +46,7 @@ describe('matchWardrobeRequest', () => {
   test("matches Santiago's request: a green shirt", () => {
     const result = matchWardrobeRequest('How do you change clothes? I want a green shirt.')
     assert.ok(result)
-    const shirt = shirtChange(result.changes)
+    const shirt = shirtChange(result)
     assert.ok(shirt)
     assert.equal(shirt.color, 'green')
   })
@@ -53,27 +54,27 @@ describe('matchWardrobeRequest', () => {
   test('color word applies to the following garment', () => {
     const result = matchWardrobeRequest('please wear a red shirt')
     assert.ok(result)
-    assert.deepEqual(shirtChange(result.changes), { kind: 'shirt', color: 'red' })
+    assert.deepEqual(shirtChange(result), { kind: 'shirt', color: 'red' })
   })
 
   test('multiple colored garments each get their own color', () => {
     const result = matchWardrobeRequest('green shirt and blue pants please')
     assert.ok(result)
-    assert.equal(shirtChange(result.changes)?.color, 'green')
-    assert.equal(pantsChange(result.changes)?.color, 'blue')
+    assert.equal(shirtChange(result)?.color, 'green')
+    assert.equal(pantsChange(result)?.color, 'blue')
   })
 
   test('color synonyms map to canonical colors', () => {
     assert.equal(
-      shirtChange(matchWardrobeRequest('a crimson shirt')!.changes)?.color,
+      shirtChange(matchWardrobeRequest('a crimson shirt')!)?.color,
       'red',
     )
     assert.equal(
-      shirtChange(matchWardrobeRequest('a navy sweater')!.changes)?.color,
+      shirtChange(matchWardrobeRequest('a navy sweater')!)?.color,
       'blue',
     )
     assert.equal(
-      pantsChange(matchWardrobeRequest('grey trousers')!.changes)?.color,
+      pantsChange(matchWardrobeRequest('grey trousers')!)?.color,
       'gray',
     )
   })
@@ -81,7 +82,7 @@ describe('matchWardrobeRequest', () => {
   test('garment without a color still matches (seeded random color)', () => {
     const result = matchWardrobeRequest('put on a new shirt', 7)
     assert.ok(result)
-    const shirt = shirtChange(result.changes)
+    const shirt = shirtChange(result)
     assert.ok(shirt)
     assert.ok(OutfitColorSchema.safeParse(shirt.color).success)
     // Deterministic for the same message and seed
@@ -92,50 +93,50 @@ describe('matchWardrobeRequest', () => {
   test('jeans default to blue', () => {
     const result = matchWardrobeRequest('wear some jeans')
     assert.ok(result)
-    assert.equal(pantsChange(result.changes)?.color, 'blue')
+    assert.equal(pantsChange(result)?.color, 'blue')
   })
 
   test('generic outfit change produces shirt and pants changes', () => {
     const result = matchWardrobeRequest('time to change your clothes')
     assert.ok(result)
-    assert.ok(shirtChange(result.changes))
-    assert.ok(pantsChange(result.changes))
+    assert.ok(shirtChange(result))
+    assert.ok(pantsChange(result))
   })
 
   test('colored outfit change applies the color to shirt and pants', () => {
     const result = matchWardrobeRequest('put on some purple clothes')
     assert.ok(result)
-    assert.equal(shirtChange(result.changes)?.color, 'purple')
-    assert.equal(pantsChange(result.changes)?.color, 'purple')
+    assert.equal(shirtChange(result)?.color, 'purple')
+    assert.equal(pantsChange(result)?.color, 'purple')
   })
 
   test('matches accessories', () => {
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('put on sunglasses')!.changes),
+      accessoryItems(matchWardrobeRequest('put on sunglasses')!),
       ['SUNGLASSES'],
     )
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('you need a scarf')!.changes),
+      accessoryItems(matchWardrobeRequest('you need a scarf')!),
       ['SCARF'],
     )
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('grow a mustache')!.changes),
+      accessoryItems(matchWardrobeRequest('grow a mustache')!),
       ['MUSTACHE'],
     )
   })
 
   test('multi-word accessory beats the bare hat fallback', () => {
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('wear a cowboy hat')!.changes),
+      accessoryItems(matchWardrobeRequest('wear a cowboy hat')!),
       ['COWBOY_HAT'],
     )
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('a top hat would be fancy')!.changes),
+      accessoryItems(matchWardrobeRequest('a top hat would be fancy')!),
       ['TOP_HAT'],
     )
     // Bare "hat" falls back to the cap
     assert.deepEqual(
-      accessoryItems(matchWardrobeRequest('put on a hat')!.changes),
+      accessoryItems(matchWardrobeRequest('put on a hat')!),
       ['CAP'],
     )
   })
@@ -143,47 +144,62 @@ describe('matchWardrobeRequest', () => {
   test('t-shirt survives tokenization', () => {
     const result = matchWardrobeRequest('a yellow t-shirt')
     assert.ok(result)
-    assert.equal(shirtChange(result.changes)?.color, 'yellow')
+    assert.equal(shirtChange(result)?.color, 'yellow')
   })
 
   test('accessories in different slots can be combined', () => {
     const result = matchWardrobeRequest('top hat, sunglasses and a bow tie')
     assert.ok(result)
-    const items = accessoryItems(result.changes)
+    const items = accessoryItems(result)
     assert.deepEqual(items.sort(), ['BOW_TIE', 'SUNGLASSES', 'TOP_HAT'])
   })
 
   test('conflicting same-slot mentions collapse to the last one', () => {
     const result = matchWardrobeRequest('forget the cowboy hat, wear the crown')
     assert.ok(result)
-    assert.deepEqual(accessoryItems(result.changes), ['CROWN'])
+    assert.deepEqual(accessoryItems(result), ['CROWN'])
   })
 
   test('later garment mention overrides an earlier outfit change', () => {
     const result = matchWardrobeRequest('change clothes, and make the shirt green')
     assert.ok(result)
-    assert.equal(shirtChange(result.changes)?.color, 'green')
-    assert.ok(pantsChange(result.changes))
+    assert.equal(shirtChange(result)?.color, 'green')
+    assert.ok(pantsChange(result))
   })
 
   test('color after the garment works: make the pants red', () => {
     const result = matchWardrobeRequest('make the pants red')
     assert.ok(result)
-    assert.equal(pantsChange(result.changes)?.color, 'red')
+    assert.equal(pantsChange(result)?.color, 'red')
   })
 
   test('trailing color is not stolen from the next garment', () => {
     const result = matchWardrobeRequest('a shirt and blue pants')
     assert.ok(result)
-    assert.equal(pantsChange(result.changes)?.color, 'blue')
+    assert.equal(pantsChange(result)?.color, 'blue')
     // Shirt got its own (random) color, not blue by theft — any valid color ok
-    assert.ok(OutfitColorSchema.safeParse(shirtChange(result.changes)?.color).success)
+    assert.ok(OutfitColorSchema.safeParse(shirtChange(result)?.color).success)
   })
 
-  test('matchedKeyword reports the first clothing keyword', () => {
-    const result = matchWardrobeRequest('I want a green shirt')
-    assert.ok(result)
-    assert.equal(result.matchedKeyword, 'shirt')
+})
+
+// ---------------------------------------------------------------------------
+// resolveSlotConflicts
+// ---------------------------------------------------------------------------
+
+describe('resolveSlotConflicts', () => {
+  test('keeps at most one item per slot, last wins', () => {
+    assert.deepEqual(
+      resolveSlotConflicts(['COWBOY_HAT', 'SUNGLASSES', 'TOP_HAT']),
+      ['TOP_HAT', 'SUNGLASSES'],
+    )
+  })
+
+  test('leaves a conflict-free list unchanged', () => {
+    assert.deepEqual(
+      resolveSlotConflicts(['CROWN', 'SCARF', 'MUSTACHE']),
+      ['CROWN', 'SCARF', 'MUSTACHE'],
+    )
   })
 })
 
