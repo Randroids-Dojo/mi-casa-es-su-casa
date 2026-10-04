@@ -4,10 +4,19 @@ export interface Vec3 {
   z: number
 }
 
+/**
+ * Depth layer for z-fighting prevention.
+ * - 'structural': walls, floors — pushed back most
+ * - 'furniture':  main furniture bodies — middle layer
+ * - 'detail':     handles, screens, buttons, trim — renders in front
+ */
+export type DepthLayer = 'structural' | 'furniture' | 'detail'
+
 export interface VoxelSpec {
   position: Vec3
   color: number
   size?: Vec3
+  depthLayer?: DepthLayer
 }
 
 export type RoomId =
