@@ -16,9 +16,10 @@
 
 import * as THREE from 'three'
 import type { CharacterAppearance } from './seeder'
-import type { ClothingItem } from '@/lib/characterSchema'
+import type { ClothingItem, OutfitColor } from '@/lib/characterSchema'
 import type { FaceParts } from './face'
 import { attachClothing } from './accessories'
+import { OUTFIT_COLOR_HEX } from './wardrobe'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -79,6 +80,38 @@ function withPivot(mesh: THREE.Mesh, offsetY: number): THREE.Group {
 // ---------------------------------------------------------------------------
 // Public builder
 // ---------------------------------------------------------------------------
+
+/**
+ * Recolors the character's outfit in place. Shirt covers torso + arms;
+ * pants cover the legs. Pass null to leave a part unchanged.
+ *
+ * Arm/leg entries in CharacterMeshParts are actually pivot groups wrapping
+ * the real mesh, so this resolves the inner mesh before tinting.
+ */
+export function applyOutfitColors(
+  parts: CharacterMeshParts,
+  shirt: OutfitColor | null,
+  pants: OutfitColor | null,
+): void {
+  const recolor = (part: THREE.Object3D, hex: number): void => {
+    const mesh =
+      part instanceof THREE.Mesh ? part : (part.children[0] as THREE.Mesh | undefined)
+    if (!mesh) return
+    const mat = mesh.material as THREE.MeshLambertMaterial
+    mat.color.setHex(hex)
+  }
+  if (shirt !== null) {
+    const hex = OUTFIT_COLOR_HEX[shirt]
+    recolor(parts.body, hex)
+    recolor(parts.leftArm, hex)
+    recolor(parts.rightArm, hex)
+  }
+  if (pants !== null) {
+    const hex = OUTFIT_COLOR_HEX[pants]
+    recolor(parts.leftLeg, hex)
+    recolor(parts.rightLeg, hex)
+  }
+}
 
 /**
  * Builds a complete character mesh group from a seeded appearance.

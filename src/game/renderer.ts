@@ -3,9 +3,9 @@ import { buildHouse, HOUSE_WIDTH, FLOOR_HEIGHT, FLOOR_COUNT, HOUSE_DEPTH, setLam
 import type { ClockHands, LampRecord, PlantRecord, ItemRecord } from './house'
 import type { GameInstance } from './types'
 import { Character } from './character'
+import type { WardrobeChange } from './character/wardrobe'
 import { SfxEngine } from './sfx/engine'
 import type { CharacterState as SchemaCharacterState } from '@/lib/characterSchema'
-import type { ClothingItem } from '@/lib/characterSchema'
 import type { RoomId, ActivityType } from './rooms'
 import { buildRooms } from './rooms'
 import { generateLayout, layoutFromOrder, roomOrderFromLayout, stairXPerFloorFromLayout, DEFAULT_STAIRCASE_INDEX } from '@/lib/layout'
@@ -132,7 +132,7 @@ export function initGame(
       applyZoomScale() {},
       injectThought() {},
       ringDoorbell() {},
-      putOnClothes() {},
+      changeClothes() {},
       goToRoom() {},
       wakeUp() {},
       getCharacterState() { return null },
@@ -311,7 +311,9 @@ export function initGame(
         needs: initialState.needs,
         clock: initialState.clock,
         position: initialState.position,
-        accessories: (initialState.accessories ?? []) as ClothingItem[],
+        accessories: initialState.accessories ?? [],
+        shirtColor: initialState.shirtColor,
+        pantsColor: initialState.pantsColor,
         plantHealth: initialState.plantHealth,
       }
     : undefined
@@ -888,12 +890,14 @@ export function initGame(
     },
     applyPanDeltaPixels(dx: number, dy: number) {
       // "Content follows finger": the world point under the touch stays fixed.
-      // X: screen-X and world-X both increase rightward → pan is inverse of drag: -= dx
-      // Y: screen-Y increases downward, world-Y increases upward → pan matches drag: += dy
+      // The camera looks in +Z, which mirrors world-X on screen (screen-right
+      // = world −X), so dragging right must increase camera X: += dx.
+      // Y: screen-Y increases downward, world-Y increases upward, and camera up
+      // is +Y — dragging down must raise the camera: += dy.
       const unitsPerPixelX = frustumVisibleW / canvas.clientWidth
       const unitsPerPixelY = frustumVisibleH / canvas.clientHeight
-      panWorldX -= dx * unitsPerPixelX
-      panWorldY -= dy * unitsPerPixelY
+      panWorldX += dx * unitsPerPixelX
+      panWorldY += dy * unitsPerPixelY
       panWorldX = clamp(panWorldX, -MAX_PAN_X, MAX_PAN_X)
       panWorldY = clamp(panWorldY, -MAX_PAN_Y, MAX_PAN_Y)
       applyPanZoom()
@@ -911,8 +915,8 @@ export function initGame(
       sfxEngine.playDoorbell()
       character.ringDoorbell()
     },
-    putOnClothes(item: string) {
-      character.putOnClothes(item as ClothingItem)
+    changeClothes(changes: WardrobeChange[], responsePhrases: string[]) {
+      character.changeClothes(changes, responsePhrases)
     },
     goToRoom(room: string, activity: string, durationHours: number, responsePhrases: string[]) {
       character.goToRoom(
@@ -944,6 +948,8 @@ export function initGame(
         clock: s.clock,
         position: s.position,
         accessories: s.accessories,
+        shirtColor: s.shirtColor,
+        pantsColor: s.pantsColor,
         plantHealth: s.plantHealth,
         pesos: s.pesos ?? 0,
       }

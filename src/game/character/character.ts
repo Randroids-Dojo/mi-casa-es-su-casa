@@ -20,10 +20,12 @@
 
 import * as THREE from 'three'
 import { seedFromName } from './seeder'
-import { buildCharacterMesh } from './mesh'
+import { buildCharacterMesh, applyOutfitColors } from './mesh'
 import type { CharacterMesh } from './mesh'
-import { attachClothing } from './accessories'
-import type { ClothingItem } from '@/lib/characterSchema'
+import { attachClothing, detachClothing } from './accessories'
+import { ACCESSORY_SLOT, resolveSlotConflicts } from './wardrobe'
+import type { WardrobeChange } from './wardrobe'
+import type { ClothingItem, OutfitColor } from '@/lib/characterSchema'
 import { CharacterStateMachine } from './stateMachine'
 import type { CharacterStateData } from './stateMachine'
 import { advanceNeeds, applyActivityEffect, countRecoveredNeeds, DEFAULT_NEEDS } from './needs'
@@ -95,6 +97,8 @@ export interface CharacterState {
   clock: GameClock
   position: { x: number; y: number; z: number }
   accessories: ClothingItem[]
+  shirtColor?: OutfitColor
+  pantsColor?: OutfitColor
   plantHealth?: number
   pesos?: number
 }
@@ -141,8 +145,12 @@ export class Character {
   private _thoughtQueue: string[] = []
   /** Clothing items currently worn by this character */
   private _accessories: ClothingItem[] = []
-  /** Clothing item queued to be applied after the next 'dress' activity completes */
-  private _clothingQueue: ClothingItem | null = null
+  /** Custom shirt color (torso + arms); null = seeded appearance color */
+  private _shirtColor: OutfitColor | null = null
+  /** Custom pants color (legs); null = seeded appearance color */
+  private _pantsColor: OutfitColor | null = null
+  /** Wardrobe changes queued to apply after the next 'dress' activity completes */
+  private _wardrobeQueue: WardrobeChange[] = []
   /** SFX engine for procedural sound synthesis (null if audio unavailable) */
   private sfx: SfxEngine | null = null
   /** Tracks animation progress to detect foot-down moments */
@@ -187,13 +195,17 @@ export class Character {
 
     // Initialize accessories from saved state (before building mesh so hat appears immediately)
     if (initialState) {
-      this._accessories = [...(initialState.accessories ?? [])]
+      // Normalize so a bad save can't render two items in the same slot
+      this._accessories = resolveSlotConflicts(initialState.accessories ?? [])
+      this._shirtColor = initialState.shirtColor ?? null
+      this._pantsColor = initialState.pantsColor ?? null
       this._plantHealth = initialState.plantHealth ?? 1.0
       this._pesos = initialState.pesos ?? 0
     }
 
     // Build Three.js mesh (passes accessories so they render on first frame)
     this.mesh = buildCharacterMesh(appearance, this._accessories)
+    applyOutfitColors(this.mesh.parts, this._shirtColor, this._pantsColor)
     scene.add(this.mesh.group)
 
     // Initialize state from saved state or defaults
@@ -364,10 +376,10 @@ export class Character {
   private _updatePerforming(deltaGameHours: number): void {
     const done = this.fsm.advanceActivity(deltaGameHours)
     if (done) {
-      // If a clothing item was queued and we just finished dressing, apply it now
-      if (this.currentActivity === 'dress' && this._clothingQueue !== null) {
-        this._applyClothing(this._clothingQueue)
-        this._clothingQueue = null
+      // If wardrobe changes were queued and we just finished dressing, apply them now
+      if (this.currentActivity === 'dress' && this._wardrobeQueue.length > 0) {
+        this._applyWardrobe(this._wardrobeQueue)
+        this._wardrobeQueue = []
       }
       this._selectAndStartNextActivity()
     }
@@ -703,6 +715,8 @@ export class Character {
         z: this.mesh.group.position.z,
       },
       accessories: [...this._accessories],
+      shirtColor: this._shirtColor ?? undefined,
+      pantsColor: this._pantsColor ?? undefined,
       plantHealth: this._plantHealth,
       pesos: this._pesos,
     }
@@ -805,38 +819,51 @@ export class Character {
   }
 
   /**
-   * Walks the character to the bedroom wardrobe and puts on the given item.
-   * The item is applied visually when the 'dress' activity completes.
-   * No-op if the character is already wearing the item.
+   * Walks the character to the bedroom wardrobe to apply a set of clothing
+   * changes (accessories, shirt color, pants color). Changes are applied
+   * visually when the 'dress' activity completes and persist via getState.
+   * Changes the character is already wearing are skipped; if nothing would
+   * change, only the first response phrase is shown.
    */
-  putOnClothes(item: ClothingItem): void {
-    if (this._accessories.includes(item)) return
-    this._clothingQueue = item
+  changeClothes(changes: WardrobeChange[], responsePhrases: string[]): void {
+    const effective = changes.filter((change) => {
+      if (change.kind === 'accessory') return !this._accessories.includes(change.item)
+      if (change.kind === 'shirt') return change.color !== this._shirtColor
+      return change.color !== this._pantsColor
+    })
 
-    const effectiveRoom = this._getEffectiveCurrentRoom()
-    this.currentRoom = effectiveRoom
-
-    if (effectiveRoom === 'bedroom') {
-      this._moveFromPosition = null
-      this._startPerforming('dress', 0.15)
-    } else {
-      this._capturePosition(effectiveRoom)
-      const path = findPath(
-        effectiveRoom,
-        'bedroom',
-        `${this.name}:dress:${this.clock.day}:${Math.floor(this.clock.hour)}`,
-        this.roomMap,
-      )
-      this._queued = { activity: 'dress', durationHours: 0.15 }
-      this.fsm.transitionToMoving(path)
-      this.animationState = createAnimationState('walk')
+    if (effective.length === 0) {
+      if (responsePhrases.length > 0) {
+        this._injectedThought = responsePhrases[0]
+        this._thoughtQueue = []
+      }
+      return
     }
+
+    this._wardrobeQueue = effective
+    this.goToRoom('bedroom', 'dress', 0.15, responsePhrases)
   }
 
-  private _applyClothing(item: ClothingItem): void {
-    if (this._accessories.includes(item)) return
-    this._accessories.push(item)
-    attachClothing(item, this.mesh.parts.head)
+  private _applyWardrobe(changes: WardrobeChange[]): void {
+    for (const change of changes) {
+      if (change.kind === 'accessory') {
+        // One item per slot: putting on a top hat takes off the cowboy hat
+        const slot = ACCESSORY_SLOT[change.item]
+        const existing = this._accessories.find((a) => ACCESSORY_SLOT[a] === slot)
+        if (existing) {
+          detachClothing(existing, this.mesh.parts.head)
+          this._accessories = this._accessories.filter((a) => a !== existing)
+        }
+        this._accessories.push(change.item)
+        attachClothing(change.item, this.mesh.parts.head)
+      } else if (change.kind === 'shirt') {
+        this._shirtColor = change.color
+        applyOutfitColors(this.mesh.parts, change.color, null)
+      } else {
+        this._pantsColor = change.color
+        applyOutfitColors(this.mesh.parts, null, change.color)
+      }
+    }
   }
 
   /**
